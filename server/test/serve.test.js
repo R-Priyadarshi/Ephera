@@ -1,0 +1,274 @@
+const assert = require('assert');
+const http = require('http');
+const net = require('net');
+const path = require('path');
+const { spawn } = require('child_process');
+const WebSocket = require('ws');
+
+const SERVE_ENTRY = path.join(__dirname, '..', 'serve.js');
+
+function withTimeout(promise, timeoutMs, label = 'timeout') {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error(label)), timeoutMs)),
+  ]);
+}
+
+function canConnect(port) {
+  return new Promise((resolve) => {
+    const socket = net.connect({ host: '127.0.0.1', port }, () => {
+      socket.end();
+      resolve(true);
+    });
+    socket.on('error', () => resolve(false));
+  });
+}
+
+async function waitForPort(port, timeoutMs) {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    // eslint-disable-next-line no-await-in-loop
+    if (await canConnect(port)) return;
+    // eslint-disable-next-line no-await-in-loop
+    await new Promise((r) => setTimeout(r, 25));
+  }
+  throw new Error(`Timeout waiting for port ${port}`);
+}
+
+function getFreePort() {
+  return new Promise((resolve, reject) => {
+    const s = net.createServer();
+    s.listen(0, '127.0.0.1', () => {
+      const addr = s.address();
+      s.close(() => resolve(addr.port));
+    });
+    s.on('error', reject);
+  });
+}
+
+function httpGet(port, pathname) {
+  return new Promise((resolve, reject) => {
+    const req = http.request({
+      host: '127.0.0.1',
+      port,
+      method: 'GET',
+      path: pathname,
+    }, (res) => {
+      const chunks = [];
+      res.on('data', (d) => chunks.push(d));
+      res.on('end', () => {
+        resolve({
+          status: res.statusCode || 0,
+          headers: res.headers || {},
+          body: Buffer.concat(chunks).toString('utf8'),
+        });
+      });
+    });
+    req.on('error', reject);
+    req.end();
+  });
+}
+
+async function startAppServer() {
+  const port = await getFreePort();
+  const out = [];
+  const err = [];
+
+  const proc = spawn(process.execPath, [SERVE_ENTRY], {
+    stdio: ['ignore', 'pipe', 'pipe'],
+    env: {
+      ...process.env,
+      HOST: '127.0.0.1',
+      PORT: String(port),
+      VERBOSE: '0',
+    },
+  });
+
+  proc.stdout.on('data', (d) => {
+    out.push(String(d));
+    if (out.join('').length > 4096) out.shift();
+  });
+  proc.stderr.on('data', (d) => {
+    err.push(String(d));
+    if (err.join('').length > 4096) err.shift();
+  });
+
+  const exited = new Promise((resolve) => proc.on('exit', (code) => resolve(code)));
+
+  const ready = (async () => {
+    await waitForPort(port, 5000);
+    return null;
+  })();
+
+  const first = await Promise.race([exited, ready]);
+  if (typeof first === 'number') {
+    const msg = [
+      `App server exited early with code ${first}.`,
+      out.length ? `stdout:\n${out.join('')}` : '',
+      err.length ? `stderr:\n${err.join('')}` : '',
+    ].filter(Boolean).join('\n');
+    throw new Error(msg);
+  }
+
+  async function stop() {
+    if (proc.exitCode !== null) return;
+    try { proc.kill('SIGINT'); } catch {}
+    try {
+      await withTimeout(exited, 5000, 'app server SIGINT timeout');
+      return;
+    } catch {}
+
+    try { proc.kill('SIGKILL'); } catch {}
+    await withTimeout(exited, 2000, 'app server SIGKILL timeout');
+  }
+
+  return { port, proc, stop };
+}
+
+function openClient(url) {
+  return new Promise((resolve, reject) => {
+    const ws = new WebSocket(url);
+    let settled = false;
+
+    const cleanup = () => {
+      ws.off('open', onOpen);
+      ws.off('error', onError);
+      ws.off('close', onClose);
+    };
+    const onOpen = () => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      resolve(ws);
+    };
+    const onError = (err) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      reject(err);
+    };
+    const onClose = (code, reason) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      reject(new Error(`socket closed before open (code=${code}, reason=${String(reason || '')})`));
+    };
+
+    ws.once('open', onOpen);
+    ws.once('error', onError);
+    ws.once('close', onClose);
+  });
+}
+
+function nextJsonMessage(ws) {
+  return new Promise((resolve, reject) => {
+    const onMessage = (data) => {
+      cleanup();
+      try {
+        resolve(JSON.parse(String(data)));
+      } catch (err) {
+        reject(err);
+      }
+    };
+    const onClose = () => {
+      cleanup();
+      reject(new Error('socket closed'));
+    };
+    const onError = (err) => {
+      cleanup();
+      reject(err);
+    };
+    const cleanup = () => {
+      ws.off('message', onMessage);
+      ws.off('close', onClose);
+      ws.off('error', onError);
+    };
+
+    ws.on('message', onMessage);
+    ws.on('close', onClose);
+    ws.on('error', onError);
+  });
+}
+
+function waitForClose(ws) {
+  return new Promise((resolve) => {
+    if (ws.readyState === WebSocket.CLOSED) return resolve({ code: 1000, reason: '' });
+    ws.once('close', (code, reason) => resolve({ code, reason: String(reason || '') }));
+  });
+}
+
+async function testStaticHeadersAndPathGuards() {
+  const app = await startAppServer();
+  try {
+    const index = await httpGet(app.port, '/');
+    assert.strictEqual(index.status, 200);
+    assert.ok((index.headers['content-type'] || '').includes('text/html'));
+    assert.strictEqual(index.headers['cache-control'], 'no-store');
+    assert.strictEqual(index.headers['x-content-type-options'], 'nosniff');
+    assert.strictEqual(index.headers['referrer-policy'], 'no-referrer');
+
+    const csp = String(index.headers['content-security-policy'] || '');
+    assert.ok(csp.includes("default-src 'self'"));
+    assert.ok(csp.includes("connect-src 'self' ws: wss:"));
+
+    const missing = await httpGet(app.port, '/does-not-exist.js');
+    assert.strictEqual(missing.status, 404);
+    assert.strictEqual(missing.headers['cache-control'], 'no-store');
+    assert.strictEqual(missing.headers['x-content-type-options'], 'nosniff');
+    assert.strictEqual(missing.headers['referrer-policy'], 'no-referrer');
+
+    const traversal = await httpGet(app.port, '/%2e%2e/%2e%2e/etc/passwd');
+    // Depending on path normalization details this can be rejected as 400
+    // or normalized to a missing in-root path as 404. Either is safe.
+    assert.ok(traversal.status === 400 || traversal.status === 404);
+    assert.strictEqual(traversal.headers['cache-control'], 'no-store');
+    assert.strictEqual(traversal.headers['x-content-type-options'], 'nosniff');
+    assert.strictEqual(traversal.headers['referrer-policy'], 'no-referrer');
+  } finally {
+    await app.stop();
+  }
+}
+
+async function testSameOriginSignalingOverAppServer() {
+  const app = await startAppServer();
+  const url = `ws://127.0.0.1:${app.port}`;
+
+  try {
+    const a = await openClient(url);
+    const b = await openClient(url);
+
+    a.send(JSON.stringify({ type: 'create-room', roomId: 'room-app-server' }));
+    const created = await withTimeout(nextJsonMessage(a), 1000, 'create ack');
+    assert.strictEqual(created.type, 'room-created');
+    assert.strictEqual(created.peerCount, 1);
+
+    b.send(JSON.stringify({ type: 'join-room', roomId: 'room-app-server' }));
+    const joined = await withTimeout(nextJsonMessage(b), 1000, 'join ack');
+    assert.strictEqual(joined.type, 'room-joined');
+    assert.strictEqual(joined.peerCount, 2);
+
+    const peerJoined = await withTimeout(nextJsonMessage(a), 1000, 'peer joined notify');
+    assert.strictEqual(peerJoined.type, 'peer-joined');
+
+    a.send(JSON.stringify({ type: 'signal', payload: { sdp: 'fake-offer' } }));
+    const relayed = await withTimeout(nextJsonMessage(b), 1000, 'signal relay');
+    assert.strictEqual(relayed.type, 'signal');
+    assert.deepStrictEqual(relayed.payload, { sdp: 'fake-offer' });
+
+    try { a.close(); } catch {}
+    try { b.close(); } catch {}
+    await withTimeout(waitForClose(a), 1000, 'close a');
+    await withTimeout(waitForClose(b), 1000, 'close b');
+  } finally {
+    await app.stop();
+  }
+}
+
+async function runServeTestSuite() {
+  await testStaticHeadersAndPathGuards();
+  await testSameOriginSignalingOverAppServer();
+}
+
+module.exports = {
+  runServeTestSuite,
+};

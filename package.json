@@ -1,0 +1,21 @@
+{
+  "name": "ephera",
+  "private": true,
+  "devDependencies": {
+    "playwright-core": "^1.55.0"
+  },
+  "scripts": {
+    "postinstall": "npm --prefix server install",
+    "dev": "node dev.js",
+    "dev:secure": "node dev-secure.js",
+    "start": "node server/serve.js",
+    "scan": "node scripts/zero-memory-scan.cjs",
+    "test": "node --expose-gc client/test/run-all.js && node server/test/run-all.js",
+    "verify": "npm test && npm run e2e",
+    "e2e": "node e2e/webrtc-app.e2e.cjs",
+    "e2e:perf": "E2E_PERF=1 node e2e/webrtc-app.e2e.cjs",
+    "e2e:soak": "E2E_SOAK=1 node e2e/webrtc-app.e2e.cjs",
+    "perf": "npm test && npm run e2e:perf",
+    "gates": "npm run scan && npm run perf && npm run e2e:soak"
+  }
+}

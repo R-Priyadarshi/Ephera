@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ephera</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="app">
+    <header class="header">
+      <h1 class="title">Ephera</h1>
+      <p class="subtitle">Zero-memory peer-to-peer transport. No storage. No logs.</p>
+    </header>
+
+    <section class="panel" id="room-controls">
+      <div class="panel-head">
+        <h2>Connection</h2>
+      </div>
+      <div class="row">
+        <input type="text" id="room-id" placeholder="Room ID" autocomplete="off" spellcheck="false">
+        <button id="generate-room-id" type="button">Generate</button>
+        <button id="create-room">Create</button>
+        <button id="join-room">Join</button>
+        <button id="disconnect" disabled>Disconnect</button>
+      </div>
+      <div class="row">
+        <input type="text" id="join-link" placeholder="Join link" readonly>
+        <button id="copy-join-link" type="button" disabled>Copy Link</button>
+        <button id="share-join-link" type="button" disabled hidden>Share</button>
+      </div>
+      <div class="row">
+        <label class="hint">
+          <input type="checkbox" id="include-ice-link">
+          Include ICE/TURN config in join link (may leak via web server logs)
+        </label>
+      </div>
+      <details class="details">
+        <summary class="hint">Advanced network (ICE/TURN)</summary>
+        <div class="row">
+          <textarea id="ice-servers-json" rows="4" placeholder='ICE servers JSON (optional). Example: [{"urls":"stun:stun.l.google.com:19302"}]' spellcheck="false"></textarea>
+        </div>
+        <div class="row">
+          <label class="hint">
+            <input type="checkbox" id="ice-relay-only">
+            Force TURN relay only (may fail without TURN)
+          </label>
+        </div>
+        <p id="ice-state" class="hint"></p>
+        <p class="hint">If you use TURN credentials, avoid URLs unless necessary. Prefer sharing secrets out-of-band.</p>
+      </details>
+      <details class="details">
+        <summary class="hint">Diagnostics (local only)</summary>
+        <div class="row">
+          <label class="hint">
+            <input type="checkbox" id="enable-diagnostics">
+            Enable
+          </label>
+          <button id="copy-diagnostics" type="button" disabled>Copy</button>
+        </div>
+        <pre id="diagnostics" class="diag"></pre>
+        <p class="hint">Shows local connection stats. Nothing is sent anywhere.</p>
+      </details>
+      <p id="status" class="status"></p>
+    </section>
+
+    <section class="panel" id="transfer-controls" hidden>
+      <div class="panel-head">
+        <h2>Transfer</h2>
+      </div>
+
+      <div class="grid">
+        <div class="card">
+          <h3>Receive</h3>
+          <div class="row">
+            <button id="pick-receive-folder">Pick Receive Folder</button>
+            <button id="ready-discard" type="button">Ready (Discard)</button>
+            <span id="receive-folder-label" class="hint">No folder selected</span>
+          </div>
+          <p id="peer-state" class="status"></p>
+          <p class="hint">Pick a folder to save received files, or signal ready in discard mode to receive without saving.</p>
+        </div>
+
+        <div class="card">
+          <h3>Send</h3>
+          <div class="row">
+            <input type="file" id="file-input" multiple>
+            <button id="send-file" disabled>Send</button>
+          </div>
+          <div class="row">
+            <label for="send-weight" class="hint">Priority</label>
+            <input type="range" id="send-weight" min="1" max="10" value="1">
+            <span id="send-weight-value" class="hint">1</span>
+          </div>
+          <p class="hint">Send is enabled only when the peer signals “ready”. Multiple files are sent as concurrent transfers.</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Secure Mode (Recommended)</h3>
+        <div class="row">
+          <input type="password" id="passphrase" placeholder="Passphrase (recommended)" autocomplete="off" spellcheck="false">
+          <button id="generate-passphrase" type="button">Generate</button>
+          <button id="copy-passphrase" type="button">Copy</button>
+          <button id="share-passphrase" type="button" hidden>Share</button>
+          <button id="clear-passphrase" type="button">Clear</button>
+        </div>
+        <div class="row">
+          <label class="hint">
+            <input type="checkbox" id="include-passphrase-link">
+            Include passphrase in join link (may leak via web server logs)
+          </label>
+        </div>
+        <p id="crypto-state" class="status"></p>
+        <p class="hint">If set, each payload chunk is encrypted with AES-256-GCM using a key derived from this passphrase. Ephera does not store it.</p>
+      </div>
+
+      <div class="card">
+        <h3>Transfers</h3>
+        <div id="transfers" class="transfers"></div>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <p class="hint">Ephera is transport-only. Any local saving is a user action, outside the trust boundary.</p>
+    </footer>
+  </main>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

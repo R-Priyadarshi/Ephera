@@ -1,0 +1,321 @@
+:root {
+  --bg0: #f7f4ee;
+  --bg1: #efe7da;
+  --ink: #141414;
+  --muted: rgba(20, 20, 20, 0.7);
+  --hair: rgba(20, 20, 20, 0.12);
+  --panel: rgba(255, 255, 255, 0.65);
+  --panel-strong: rgba(255, 255, 255, 0.85);
+  --accent: #197a6a;
+  --accent-2: #b24a2b;
+  --shadow: rgba(0, 0, 0, 0.08);
+  --radius: 14px;
+}
+
+* { box-sizing: border-box; }
+
+html, body { height: 100%; }
+
+body {
+  margin: 0;
+  color: var(--ink);
+  background:
+    radial-gradient(900px 600px at 15% 10%, rgba(25, 122, 106, 0.20), transparent 60%),
+    radial-gradient(800px 500px at 85% 20%, rgba(178, 74, 43, 0.14), transparent 55%),
+    linear-gradient(180deg, var(--bg0), var(--bg1));
+  font-family:
+    "Iosevka",
+    "JetBrains Mono",
+    "Fira Code",
+    ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Monaco,
+    Consolas,
+    "Liberation Mono",
+    "Courier New",
+    monospace;
+}
+
+.app {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 28px 18px 40px;
+  animation: enter 420ms ease-out both;
+}
+
+@keyframes enter {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.header {
+  margin: 8px 0 22px;
+}
+
+.title {
+  margin: 0;
+  font-size: 34px;
+  letter-spacing: -0.02em;
+}
+
+.subtitle {
+  margin: 10px 0 0;
+  color: var(--muted);
+  line-height: 1.5;
+  max-width: 70ch;
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--hair);
+  border-radius: var(--radius);
+  box-shadow: 0 10px 30px var(--shadow);
+  padding: 16px;
+  margin: 14px 0;
+  backdrop-filter: blur(8px);
+}
+
+.panel-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--hair);
+  margin-bottom: 12px;
+}
+
+h2 {
+  margin: 0;
+  font-size: 16px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: rgba(20, 20, 20, 0.85);
+}
+
+h3 {
+  margin: 0 0 10px;
+  font-size: 14px;
+  letter-spacing: 0.02em;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+@media (min-width: 860px) {
+  .grid { grid-template-columns: 1fr 1fr; }
+}
+
+.card {
+  background: var(--panel-strong);
+  border: 1px solid var(--hair);
+  border-radius: calc(var(--radius) - 4px);
+  padding: 14px;
+}
+
+input[type="text"], input[type="password"], input[type="file"] {
+  flex: 1 1 260px;
+  min-width: 200px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--hair);
+  background: rgba(255, 255, 255, 0.75);
+  color: var(--ink);
+  outline: none;
+}
+
+textarea {
+  flex: 1 1 100%;
+  min-width: 240px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--hair);
+  background: rgba(255, 255, 255, 0.75);
+  color: var(--ink);
+  outline: none;
+  resize: vertical;
+}
+
+input[readonly] {
+  background: rgba(255, 255, 255, 0.55);
+  color: rgba(20, 20, 20, 0.78);
+}
+
+input[type="text"]:focus {
+  border-color: rgba(25, 122, 106, 0.45);
+  box-shadow: 0 0 0 3px rgba(25, 122, 106, 0.14);
+}
+
+button {
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--hair);
+  background: rgba(20, 20, 20, 0.06);
+  color: var(--ink);
+  cursor: pointer;
+  transition: transform 120ms ease, background 120ms ease, border-color 120ms ease;
+}
+
+button:hover {
+  transform: translateY(-1px);
+  border-color: rgba(20, 20, 20, 0.24);
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+  transform: none;
+}
+
+#create-room {
+  background: rgba(25, 122, 106, 0.12);
+  border-color: rgba(25, 122, 106, 0.25);
+}
+
+#join-room {
+  background: rgba(178, 74, 43, 0.10);
+  border-color: rgba(178, 74, 43, 0.22);
+}
+
+.status {
+  margin: 12px 0 0;
+  color: var(--muted);
+  line-height: 1.45;
+  min-height: 1.45em;
+}
+
+.hint {
+  color: rgba(20, 20, 20, 0.55);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.details {
+  margin-top: 10px;
+}
+
+.details > summary {
+  cursor: pointer;
+  user-select: none;
+}
+
+.diag {
+  margin: 10px 0 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--hair);
+  background: rgba(255, 255, 255, 0.55);
+  color: rgba(20, 20, 20, 0.82);
+  font-size: 12px;
+  line-height: 1.35;
+  max-height: 220px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.transfers {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.transfer {
+  border: 1px dashed rgba(20, 20, 20, 0.22);
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.transfer-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.transfer-dir {
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  padding: 4px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--hair);
+  background: rgba(20, 20, 20, 0.04);
+}
+
+.transfer-dir-out {
+  border-color: rgba(25, 122, 106, 0.28);
+  background: rgba(25, 122, 106, 0.10);
+}
+
+.transfer-dir-in {
+  border-color: rgba(178, 74, 43, 0.25);
+  background: rgba(178, 74, 43, 0.08);
+}
+
+.transfer-title {
+  font-size: 13px;
+  color: rgba(20, 20, 20, 0.92);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1 1 auto;
+  min-width: 160px;
+}
+
+.transfer-cancel {
+  padding: 7px 10px;
+  font-size: 12px;
+  background: rgba(178, 74, 43, 0.10);
+  border-color: rgba(178, 74, 43, 0.22);
+}
+
+.transfer-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 8px;
+  color: rgba(20, 20, 20, 0.68);
+  font-size: 12px;
+}
+
+.transfer-speed {
+  color: rgba(20, 20, 20, 0.6);
+  white-space: nowrap;
+}
+
+.transfer-progress {
+  margin-top: 10px;
+  height: 7px;
+  border-radius: 999px;
+  background: rgba(20, 20, 20, 0.08);
+  overflow: hidden;
+}
+
+.transfer-progress-fill {
+  height: 100%;
+  width: 0%;
+  background: var(--accent);
+  transition: width 120ms linear;
+}
+
+.transfer-in .transfer-progress-fill {
+  background: var(--accent-2);
+}
+
+.footer {
+  margin-top: 18px;
+  padding: 10px 2px;
+}
