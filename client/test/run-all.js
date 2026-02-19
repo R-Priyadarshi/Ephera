@@ -9,6 +9,7 @@ import { runPassphraseEncryptionTest } from './encryption.passphrase.test.js';
 import { runMetadataTest } from './metadata.test.js';
 import { runSchedulerLivenessTest } from './scheduler.liveness.test.js';
 import { runTransportBackpressureTest } from './transport.backpressure.test.js';
+import { runHandshakeDomainTest } from './handshake-domain.test.js';
 
 async function main() {
   await runConcurrencyTest();
@@ -22,6 +23,7 @@ async function main() {
 
   await runPassphraseEncryptionTest();
   await runMetadataTest();
+  await runHandshakeDomainTest();
   await runSchedulerLivenessTest();
   await runTransportBackpressureTest();
 }

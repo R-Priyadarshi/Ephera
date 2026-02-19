@@ -23,6 +23,7 @@ Latest full gate run:
   - `npm test` (client + signaling + app-server tests)
   - `npm run e2e:perf` (includes 100MB transfer perf gate)
   - `npm run e2e:soak` (idle stability + repeated connect/disconnect cycles)
+  - Stage 9 reserved-domain regression (`client/test/handshake-domain.test.js`)
 
 Latest production smoke run (`npm start` path):
 
@@ -41,6 +42,7 @@ Notable E2E checks covered:
 - folder-save path (polyfilled picker + saved receipt + byte integrity)
 - sender-close/receiver-cancel abort semantics
 - session collectability/GC checks
+- reserved transferId domain isolation (Stage 9)
 
 ## Manual QA
 

@@ -21,3 +21,13 @@
   - `PERFORMANCE_HARDENING_CHECKLIST.md`
   - `server/README.md`
   - added `RELEASE_READINESS.md`
+- Hardened Stage 9 reserved-domain invariant:
+  - `SessionManager` now ignores reserved transferId domain (`transferId[0] & 0x80`)
+  - prevents reserved-domain control IDs from creating/mutating transfer sessions
+- Added Stage 9 regression test:
+  - new `client/test/handshake-domain.test.js`
+  - verifies reserved-domain frames are ignored by session routing
+  - verifies sender START transferId always stays in regular domain
+- Stabilized random transferId tests for Stage 9 domain rule:
+  - `client/test/memory.test.js`
+  - `client/test/receiver-backpressure-overflow.test.js`

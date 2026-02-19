@@ -46,6 +46,7 @@ export async function runReceiverBackpressureOverflowTest() {
 
   const transferId = new Uint8Array(8);
   crypto.getRandomValues(transferId);
+  transferId[0] &= 0x7f; // Stage 9: regular transfer domain only.
 
   let session = null;
   let reader = null;
@@ -115,4 +116,3 @@ export async function runReceiverBackpressureOverflowTest() {
 if (typeof window !== 'undefined') {
   runReceiverBackpressureOverflowTest().catch(console.error);
 }
-

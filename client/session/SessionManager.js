@@ -23,6 +23,7 @@ const MSG_CHUNK = 0x02;
 const MSG_END = 0x03;
 const MSG_ABORT = 0x04;
 const MSG_META = 0x05;
+const RESERVED_TRANSFER_DOMAIN_BIT = 0x80;
 
 function keyHi(transferId) {
     return (
@@ -85,6 +86,14 @@ class SessionManager {
 
         // Basic sanity check (receiver.js already validates protocol)
         if (!(transferId instanceof Uint8Array) || transferId.length !== 8) {
+            return;
+        }
+
+        // Stage 9 invariant:
+        // transferIds with high bit set are reserved for non-session control
+        // domains (e.g., passphrase handshake META). They must never create or
+        // mutate TransferSession lifecycle.
+        if ((transferId[0] & RESERVED_TRANSFER_DOMAIN_BIT) === RESERVED_TRANSFER_DOMAIN_BIT) {
             return;
         }
 

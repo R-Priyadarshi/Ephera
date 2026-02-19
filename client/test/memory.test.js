@@ -39,6 +39,7 @@ async function runMemoryTest() {
         for (let i = 0; i < ITERATIONS; i++) {
             const id = new Uint8Array(8);
             crypto.getRandomValues(id);
+            id[0] &= 0x7f; // Stage 9: regular transfer domain only.
 
             // Capture the session via WeakRef (must not retain a strong reference).
             sessionManager.onSession = (s) => {
