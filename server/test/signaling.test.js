@@ -241,6 +241,29 @@ async function testAllowedOrigins() {
   });
 }
 
+async function testEnforceSameOrigin() {
+  await withServer({ enforceSameOrigin: true }, async ({ url }) => {
+    const host = new URL(url).host;
+    const sameOrigin = `http://${host}`;
+
+    const ok = await openClientWithOptions(url, { headers: { Origin: sameOrigin } });
+    ok.send(JSON.stringify({ type: 'create-room', roomId: 'room-same-origin' }));
+    const created = await withTimeout(nextJsonMessage(ok), 1000, 'same-origin create');
+    assert.strictEqual(created.type, 'room-created');
+
+    const noOrigin = new WebSocket(url);
+    const noOriginClosed = await withTimeout(waitForClose(noOrigin), 2000, 'same-origin no-origin close');
+    assert.ok(noOriginClosed.code === 1008 || noOriginClosed.code === 1006);
+
+    const bad = new WebSocket(url, { headers: { Origin: 'http://evil.example' } });
+    const badClosed = await withTimeout(waitForClose(bad), 2000, 'same-origin bad close');
+    assert.ok(badClosed.code === 1008 || badClosed.code === 1006);
+
+    try { ok.close(); } catch {}
+    await withTimeout(waitForClose(ok), 1000, 'same-origin close ok');
+  });
+}
+
 async function testLeaveRoomNotifiesPeer() {
   await withServer({}, async ({ server, url }) => {
     const a = await openClient(url);
@@ -424,6 +447,7 @@ async function runSignalingTestSuite() {
   await testInvalidRoomId();
   await testSignalWithoutRoom();
   await testAllowedOrigins();
+  await testEnforceSameOrigin();
   await testLeaveRoomNotifiesPeer();
   await testWaitingTtlExpiresSoloPeer();
   await testWaitingTtlDoesNotKillActivePair();

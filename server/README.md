@@ -59,6 +59,8 @@ It relays connection metadata between peers so they can establish direct peer-to
 - Per-socket message-rate limiter:
   - `MAX_MESSAGES_PER_WINDOW` (default 240)
   - `MESSAGE_RATE_WINDOW_MS` (default 10000)
+- App-server mode (`serve.js`) enforces same-origin WebSocket `Origin` checks by default
+  - `ENFORCE_SAME_ORIGIN=1` (default), set `0` only in controlled environments
 
 ---
 

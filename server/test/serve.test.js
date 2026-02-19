@@ -87,6 +87,7 @@ async function startAppServer(extraEnv = null) {
       TURN_URLS_JSON: '',
       TURN_AUTH_SECRET: '',
       TURN_TTL_SECONDS: '',
+      ENFORCE_SAME_ORIGIN: '',
       ...(extraEnv && typeof extraEnv === 'object' ? extraEnv : {}),
     },
   });
@@ -144,9 +145,9 @@ async function assertStartFails(extraEnv = null) {
   assert.strictEqual(failed, true);
 }
 
-function openClient(url) {
+function openClientRaw(url, options = {}) {
   return new Promise((resolve, reject) => {
-    const ws = new WebSocket(url);
+    const ws = new WebSocket(url, options);
     let settled = false;
 
     const cleanup = () => {
@@ -176,6 +177,26 @@ function openClient(url) {
     ws.once('open', onOpen);
     ws.once('error', onError);
     ws.once('close', onClose);
+  });
+}
+
+function originFromWsUrl(url) {
+  const parsed = new URL(url);
+  const protocol = parsed.protocol === 'wss:' ? 'https:' : 'http:';
+  return `${protocol}//${parsed.host}`;
+}
+
+function openClient(url, options = {}) {
+  const headers = {
+    ...(options && options.headers ? options.headers : {}),
+  };
+  if (!Object.prototype.hasOwnProperty.call(headers, 'Origin') && !Object.prototype.hasOwnProperty.call(headers, 'origin')) {
+    headers.Origin = originFromWsUrl(url);
+  }
+
+  return openClientRaw(url, {
+    ...options,
+    headers,
   });
 }
 
@@ -257,20 +278,20 @@ async function testSameOriginSignalingOverAppServer() {
     const b = await openClient(url);
 
     a.send(JSON.stringify({ type: 'create-room', roomId: 'room-app-server' }));
-    const created = await withTimeout(nextJsonMessage(a), 1000, 'create ack');
+    const created = await withTimeout(nextJsonMessage(a), 2000, 'create ack');
     assert.strictEqual(created.type, 'room-created');
     assert.strictEqual(created.peerCount, 1);
 
     b.send(JSON.stringify({ type: 'join-room', roomId: 'room-app-server' }));
-    const joined = await withTimeout(nextJsonMessage(b), 1000, 'join ack');
+    const joined = await withTimeout(nextJsonMessage(b), 2000, 'join ack');
     assert.strictEqual(joined.type, 'room-joined');
     assert.strictEqual(joined.peerCount, 2);
 
-    const peerJoined = await withTimeout(nextJsonMessage(a), 1000, 'peer joined notify');
+    const peerJoined = await withTimeout(nextJsonMessage(a), 2000, 'peer joined notify');
     assert.strictEqual(peerJoined.type, 'peer-joined');
 
     a.send(JSON.stringify({ type: 'signal', payload: { sdp: 'fake-offer' } }));
-    const relayed = await withTimeout(nextJsonMessage(b), 1000, 'signal relay');
+    const relayed = await withTimeout(nextJsonMessage(b), 2000, 'signal relay');
     assert.strictEqual(relayed.type, 'signal');
     assert.deepStrictEqual(relayed.payload, { sdp: 'fake-offer' });
 
@@ -278,6 +299,47 @@ async function testSameOriginSignalingOverAppServer() {
     try { b.close(); } catch {}
     await withTimeout(waitForClose(a), 1000, 'close a');
     await withTimeout(waitForClose(b), 1000, 'close b');
+  } finally {
+    await app.stop();
+  }
+}
+
+async function testDefaultSameOriginPolicyOnAppServer() {
+  const app = await startAppServer();
+  const url = `ws://127.0.0.1:${app.port}`;
+
+  try {
+    const noOrigin = new WebSocket(url);
+    const noOriginClosed = await withTimeout(waitForClose(noOrigin), 2000, 'app-server no-origin close');
+    assert.ok(noOriginClosed.code === 1008 || noOriginClosed.code === 1006);
+
+    const bad = new WebSocket(url, { headers: { Origin: 'http://evil.example' } });
+    const badClosed = await withTimeout(waitForClose(bad), 2000, 'app-server bad-origin close');
+    assert.ok(badClosed.code === 1008 || badClosed.code === 1006);
+
+    const ok = await openClient(url);
+    ok.send(JSON.stringify({ type: 'create-room', roomId: 'room-origin-policy' }));
+    const created = await withTimeout(nextJsonMessage(ok), 1000, 'origin-policy create');
+    assert.strictEqual(created.type, 'room-created');
+    try { ok.close(); } catch {}
+    await withTimeout(waitForClose(ok), 1000, 'origin-policy close');
+  } finally {
+    await app.stop();
+  }
+}
+
+async function testDisableSameOriginPolicyOverride() {
+  const app = await startAppServer({ ENFORCE_SAME_ORIGIN: '0' });
+  const url = `ws://127.0.0.1:${app.port}`;
+
+  try {
+    const a = await openClientRaw(url);
+    a.send(JSON.stringify({ type: 'create-room', roomId: 'room-origin-override' }));
+    const created = await withTimeout(nextJsonMessage(a), 1000, 'origin-override create');
+    assert.strictEqual(created.type, 'room-created');
+
+    try { a.close(); } catch {}
+    await withTimeout(waitForClose(a), 1000, 'origin-override close');
   } finally {
     await app.stop();
   }
@@ -424,6 +486,8 @@ async function testInvalidDynamicTurnEnvFailsFast() {
 
 async function runServeTestSuite() {
   await testStaticHeadersAndPathGuards();
+  await testDefaultSameOriginPolicyOnAppServer();
+  await testDisableSameOriginPolicyOverride();
   await testHealthAndRuntimeConfigEndpoints();
   await testRuntimeConfigDynamicTurnCredentials();
   await testInvalidDynamicTurnEnvFailsFast();

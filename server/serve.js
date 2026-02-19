@@ -63,6 +63,10 @@ const TURN_TTL_SECONDS_RAW = (typeof process.env.TURN_TTL_SECONDS === 'string' &
   ? process.env.TURN_TTL_SECONDS.trim()
   : '';
 
+const ENFORCE_SAME_ORIGIN_RAW = (typeof process.env.ENFORCE_SAME_ORIGIN === 'string' && process.env.ENFORCE_SAME_ORIGIN.trim())
+  ? process.env.ENFORCE_SAME_ORIGIN.trim()
+  : '';
+
 function contentType(filePath) {
   const ext = path.extname(filePath).toLowerCase();
   switch (ext) {
@@ -188,6 +192,15 @@ function parseTurnTtlSecondsOrExit(value, fallback = 600) {
   const ttl = Math.floor(n);
   if (ttl < 30 || ttl > 86400) process.exit(1);
   return ttl;
+}
+
+function parseBooleanFlagOrExit(value, fallback) {
+  if (!value) return fallback;
+  const s = String(value).trim().toLowerCase();
+  if (!s) return fallback;
+  if (s === '1' || s === 'true' || s === 'yes' || s === 'on') return true;
+  if (s === '0' || s === 'false' || s === 'no' || s === 'off') return false;
+  process.exit(1);
 }
 
 function buildDynamicTurnServer(turnConfig) {
@@ -319,6 +332,7 @@ function loadTlsOrExit() {
 }
 
 const runtimeConfigFactory = loadRuntimeConfigFactoryOrExit();
+const enforceSameOrigin = parseBooleanFlagOrExit(ENFORCE_SAME_ORIGIN_RAW, true);
 
 const tls = loadTlsOrExit();
 const server = tls
@@ -387,7 +401,10 @@ let stopping = false;
 let signaling = null;
 
 // Same-origin signaling is the default deployment target.
-signaling = createSignalingServer({ server });
+signaling = createSignalingServer({
+  server,
+  enforceSameOrigin,
+});
 
 signaling.ready
   .then(() => {

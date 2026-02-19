@@ -34,6 +34,8 @@ TLS_KEY_PATH=/path/key.pem TLS_CERT_PATH=/path/cert.pem PORT=3000 npm start
 NOTE:
 - If you run Ephera behind a TLS reverse proxy, you normally do **not** set `TLS_*` here.
 - Ephera is intentionally silent by default. Set `VERBOSE=1` if you want startup output.
+- App-server mode enforces same-origin WebSocket `Origin` by default (`ENFORCE_SAME_ORIGIN=1`).
+  Keep `Host` and `X-Forwarded-Proto` forwarded correctly from your reverse proxy.
 - Health endpoints are available for orchestration:
   - `GET /healthz` (liveness)
   - `GET /readyz` (readiness)
@@ -74,6 +76,20 @@ Validation rules:
 - `TURN_URLS_JSON` and `TURN_AUTH_SECRET` must be set together.
 - `TURN_TTL_SECONDS` must be between `30` and `86400`.
 - `TURN_URLS_JSON` entries must be `turn:` or `turns:` URLs.
+
+## WebSocket Origin Policy (App Server)
+
+Default behavior in `npm start` mode:
+- `ENFORCE_SAME_ORIGIN=1` (default): requires `Origin` to match effective request origin.
+- Effective protocol honors `X-Forwarded-Proto` when present (for TLS-terminating proxies).
+
+Override (only for controlled/private environments):
+
+```bash
+ENFORCE_SAME_ORIGIN=0 npm start
+```
+
+If disabling same-origin checks, pair with explicit edge controls (network ACLs, auth gateway, or strict `ALLOWED_ORIGINS`).
 
 ## Signaling Abuse Controls
 

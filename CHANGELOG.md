@@ -62,3 +62,12 @@
   - dynamic TURN credential signature + TTL validation
   - runtime credential rotation check
   - invalid TURN env startup-failure coverage
+- Added strict same-origin WebSocket policy support:
+  - `server/signaling.js` supports `enforceSameOrigin` checks (Origin must match effective request origin)
+  - honors `X-Forwarded-Proto` for TLS-terminating reverse proxies
+- App-server security default tightened:
+  - `server/serve.js` now enables same-origin enforcement by default (`ENFORCE_SAME_ORIGIN=1`)
+  - explicit override available via `ENFORCE_SAME_ORIGIN=0`
+- Expanded origin-policy test coverage:
+  - signaling tests for `enforceSameOrigin` accept/reject behavior
+  - app-server tests for default same-origin enforcement and explicit disable override

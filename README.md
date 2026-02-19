@@ -64,6 +64,7 @@ Environment variables:
 - `MAX_ROOMS` (optional in-memory room cap; default `4096`)
 - `MAX_MESSAGES_PER_WINDOW` (optional per-socket rate cap; default `240`)
 - `MESSAGE_RATE_WINDOW_MS` (optional rate window size; default `10000`)
+- `ENFORCE_SAME_ORIGIN` (app-server WS origin policy: default `1`; set `0` only behind trusted edge controls)
 
 If you don’t provide TLS in Ephera itself, deploy behind a TLS-terminating reverse proxy so browsers see `https://...` (required for folder-based saving).
 
@@ -71,6 +72,10 @@ Health/runtime endpoints:
 - `GET /healthz` (liveness)
 - `GET /readyz` (readiness)
 - `GET /runtime-config` (server-provided ICE/TURN defaults; dynamic TURN creds are minted per request, no persistence)
+
+App-server security default:
+- `npm start` enforces same-origin WebSocket `Origin` checks by default.
+- To relax for controlled environments, set `ENFORCE_SAME_ORIGIN=0` and use explicit network controls/allowlists.
 
 See `docs/DEPLOYMENT.md` for reverse proxy examples (and how to disable access logs).
 

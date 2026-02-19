@@ -143,6 +143,7 @@ All tests here run against the real engine stack using loopback transports (fast
     - Enforces `maxPayload`, max peers per room, optional Origin allowlist
     - Enforces connection and room pressure caps (`MAX_CONNECTIONS`, `MAX_ROOMS`)
     - Enforces per-socket message-rate caps (`MAX_MESSAGES_PER_WINDOW`, `MESSAGE_RATE_WINDOW_MS`)
+    - Supports optional strict same-origin Origin policy (`enforceSameOrigin`)
     - Ping/pong keepalive to terminate dead sockets
 - `server/rooms.js`
   - In-memory room store:
@@ -154,6 +155,7 @@ All tests here run against the real engine stack using loopback transports (fast
 - `server/serve.js`
   - Combined “app server”:
     - Static client + same-origin signaling on one port
+    - Enforces same-origin WebSocket `Origin` by default (`ENFORCE_SAME_ORIGIN=1`)
     - Optional HTTPS if `TLS_KEY_PATH` + `TLS_CERT_PATH` are provided
     - Health endpoints: `/healthz`, `/readyz`
     - Runtime client config endpoint: `/runtime-config` (supports `ICE_SERVERS_JSON` + `ICE_TRANSPORT_POLICY`)

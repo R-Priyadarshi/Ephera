@@ -74,6 +74,56 @@ function parsePositiveInt(value, fallback, min = 1) {
   return Math.max(min, Math.floor(n));
 }
 
+function parseBooleanFlag(value, fallback) {
+  if (typeof value === 'boolean') return value;
+  if (typeof value !== 'string') return fallback;
+  const s = value.trim().toLowerCase();
+  if (!s) return fallback;
+  if (s === '1' || s === 'true' || s === 'yes' || s === 'on') return true;
+  if (s === '0' || s === 'false' || s === 'no' || s === 'off') return false;
+  return fallback;
+}
+
+function effectiveRequestProtocol(req) {
+  if (req && req.headers) {
+    const forwardedRaw = req.headers['x-forwarded-proto'];
+    if (typeof forwardedRaw === 'string' && forwardedRaw.trim()) {
+      const first = forwardedRaw.split(',')[0].trim().toLowerCase();
+      if (first === 'http' || first === 'https') return `${first}:`;
+    }
+  }
+  return (req && req.socket && req.socket.encrypted) ? 'https:' : 'http:';
+}
+
+function defaultPortForProtocol(protocol) {
+  return protocol === 'https:' ? '443' : '80';
+}
+
+function isSameOriginRequest(req) {
+  const headers = req && req.headers ? req.headers : null;
+  const originRaw = headers && typeof headers.origin === 'string' ? headers.origin : '';
+  const hostRaw = headers && typeof headers.host === 'string' ? headers.host : '';
+  if (!originRaw || !hostRaw) return false;
+
+  let origin;
+  let expected;
+  try {
+    origin = new URL(originRaw);
+    expected = new URL(`${effectiveRequestProtocol(req)}//${hostRaw}`);
+  } catch {
+    return false;
+  }
+
+  const originPort = origin.port || defaultPortForProtocol(origin.protocol);
+  const expectedPort = expected.port || defaultPortForProtocol(expected.protocol);
+
+  return (
+    origin.protocol === expected.protocol &&
+    origin.hostname.toLowerCase() === expected.hostname.toLowerCase() &&
+    originPort === expectedPort
+  );
+}
+
 function createSignalingServer(options = {}) {
   const rawPort = Number(options.port ?? process.env.PORT ?? 8080);
   const port = Number.isFinite(rawPort) ? rawPort : 8080;
@@ -119,6 +169,11 @@ function createSignalingServer(options = {}) {
     options.messageRateWindowMs ?? process.env.MESSAGE_RATE_WINDOW_MS,
     DEFAULT_MESSAGE_RATE_WINDOW_MS,
     100
+  );
+
+  const enforceSameOrigin = parseBooleanFlag(
+    options.enforceSameOrigin ?? process.env.ENFORCE_SAME_ORIGIN,
+    false
   );
 
   const allowedOrigins = parseAllowedOrigins(
@@ -184,6 +239,9 @@ function createSignalingServer(options = {}) {
         try { socket.close(1008); } catch {}
         return;
       }
+    } else if (enforceSameOrigin && !isSameOriginRequest(req)) {
+      try { socket.close(1008); } catch {}
+      return;
     }
 
     const state = {
