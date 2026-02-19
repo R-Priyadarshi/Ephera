@@ -185,6 +185,19 @@ function parseIceServersFromParams(params) {
   return servers.length ? servers : null;
 }
 
+function hasIceServersInParams(params) {
+  if (!params) return false;
+  return (
+    params.has('iceServers') ||
+    params.getAll('stun').length > 0 ||
+    params.getAll('turn').length > 0 ||
+    params.has('turnUser') ||
+    params.has('turnUsername') ||
+    params.has('turnPass') ||
+    params.has('turnCredential')
+  );
+}
+
 const ICE_SERVERS = parseIceServersFromParams(PARAMS);
 const ICE_POLICY = (() => {
   const raw = PARAMS.get('icePolicy');
@@ -249,6 +262,7 @@ let receiveDirHandle = null; // FileSystemDirectoryHandle (optional)
 let pendingIce = [];
 
 let iceServersOverride = null;
+let runtimeIceServers = null;
 let iceRelayOnly = false;
 
 let passphraseVerified = false;
@@ -271,6 +285,60 @@ const activeSenders = new Set();
 // - abort sending if the receiver requests it (peer ABORT)
 // - mark "delivered" when the receiver sends a receipt META
 const outboundTransfers = new Map(); // Map<string(hexId), { row, sender, receiptTimer, delivered }>
+
+/* ---------- Runtime Config ---------- */
+
+async function loadRuntimeConfig() {
+  if (typeof fetch !== 'function') return;
+
+  let res = null;
+  try {
+    res = await fetch('/runtime-config', {
+      method: 'GET',
+      cache: 'no-store',
+      credentials: 'same-origin',
+    });
+  } catch {
+    return;
+  }
+
+  if (!res || !res.ok) return;
+
+  let cfg = null;
+  try {
+    cfg = await res.json();
+  } catch {
+    return;
+  }
+  if (!cfg || typeof cfg !== 'object') return;
+
+  const hasIcePolicyParam = PARAMS.has('icePolicy');
+  const hasIceServersParam = hasIceServersInParams(PARAMS);
+  let loaded = false;
+
+  if (!hasIceServersParam) {
+    const sanitized = sanitizeIceServers(cfg.iceServers);
+    if (sanitized) {
+      runtimeIceServers = sanitized;
+      loaded = true;
+      if (iceServersJsonInput && !iceServersJsonInput.value.trim()) {
+        try { iceServersJsonInput.value = JSON.stringify(sanitized, null, 2); } catch {}
+      }
+      setIceState(`ICE servers: ${sanitized.length} (server default)`);
+    }
+  }
+
+  if (!hasIcePolicyParam && typeof cfg.icePolicy === 'string' && cfg.icePolicy.trim().toLowerCase() === 'relay') {
+    iceRelayOnly = true;
+    if (iceRelayOnlyInput) iceRelayOnlyInput.checked = true;
+    loaded = true;
+    if (!runtimeIceServers) setIceState('ICE policy: relay (server default)');
+  }
+
+  if (loaded) updateJoinLink();
+}
+
+const RUNTIME_CONFIG_READY = loadRuntimeConfig().catch(() => {});
 
 /* ---------- UI helpers ---------- */
 
@@ -299,7 +367,7 @@ function generateRoomId() {
 }
 
 function getIceServers() {
-  return iceServersOverride || ICE_SERVERS || null;
+  return iceServersOverride || ICE_SERVERS || runtimeIceServers || null;
 }
 
 function getRtcConfig() {
@@ -2190,6 +2258,8 @@ function cleanup() {
 fileInput.onchange = updateSendButton;
 
 createRoomBtn.onclick = async () => {
+  try { await RUNTIME_CONFIG_READY; } catch {}
+
   let roomId = roomIdInput.value.trim();
   if (!roomId) {
     roomId = generateRoomId();
@@ -2220,6 +2290,8 @@ createRoomBtn.onclick = async () => {
 };
 
 joinRoomBtn.onclick = async () => {
+  try { await RUNTIME_CONFIG_READY; } catch {}
+
   const roomId = roomIdInput.value.trim();
   if (!roomId) return;
 
@@ -2550,14 +2622,7 @@ if (IS_E2E) {
   }
 
   const hasIcePolicy = PARAMS.has('icePolicy');
-  const hasIceServers =
-    PARAMS.has('iceServers') ||
-    PARAMS.getAll('stun').length > 0 ||
-    PARAMS.getAll('turn').length > 0 ||
-    PARAMS.has('turnUser') ||
-    PARAMS.has('turnUsername') ||
-    PARAMS.has('turnPass') ||
-    PARAMS.has('turnCredential');
+  const hasIceServers = hasIceServersInParams(PARAMS);
 
   const hasIce = hasIcePolicy || hasIceServers;
   if (hasIceServers && iceServersJsonInput) {
@@ -2619,14 +2684,7 @@ if (!IS_E2E) {
   }
 
   const hasIcePolicy = PARAMS.has('icePolicy');
-  const hasIceServers =
-    PARAMS.has('iceServers') ||
-    PARAMS.getAll('stun').length > 0 ||
-    PARAMS.getAll('turn').length > 0 ||
-    PARAMS.has('turnUser') ||
-    PARAMS.has('turnUsername') ||
-    PARAMS.has('turnPass') ||
-    PARAMS.has('turnCredential');
+  const hasIceServers = hasIceServersInParams(PARAMS);
 
   const hasIce = hasIcePolicy || hasIceServers;
   if (hasIceServers && iceServersJsonInput) {

@@ -54,8 +54,15 @@ Environment variables:
 - `PORT` (default `3000`)
 - `HOST` (default `0.0.0.0`)
 - `TLS_KEY_PATH` + `TLS_CERT_PATH` (optional: serve HTTPS + WSS directly)
+- `ICE_SERVERS_JSON` (optional JSON array of `RTCIceServer` defaults served to clients at `/runtime-config`)
+- `ICE_TRANSPORT_POLICY` (optional: `relay` or `all`; default `all`)
 
 If you don’t provide TLS in Ephera itself, deploy behind a TLS-terminating reverse proxy so browsers see `https://...` (required for folder-based saving).
+
+Health/runtime endpoints:
+- `GET /healthz` (liveness)
+- `GET /readyz` (readiness)
+- `GET /runtime-config` (server-provided ICE/TURN defaults, no persistence)
 
 See `docs/DEPLOYMENT.md` for reverse proxy examples (and how to disable access logs).
 

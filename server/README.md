@@ -89,6 +89,25 @@ node index.js
 # Server listens on PORT (default 8080)
 ```
 
+App server mode (static client + same-origin signaling):
+
+```bash
+PORT=3000 HOST=0.0.0.0 node serve.js
+```
+
+Optional runtime ICE/TURN defaults for browser clients:
+
+```bash
+ICE_SERVERS_JSON='[{"urls":"stun:stun.example.net:3478"},{"urls":"turn:turn.example.net:3478","username":"USER","credential":"PASS"}]' \
+ICE_TRANSPORT_POLICY=relay \
+node serve.js
+```
+
+App server operational endpoints:
+- `GET /healthz`
+- `GET /readyz`
+- `GET /runtime-config`
+
 ## Tests
 
 ```bash
@@ -99,6 +118,7 @@ Current server test coverage includes:
 - signaling protocol behavior (`create-room`, `join-room`, relay, room limits)
 - waiting-room TTL behavior
 - app server static/security headers (`Cache-Control`, `CSP`, `nosniff`, `no-referrer`)
+- app server health/readiness/runtime-config endpoints
 - same-origin WebSocket signaling on `server/serve.js`
 
 ---

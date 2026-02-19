@@ -42,6 +42,14 @@ const TLS_CERT_PATH = (typeof process.env.TLS_CERT_PATH === 'string' && process.
   ? process.env.TLS_CERT_PATH.trim()
   : '';
 
+const ICE_SERVERS_JSON = (typeof process.env.ICE_SERVERS_JSON === 'string' && process.env.ICE_SERVERS_JSON.trim())
+  ? process.env.ICE_SERVERS_JSON.trim()
+  : '';
+
+const ICE_TRANSPORT_POLICY = (typeof process.env.ICE_TRANSPORT_POLICY === 'string' && process.env.ICE_TRANSPORT_POLICY.trim())
+  ? process.env.ICE_TRANSPORT_POLICY.trim()
+  : '';
+
 function contentType(filePath) {
   const ext = path.extname(filePath).toLowerCase();
   switch (ext) {
@@ -59,13 +67,113 @@ function contentType(filePath) {
   }
 }
 
-function safeResolve(urlPath) {
-  const raw = decodeURIComponent((urlPath || '/').split('?')[0] || '/');
-  const rel = raw === '/' ? '/index.html' : raw;
+function parsePathname(urlPath) {
+  try {
+    return decodeURIComponent((urlPath || '/').split('?')[0] || '/');
+  } catch {
+    return null;
+  }
+}
+
+function safeResolve(pathname) {
+  if (typeof pathname !== 'string' || !pathname) return null;
+  const rel = pathname === '/' ? '/index.html' : pathname;
   const p = path.normalize(rel).replace(/^(\.\.(\/|\\|$))+/, '');
   const full = path.join(CLIENT_DIR, p);
   if (!full.startsWith(CLIENT_DIR)) return null;
   return full;
+}
+
+function sanitizeIceUrl(value) {
+  if (typeof value !== 'string') return null;
+  const s = value.trim();
+  if (!s) return null;
+  if (s.length > 512) return null;
+  if (!/^(stun|stuns|turn|turns):/i.test(s)) return null;
+  return s;
+}
+
+function sanitizeIceServers(value) {
+  if (!Array.isArray(value)) return null;
+
+  const out = [];
+  for (const item of value) {
+    if (!item || typeof item !== 'object') continue;
+
+    let urls = item.urls;
+    if (typeof urls === 'string') {
+      const u = sanitizeIceUrl(urls);
+      if (!u) continue;
+      urls = u;
+    } else if (Array.isArray(urls)) {
+      const list = [];
+      for (const rawUrl of urls) {
+        const u = sanitizeIceUrl(rawUrl);
+        if (!u) continue;
+        list.push(u);
+        if (list.length >= 8) break;
+      }
+      if (list.length === 0) continue;
+      urls = list.length === 1 ? list[0] : list;
+    } else {
+      continue;
+    }
+
+    const server = { urls };
+    if (typeof item.username === 'string' && item.username) {
+      server.username = item.username.slice(0, 256);
+    }
+    if (typeof item.credential === 'string' && item.credential) {
+      server.credential = item.credential.slice(0, 256);
+    }
+    if (typeof item.credentialType === 'string' && item.credentialType) {
+      server.credentialType = item.credentialType.slice(0, 32);
+    }
+
+    out.push(server);
+    if (out.length >= 8) break;
+  }
+
+  return out.length ? out : null;
+}
+
+function loadRuntimeConfigOrExit() {
+  const config = { v: 1 };
+
+  if (ICE_SERVERS_JSON) {
+    let parsed = null;
+    try {
+      parsed = JSON.parse(ICE_SERVERS_JSON);
+    } catch {
+      process.exit(1);
+    }
+
+    const sanitized = sanitizeIceServers(parsed);
+    if (!sanitized) process.exit(1);
+    config.iceServers = sanitized;
+  }
+
+  if (ICE_TRANSPORT_POLICY) {
+    const policy = ICE_TRANSPORT_POLICY.toLowerCase();
+    if (policy === 'relay') {
+      config.icePolicy = 'relay';
+    } else if (policy !== 'all') {
+      process.exit(1);
+    }
+  }
+
+  return config;
+}
+
+function writeJson(res, statusCode, obj) {
+  setSecurityHeaders(res);
+  res.statusCode = statusCode;
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  try {
+    res.end(JSON.stringify(obj));
+  } catch {
+    res.end('{}');
+  }
 }
 
 function setSecurityHeaders(res) {
@@ -101,13 +209,50 @@ function loadTlsOrExit() {
   };
 }
 
+const runtimeConfig = loadRuntimeConfigOrExit();
+
 const tls = loadTlsOrExit();
 const server = tls
   ? https.createServer(tls, onRequest)
   : http.createServer(onRequest);
 
+let signalingReady = false;
+
 function onRequest(req, res) {
-  const filePath = safeResolve(req.url || '/');
+  const pathname = parsePathname(req.url || '/');
+  if (!pathname) {
+    res.statusCode = 400;
+    setSecurityHeaders(res);
+    res.end('Bad Request');
+    return;
+  }
+
+  if (pathname === '/healthz') {
+    writeJson(res, 200, {
+      ok: true,
+      service: 'ephera-app',
+      signalingReady: !!signalingReady,
+      stopping: !!stopping,
+    });
+    return;
+  }
+
+  if (pathname === '/readyz') {
+    const ready = signalingReady && !stopping;
+    writeJson(res, ready ? 200 : 503, {
+      ok: ready,
+      signalingReady: !!signalingReady,
+      stopping: !!stopping,
+    });
+    return;
+  }
+
+  if (pathname === '/runtime-config') {
+    writeJson(res, 200, runtimeConfig);
+    return;
+  }
+
+  const filePath = safeResolve(pathname);
   if (!filePath) {
     res.statusCode = 400;
     setSecurityHeaders(res);
@@ -135,7 +280,11 @@ let signaling = null;
 // Same-origin signaling is the default deployment target.
 signaling = createSignalingServer({ server });
 
-signaling.ready.catch(() => shutdown(1));
+signaling.ready
+  .then(() => {
+    signalingReady = true;
+  })
+  .catch(() => shutdown(1));
 signaling.wss.on('error', () => shutdown(1));
 
 server.on('error', () => shutdown(1));
@@ -158,6 +307,7 @@ server.listen(PORT, HOST, () => {
 async function shutdown(exitCode = 0) {
   if (stopping) return;
   stopping = true;
+  signalingReady = false;
 
   try { if (signaling) await signaling.close(); } catch {}
   signaling = null;
@@ -171,4 +321,3 @@ async function shutdown(exitCode = 0) {
 
 process.on('SIGINT', () => { shutdown(0).catch(() => process.exit(1)); });
 process.on('SIGTERM', () => { shutdown(0).catch(() => process.exit(1)); });
-

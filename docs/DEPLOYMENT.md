@@ -34,6 +34,24 @@ TLS_KEY_PATH=/path/key.pem TLS_CERT_PATH=/path/cert.pem PORT=3000 npm start
 NOTE:
 - If you run Ephera behind a TLS reverse proxy, you normally do **not** set `TLS_*` here.
 - Ephera is intentionally silent by default. Set `VERBOSE=1` if you want startup output.
+- Health endpoints are available for orchestration:
+  - `GET /healthz` (liveness)
+  - `GET /readyz` (readiness)
+
+## Runtime TURN/ICE Defaults (Server-Driven)
+
+For production NAT traversal, set TURN/STUN defaults on the app server:
+
+```bash
+ICE_SERVERS_JSON='[{"urls":"stun:stun.example.net:3478"},{"urls":"turn:turn.example.net:3478","username":"USER","credential":"PASS"}]' \
+ICE_TRANSPORT_POLICY=relay \
+npm start
+```
+
+Behavior:
+- App server exposes `GET /runtime-config` with sanitized ICE defaults.
+- Browser client loads these defaults automatically.
+- URL-provided ICE config (`iceServers`, `stun`, `turn`, `icePolicy`) still takes precedence.
 
 ## Reverse Proxy Examples
 
@@ -81,4 +99,3 @@ example.com {
 - Ephera signaling rooms are RAM-only. Restarting the server destroys all rooms.
 - Keep the signaling + static server same-origin if possible (simplest and safest).
 - If you need TURN for NAT traversal, configure ICE servers on both peers (client URL params currently).
-

@@ -148,12 +148,16 @@ All tests here run against the real engine stack using loopback transports (fast
   - Combined “app server”:
     - Static client + same-origin signaling on one port
     - Optional HTTPS if `TLS_KEY_PATH` + `TLS_CERT_PATH` are provided
+    - Health endpoints: `/healthz`, `/readyz`
+    - Runtime client config endpoint: `/runtime-config` (supports `ICE_SERVERS_JSON` + `ICE_TRANSPORT_POLICY`)
     - Conservative security headers; no request logs
 
 ### `server/test/` (Signaling Regression)
 
 - `server/test/signaling.test.js`
   - Exercises signaling behaviors: relay, room full, collisions, TTL, payload caps.
+- `server/test/serve.test.js`
+  - Verifies static/security headers, path guards, app-server health/readiness/runtime-config endpoints, and same-origin WS signaling.
 - `server/test/run-all.js`
   - Runs the signaling suite and prints start/pass markers.
 

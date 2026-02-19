@@ -31,6 +31,7 @@ Latest production smoke run (`npm start` path):
 - Server boot: PASS (`HTTP_OK`)
 - Security headers: PASS (`HTTP_HEADERS_OK`)
 - Same-origin signaling over WS: PASS (`WS_SIGNALING_OK`)
+- Health/readiness/runtime endpoints: PASS (`HEALTH_READY_RUNTIME_OK`)
 
 Notable E2E checks covered:
 
@@ -43,6 +44,7 @@ Notable E2E checks covered:
 - sender-close/receiver-cancel abort semantics
 - session collectability/GC checks
 - reserved transferId domain isolation (Stage 9)
+- app-server liveness/readiness/runtime-config endpoints
 
 ## Manual QA
 

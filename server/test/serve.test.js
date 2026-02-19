@@ -69,7 +69,7 @@ function httpGet(port, pathname) {
   });
 }
 
-async function startAppServer() {
+async function startAppServer(extraEnv = null) {
   const port = await getFreePort();
   const out = [];
   const err = [];
@@ -78,6 +78,7 @@ async function startAppServer() {
     stdio: ['ignore', 'pipe', 'pipe'],
     env: {
       ...process.env,
+      ...(extraEnv && typeof extraEnv === 'object' ? extraEnv : {}),
       HOST: '127.0.0.1',
       PORT: String(port),
       VERBOSE: '0',
@@ -264,8 +265,66 @@ async function testSameOriginSignalingOverAppServer() {
   }
 }
 
+async function testHealthAndRuntimeConfigEndpoints() {
+  const app = await startAppServer({
+    ICE_SERVERS_JSON: JSON.stringify([
+      { urls: 'stun:stun.example.net:3478' },
+      {
+        urls: ['turn:turn.example.net:3478', 'turns:turn.example.net:5349'],
+        username: 'alpha-user',
+        credential: 'alpha-pass',
+      },
+    ]),
+    ICE_TRANSPORT_POLICY: 'relay',
+  });
+
+  try {
+    const health = await httpGet(app.port, '/healthz');
+    assert.strictEqual(health.status, 200);
+    assert.strictEqual(health.headers['cache-control'], 'no-store');
+    assert.strictEqual(health.headers['x-content-type-options'], 'nosniff');
+    assert.strictEqual(health.headers['referrer-policy'], 'no-referrer');
+    assert.ok((health.headers['content-type'] || '').includes('application/json'));
+
+    const healthObj = JSON.parse(health.body || '{}');
+    assert.strictEqual(healthObj.ok, true);
+    assert.strictEqual(healthObj.service, 'ephera-app');
+
+    const ready = await httpGet(app.port, '/readyz');
+    assert.strictEqual(ready.status, 200);
+    assert.ok((ready.headers['content-type'] || '').includes('application/json'));
+    const readyObj = JSON.parse(ready.body || '{}');
+    assert.strictEqual(readyObj.ok, true);
+    assert.strictEqual(readyObj.signalingReady, true);
+    assert.strictEqual(readyObj.stopping, false);
+
+    const runtime = await httpGet(app.port, '/runtime-config');
+    assert.strictEqual(runtime.status, 200);
+    assert.strictEqual(runtime.headers['cache-control'], 'no-store');
+    assert.strictEqual(runtime.headers['x-content-type-options'], 'nosniff');
+    assert.strictEqual(runtime.headers['referrer-policy'], 'no-referrer');
+    assert.ok((runtime.headers['content-type'] || '').includes('application/json'));
+
+    const runtimeObj = JSON.parse(runtime.body || '{}');
+    assert.strictEqual(runtimeObj.v, 1);
+    assert.strictEqual(runtimeObj.icePolicy, 'relay');
+    assert.ok(Array.isArray(runtimeObj.iceServers));
+    assert.strictEqual(runtimeObj.iceServers.length, 2);
+    assert.strictEqual(runtimeObj.iceServers[0].urls, 'stun:stun.example.net:3478');
+    assert.deepStrictEqual(runtimeObj.iceServers[1].urls, [
+      'turn:turn.example.net:3478',
+      'turns:turn.example.net:5349',
+    ]);
+    assert.strictEqual(runtimeObj.iceServers[1].username, 'alpha-user');
+    assert.strictEqual(runtimeObj.iceServers[1].credential, 'alpha-pass');
+  } finally {
+    await app.stop();
+  }
+}
+
 async function runServeTestSuite() {
   await testStaticHeadersAndPathGuards();
+  await testHealthAndRuntimeConfigEndpoints();
   await testSameOriginSignalingOverAppServer();
 }
 

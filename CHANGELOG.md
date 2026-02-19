@@ -31,3 +31,13 @@
 - Stabilized random transferId tests for Stage 9 domain rule:
   - `client/test/memory.test.js`
   - `client/test/receiver-backpressure-overflow.test.js`
+- Added production app-server runtime endpoints:
+  - `GET /healthz` (liveness)
+  - `GET /readyz` (readiness)
+  - `GET /runtime-config` (server-driven ICE/TURN defaults)
+- Added server-driven TURN/ICE runtime config:
+  - `ICE_SERVERS_JSON` (JSON array of RTCIceServer defaults)
+  - `ICE_TRANSPORT_POLICY` (`relay` or `all`)
+  - client now loads `/runtime-config` before create/join when URL does not override ICE config
+- Added app-server endpoint coverage:
+  - `server/test/serve.test.js` now verifies `/healthz`, `/readyz`, and `/runtime-config`
