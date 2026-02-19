@@ -22,6 +22,7 @@ Ephera is not “storage”. It is an **ephemeral P2P transport engine**:
     - `npm run scan` runs a lightweight zero-memory compliance scan (guards against persistence regressions).
     - `npm test` for regression tests (client + server).
     - `npm run e2e` for real WebRTC E2E with Playwright.
+    - `npm run e2e:relay` for optional relay-only runtime-config E2E (requires TURN env).
     - `npm run e2e:perf` for heavier perf gates (100MB transfer + heap/buffer sampling).
     - `npm run e2e:soak` for optional soak gates (idle connection + extra connect/disconnect cycles).
     - `npm run verify` runs `test` then `e2e`.
@@ -38,6 +39,10 @@ Ephera is not “storage”. It is an **ephemeral P2P transport engine**:
   - Security analysis and what Ephera does/doesn’t protect against.
 - `PERFORMANCE_HARDENING_CHECKLIST.md`
   - Manual verification gates for memory/backpressure/failure behavior.
+- `deploy/docker-compose.turn.yml`
+  - Reference compose profile for Ephera app server + coturn relay service.
+- `deploy/turn.env.example`
+  - Template env for TURN credentials/ports/public host.
 
 ## `client/` (Browser Engine + Minimal UI)
 
@@ -194,6 +199,6 @@ All tests here run against the real engine stack using loopback transports (fast
     - Covers: same-origin signaling, secure-by-default, plain mode, multi-file, passphrase mode,
       peer-left (receiver signaling close), signaling restart, signaling server crash mid-transfer,
       sender tab close mid-transfer, receiver cancel mid-transfer, repeated connect/disconnect cycles (no reload),
-      `npm start` app-server path, and a forced-GC session leak gate.
+      `npm start` app-server path, optional relay-runtime-config path (`E2E_RELAY_RUNTIME=1`), and a forced-GC session leak gate.
     - Optional perf mode (`npm run e2e:perf` / `E2E_PERF=1`):
       100MB transfer with heap + `bufferedAmount` sampling (automated approximation of manual performance gates).

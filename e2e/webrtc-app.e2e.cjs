@@ -203,13 +203,19 @@ async function startSignalingServer(port) {
   return { proc, exited };
 }
 
-async function startAppServer(port) {
+async function startAppServer(port, extraEnv = null) {
   const out = [];
   const err = [];
 
   const proc = spawn(process.execPath, [APP_SERVER_ENTRY], {
     stdio: ['ignore', 'pipe', 'pipe'],
-    env: { ...process.env, HOST: '127.0.0.1', PORT: String(port), VERBOSE: '0' },
+    env: {
+      ...process.env,
+      ...(extraEnv && typeof extraEnv === 'object' ? extraEnv : {}),
+      HOST: '127.0.0.1',
+      PORT: String(port),
+      VERBOSE: '0',
+    },
   });
 
   proc.stdout.on('data', (d) => {
@@ -307,6 +313,20 @@ async function run() {
 
   const PERF = process.env.E2E_PERF === '1' || process.env.E2E_PERF === 'true';
   const SOAK = process.env.E2E_SOAK === '1' || process.env.E2E_SOAK === 'true';
+  const RELAY_RUNTIME = process.env.E2E_RELAY_RUNTIME === '1' || process.env.E2E_RELAY_RUNTIME === 'true';
+  const RELAY_TURN_URL = String(process.env.E2E_TURN_URL || '').trim();
+  const RELAY_TURN_URL_TCP = String(process.env.E2E_TURN_URL_TCP || '').trim();
+  const RELAY_TURN_USERNAME = String(process.env.E2E_TURN_USERNAME || process.env.E2E_TURN_USER || '').trim();
+  const RELAY_TURN_CREDENTIAL = String(process.env.E2E_TURN_CREDENTIAL || process.env.E2E_TURN_PASS || '').trim();
+
+  if (RELAY_RUNTIME) {
+    if (!RELAY_TURN_URL || !RELAY_TURN_USERNAME || !RELAY_TURN_CREDENTIAL) {
+      throw new Error([
+        'Relay runtime E2E requested but TURN credentials are incomplete.',
+        'Required: E2E_TURN_URL, E2E_TURN_USERNAME (or E2E_TURN_USER), E2E_TURN_CREDENTIAL (or E2E_TURN_PASS).',
+      ].join(' '));
+    }
+  }
   const SOAK_IDLE_MS = (() => {
     if (!SOAK) return 0;
     const raw = Number(process.env.E2E_IDLE_MS || 60_000);
@@ -326,13 +346,34 @@ async function run() {
   let signaling = await startSignalingServer(signalPort);
   const appPort = await getFreePort();
   const appServer = await startAppServer(appPort);
+  let relayAppServer = null;
   const securePort = await getFreePort();
   const secureServer = await startSecureDevServer(securePort);
 
   const baseUrl = `http://127.0.0.1:${staticServer.port}`;
   const signalUrl = `ws://127.0.0.1:${signalPort}`;
   const appBaseUrl = `http://127.0.0.1:${appPort}`;
+  let relayAppBaseUrl = '';
   const secureBaseUrl = `https://127.0.0.1:${securePort}`;
+
+  if (RELAY_RUNTIME) {
+    const relayPort = await getFreePort();
+    const relayUrls = [RELAY_TURN_URL];
+    if (RELAY_TURN_URL_TCP) relayUrls.push(RELAY_TURN_URL_TCP);
+    const relayIceServers = [
+      {
+        urls: relayUrls.length === 1 ? relayUrls[0] : relayUrls,
+        username: RELAY_TURN_USERNAME,
+        credential: RELAY_TURN_CREDENTIAL,
+      },
+    ];
+
+    relayAppServer = await startAppServer(relayPort, {
+      ICE_TRANSPORT_POLICY: 'relay',
+      ICE_SERVERS_JSON: JSON.stringify(relayIceServers),
+    });
+    relayAppBaseUrl = `http://127.0.0.1:${relayPort}`;
+  }
 
   const fileSize = 512 * 1024; // 512 KB
   const fileBuf = Buffer.allocUnsafe(fileSize);
@@ -391,6 +432,7 @@ async function run() {
       perf = null,
       idleMsBeforeSend = 0,
       contextOptions = null,
+      expectRelayPolicy = false,
     }) {
       const activeBaseUrl = baseUrlOverride || baseUrl;
       const activeSignalUrl = signalUrlOverride || signalUrl;
@@ -437,6 +479,20 @@ async function run() {
           null,
           { timeout: 10_000 }
         );
+
+        if (expectRelayPolicy) {
+          console.log(`--- E2E (${label}): verifying relay policy from runtime config ---`);
+          await Promise.all([
+            sender.waitForFunction(() => {
+              const c = document.getElementById('ice-relay-only');
+              return !!(c && c.checked === true);
+            }, null, { timeout: 10_000 }),
+            receiver.waitForFunction(() => {
+              const c = document.getElementById('ice-relay-only');
+              return !!(c && c.checked === true);
+            }, null, { timeout: 10_000 }),
+          ]);
+        }
 
         console.log(`--- E2E (${label}): waiting for WebRTC transport open ---`);
         await Promise.all([
@@ -1445,6 +1501,21 @@ async function run() {
       contextOptions: { ignoreHTTPSErrors: true },
     });
 
+    if (RELAY_RUNTIME) {
+      await runScenario({
+        label: 'relay-runtime-config',
+        passphrase: null,
+        expectAutoPassphrase: true,
+        sameOrigin: true,
+        baseUrlOverride: relayAppBaseUrl,
+        expectReceipt: true,
+        transferTimeoutMs: 120_000,
+        expectRelayPolicy: true,
+      });
+    } else {
+      console.log('--- E2E (relay-runtime-config): SKIP (set E2E_RELAY_RUNTIME=1 + TURN env to enable) ---');
+    }
+
     // Automated leak gate: force GC and assert TransferSession objects are collectible.
     // This catches obvious reference leaks without requiring a manual heap snapshot.
     const gcFiles = [];
@@ -1537,6 +1608,7 @@ async function run() {
     try { staticServer.server.close(); } catch {}
     try { signaling.proc.kill('SIGINT'); } catch {}
     try { appServer.proc.kill('SIGINT'); } catch {}
+    try { if (relayAppServer) relayAppServer.proc.kill('SIGINT'); } catch {}
     try { secureServer.proc.kill('SIGINT'); } catch {}
 
     // Best-effort temp cleanup

@@ -108,6 +108,13 @@ App server operational endpoints:
 - `GET /readyz`
 - `GET /runtime-config`
 
+Compose TURN profile (repo root):
+
+```bash
+cp deploy/turn.env.example deploy/.env
+docker compose --env-file deploy/.env -f deploy/docker-compose.turn.yml up --build
+```
+
 ## Tests
 
 ```bash

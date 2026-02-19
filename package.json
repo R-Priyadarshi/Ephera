@@ -13,6 +13,7 @@
     "test": "node --expose-gc client/test/run-all.js && node server/test/run-all.js",
     "verify": "npm test && npm run e2e",
     "e2e": "node e2e/webrtc-app.e2e.cjs",
+    "e2e:relay": "E2E_RELAY_RUNTIME=1 node e2e/webrtc-app.e2e.cjs",
     "e2e:perf": "E2E_PERF=1 node e2e/webrtc-app.e2e.cjs",
     "e2e:soak": "E2E_SOAK=1 node e2e/webrtc-app.e2e.cjs",
     "perf": "npm test && npm run e2e:perf",

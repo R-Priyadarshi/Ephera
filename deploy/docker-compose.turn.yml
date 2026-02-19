@@ -1,0 +1,39 @@
+services:
+  turn:
+    image: coturn/coturn:4.6.2
+    command:
+      - -n
+      - --no-cli
+      - --fingerprint
+      - --lt-cred-mech
+      - --realm=${TURN_REALM:-ephera.local}
+      - --user=${TURN_USER:-ephera}:${TURN_PASS:-change-me}
+      - --listening-port=3478
+      - --min-port=${TURN_MIN_PORT:-49160}
+      - --max-port=${TURN_MAX_PORT:-49200}
+      - --no-tls
+      - --no-dtls
+      - --no-multicast-peers
+      - --stale-nonce=600
+      - --log-file=stdout
+    ports:
+      - "3478:3478/tcp"
+      - "3478:3478/udp"
+      - "${TURN_MIN_PORT:-49160}-${TURN_MAX_PORT:-49200}:${TURN_MIN_PORT:-49160}-${TURN_MAX_PORT:-49200}/udp"
+    restart: unless-stopped
+
+  ephera:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    depends_on:
+      - turn
+    environment:
+      HOST: 0.0.0.0
+      PORT: 3000
+      ICE_TRANSPORT_POLICY: relay
+      ICE_SERVERS_JSON: >-
+        [{"urls":["turn:${PUBLIC_TURN_HOST:-127.0.0.1}:3478?transport=udp","turn:${PUBLIC_TURN_HOST:-127.0.0.1}:3478?transport=tcp"],"username":"${TURN_USER:-ephera}","credential":"${TURN_PASS:-change-me}"}]
+    ports:
+      - "3000:3000"
+    restart: unless-stopped

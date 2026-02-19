@@ -45,6 +45,7 @@ Notable E2E checks covered:
 - session collectability/GC checks
 - reserved transferId domain isolation (Stage 9)
 - app-server liveness/readiness/runtime-config endpoints
+- relay-runtime-config scenario wiring (optional gate; requires TURN env)
 
 ## Manual QA
 
@@ -63,6 +64,8 @@ Manual checklist intent:
 - Browser support caveat: some Brave environments may not expose
   `showDirectoryPicker`, forcing discard-only mode.
   Use Chrome/Edge (or enable relevant Brave flag) for real folder-save UX checks.
+- Relay-only E2E (`npm run e2e:relay`) requires reachable TURN credentials:
+  `E2E_TURN_URL`, `E2E_TURN_USERNAME`/`E2E_TURN_USER`, `E2E_TURN_CREDENTIAL`/`E2E_TURN_PASS`.
 
 ## Governance
 

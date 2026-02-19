@@ -53,6 +53,20 @@ Behavior:
 - Browser client loads these defaults automatically.
 - URL-provided ICE config (`iceServers`, `stun`, `turn`, `icePolicy`) still takes precedence.
 
+## TURN Compose Profile (Reference)
+
+This repo includes a local production-like profile with Ephera + coturn:
+
+```bash
+cp deploy/turn.env.example deploy/.env
+docker compose --env-file deploy/.env -f deploy/docker-compose.turn.yml up --build
+```
+
+Notes:
+- Set `PUBLIC_TURN_HOST` to an address reachable by browsers (not container-internal DNS).
+- Open TURN relay UDP range (`TURN_MIN_PORT` to `TURN_MAX_PORT`) in your firewall/security group.
+- No persistent TURN log volume is configured (stdout only).
+
 ## Reverse Proxy Examples
 
 ### Nginx (TLS termination + no access log)
@@ -98,4 +112,4 @@ example.com {
 
 - Ephera signaling rooms are RAM-only. Restarting the server destroys all rooms.
 - Keep the signaling + static server same-origin if possible (simplest and safest).
-- If you need TURN for NAT traversal, configure ICE servers on both peers (client URL params currently).
+- For NAT traversal at scale, prefer server-driven defaults (`ICE_SERVERS_JSON` + `ICE_TRANSPORT_POLICY`) over URL params.

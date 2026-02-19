@@ -73,6 +73,13 @@ docker build -t ephera .
 docker run --rm -p 3000:3000 ephera
 ```
 
+Docker Compose profile with bundled `coturn` (relay-only defaults via `/runtime-config`):
+
+```bash
+cp deploy/turn.env.example deploy/.env
+docker compose --env-file deploy/.env -f deploy/docker-compose.turn.yml up --build
+```
+
 ### Secure Context (For Saving On Other Devices)
 
 Browsers require a **secure context** for folder-based streaming saves (`showDirectoryPicker`). `http://<LAN-IP>` is not a secure context, so receiving peers on other devices may be forced into discard mode.
@@ -105,6 +112,16 @@ Run real WebRTC E2E (headless Chrome):
 
 ```bash
 npm run e2e
+```
+
+Run optional relay-only E2E (requires reachable TURN credentials):
+
+```bash
+E2E_TURN_URL='turn:YOUR_TURN_HOST:3478?transport=udp' \
+E2E_TURN_URL_TCP='turn:YOUR_TURN_HOST:3478?transport=tcp' \
+E2E_TURN_USERNAME='TURN_USER' \
+E2E_TURN_CREDENTIAL='TURN_PASS' \
+npm run e2e:relay
 ```
 
 This includes gates for:

@@ -41,3 +41,14 @@
   - client now loads `/runtime-config` before create/join when URL does not override ICE config
 - Added app-server endpoint coverage:
   - `server/test/serve.test.js` now verifies `/healthz`, `/readyz`, and `/runtime-config`
+- Added relay-runtime E2E path (optional):
+  - `e2e/webrtc-app.e2e.cjs` supports `E2E_RELAY_RUNTIME=1`
+  - validates relay policy from server runtime config and transfer success when TURN env is provided
+  - default E2E run prints an explicit relay scenario `SKIP` when TURN env is not configured
+- Added compose TURN deployment profile:
+  - `deploy/docker-compose.turn.yml` (Ephera + coturn)
+  - `deploy/turn.env.example` template
+- Updated deployment/testing docs for relay workflow:
+  - `README.md` (`docker compose` TURN profile and `npm run e2e:relay`)
+  - `docs/DEPLOYMENT.md` TURN compose guidance and firewall notes
+  - `docs/PROJECT_MAP.md` updated file/responsibility map
