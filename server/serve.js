@@ -19,6 +19,7 @@ const http = require('http');
 const https = require('https');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 
 const { createSignalingServer } = require('./signaling');
 
@@ -48,6 +49,18 @@ const ICE_SERVERS_JSON = (typeof process.env.ICE_SERVERS_JSON === 'string' && pr
 
 const ICE_TRANSPORT_POLICY = (typeof process.env.ICE_TRANSPORT_POLICY === 'string' && process.env.ICE_TRANSPORT_POLICY.trim())
   ? process.env.ICE_TRANSPORT_POLICY.trim()
+  : '';
+
+const TURN_URLS_JSON = (typeof process.env.TURN_URLS_JSON === 'string' && process.env.TURN_URLS_JSON.trim())
+  ? process.env.TURN_URLS_JSON.trim()
+  : '';
+
+const TURN_AUTH_SECRET = (typeof process.env.TURN_AUTH_SECRET === 'string' && process.env.TURN_AUTH_SECRET.trim())
+  ? process.env.TURN_AUTH_SECRET.trim()
+  : '';
+
+const TURN_TTL_SECONDS_RAW = (typeof process.env.TURN_TTL_SECONDS === 'string' && process.env.TURN_TTL_SECONDS.trim())
+  ? process.env.TURN_TTL_SECONDS.trim()
   : '';
 
 function contentType(filePath) {
@@ -137,8 +150,65 @@ function sanitizeIceServers(value) {
   return out.length ? out : null;
 }
 
-function loadRuntimeConfigOrExit() {
-  const config = { v: 1 };
+function sanitizeTurnUrls(value) {
+  if (!Array.isArray(value)) return null;
+
+  const out = [];
+  for (const rawUrl of value) {
+    const u = sanitizeIceUrl(rawUrl);
+    if (!u) continue;
+    if (!/^turns?:/i.test(u)) continue;
+    out.push(u);
+    if (out.length >= 8) break;
+  }
+
+  return out.length ? out : null;
+}
+
+function cloneIceServer(server) {
+  const out = {
+    urls: Array.isArray(server.urls) ? server.urls.slice() : server.urls,
+  };
+
+  if (typeof server.username === 'string') out.username = server.username;
+  if (typeof server.credential === 'string') out.credential = server.credential;
+  if (typeof server.credentialType === 'string') out.credentialType = server.credentialType;
+  return out;
+}
+
+function cloneIceServers(servers) {
+  if (!Array.isArray(servers)) return null;
+  return servers.map(cloneIceServer);
+}
+
+function parseTurnTtlSecondsOrExit(value, fallback = 600) {
+  if (!value) return fallback;
+  const n = Number(value);
+  if (!Number.isFinite(n)) process.exit(1);
+  const ttl = Math.floor(n);
+  if (ttl < 30 || ttl > 86400) process.exit(1);
+  return ttl;
+}
+
+function buildDynamicTurnServer(turnConfig) {
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  const expiresAt = nowSeconds + turnConfig.ttlSeconds;
+  const nonce = crypto.randomBytes(8).toString('hex');
+  const username = `${expiresAt}:${nonce}`;
+  const credential = crypto.createHmac('sha1', turnConfig.secret).update(username).digest('base64');
+
+  return {
+    urls: turnConfig.urls.length === 1 ? turnConfig.urls[0] : turnConfig.urls.slice(),
+    username,
+    credential,
+  };
+}
+
+function loadRuntimeConfigFactoryOrExit() {
+  const configBase = { v: 1 };
+  let staticIceServers = null;
+  let dynamicTurn = null;
+  let icePolicy = null;
 
   if (ICE_SERVERS_JSON) {
     let parsed = null;
@@ -150,19 +220,58 @@ function loadRuntimeConfigOrExit() {
 
     const sanitized = sanitizeIceServers(parsed);
     if (!sanitized) process.exit(1);
-    config.iceServers = sanitized;
+    staticIceServers = sanitized;
+  }
+
+  if ((TURN_URLS_JSON && !TURN_AUTH_SECRET) || (!TURN_URLS_JSON && TURN_AUTH_SECRET)) {
+    process.exit(1);
+  }
+
+  if (TURN_URLS_JSON && TURN_AUTH_SECRET) {
+    let parsedTurnUrls = null;
+    try {
+      parsedTurnUrls = JSON.parse(TURN_URLS_JSON);
+    } catch {
+      process.exit(1);
+    }
+
+    const sanitizedTurnUrls = sanitizeTurnUrls(parsedTurnUrls);
+    if (!sanitizedTurnUrls) process.exit(1);
+
+    dynamicTurn = {
+      urls: sanitizedTurnUrls,
+      secret: TURN_AUTH_SECRET,
+      ttlSeconds: parseTurnTtlSecondsOrExit(TURN_TTL_SECONDS_RAW, 600),
+    };
   }
 
   if (ICE_TRANSPORT_POLICY) {
     const policy = ICE_TRANSPORT_POLICY.toLowerCase();
     if (policy === 'relay') {
-      config.icePolicy = 'relay';
+      icePolicy = 'relay';
     } else if (policy !== 'all') {
       process.exit(1);
     }
   }
 
-  return config;
+  return () => {
+    const config = { ...configBase };
+
+    if (staticIceServers) {
+      config.iceServers = cloneIceServers(staticIceServers);
+    }
+
+    if (dynamicTurn) {
+      if (!config.iceServers) config.iceServers = [];
+      config.iceServers.push(buildDynamicTurnServer(dynamicTurn));
+    }
+
+    if (icePolicy) {
+      config.icePolicy = icePolicy;
+    }
+
+    return config;
+  };
 }
 
 function writeJson(res, statusCode, obj) {
@@ -209,7 +318,7 @@ function loadTlsOrExit() {
   };
 }
 
-const runtimeConfig = loadRuntimeConfigOrExit();
+const runtimeConfigFactory = loadRuntimeConfigFactoryOrExit();
 
 const tls = loadTlsOrExit();
 const server = tls
@@ -248,7 +357,7 @@ function onRequest(req, res) {
   }
 
   if (pathname === '/runtime-config') {
-    writeJson(res, 200, runtimeConfig);
+    writeJson(res, 200, runtimeConfigFactory());
     return;
   }
 

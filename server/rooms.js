@@ -131,6 +131,10 @@ function createRoomStore({ waitingTtlMs = DEFAULT_WAITING_TTL_MS } = {}) {
     }
   }
 
+  function countRooms() {
+    return rooms.size;
+  }
+
   return {
     createRoom,
     joinRoom,
@@ -138,6 +142,7 @@ function createRoomStore({ waitingTtlMs = DEFAULT_WAITING_TTL_MS } = {}) {
     destroyRoom,
     getRoom,
     getPeers,
+    countRooms,
     destroyAll,
   };
 }
@@ -146,4 +151,3 @@ module.exports = {
   DEFAULT_WAITING_TTL_MS,
   createRoomStore,
 };
-

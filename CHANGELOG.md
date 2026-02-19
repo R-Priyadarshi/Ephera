@@ -52,3 +52,13 @@
   - `README.md` (`docker compose` TURN profile and `npm run e2e:relay`)
   - `docs/DEPLOYMENT.md` TURN compose guidance and firewall notes
   - `docs/PROJECT_MAP.md` updated file/responsibility map
+- Added dynamic TURN credential minting on app server:
+  - new envs: `TURN_URLS_JSON`, `TURN_AUTH_SECRET`, `TURN_TTL_SECONDS`
+  - `/runtime-config` now supports short-lived TURN credentials (HMAC-SHA1, per-request)
+  - static `ICE_SERVERS_JSON` support remains; dynamic TURN can be appended to the runtime list
+- Hardened app-server config validation:
+  - invalid dynamic TURN env combinations now fail fast at startup
+- Expanded app-server tests:
+  - dynamic TURN credential signature + TTL validation
+  - runtime credential rotation check
+  - invalid TURN env startup-failure coverage

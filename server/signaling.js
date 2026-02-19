@@ -19,6 +19,10 @@ const { createRoomStore } = require('./rooms');
 const DEFAULT_MAX_PEERS_PER_ROOM = 2;
 const DEFAULT_MAX_PAYLOAD_BYTES = 256 * 1024; // signaling-only; must still allow SDP + ICE
 const DEFAULT_PING_INTERVAL_MS = 30 * 1000;
+const DEFAULT_MAX_CONNECTIONS = 2048;
+const DEFAULT_MAX_ROOMS = 4096;
+const DEFAULT_MAX_MESSAGES_PER_WINDOW = 240;
+const DEFAULT_MESSAGE_RATE_WINDOW_MS = 10 * 1000;
 
 function parseAllowedOrigins(value) {
   if (typeof value !== 'string') return null;
@@ -64,6 +68,12 @@ function safeSend(socket, obj) {
   }
 }
 
+function parsePositiveInt(value, fallback, min = 1) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(min, Math.floor(n));
+}
+
 function createSignalingServer(options = {}) {
   const rawPort = Number(options.port ?? process.env.PORT ?? 8080);
   const port = Number.isFinite(rawPort) ? rawPort : 8080;
@@ -86,6 +96,30 @@ function createSignalingServer(options = {}) {
   const pingIntervalMs = Number.isFinite(options.pingIntervalMs)
     ? Math.max(0, Math.floor(options.pingIntervalMs))
     : DEFAULT_PING_INTERVAL_MS;
+
+  const maxConnections = parsePositiveInt(
+    options.maxConnections ?? process.env.MAX_CONNECTIONS,
+    DEFAULT_MAX_CONNECTIONS,
+    1
+  );
+
+  const maxRooms = parsePositiveInt(
+    options.maxRooms ?? process.env.MAX_ROOMS,
+    DEFAULT_MAX_ROOMS,
+    1
+  );
+
+  const maxMessagesPerWindow = parsePositiveInt(
+    options.maxMessagesPerWindow ?? process.env.MAX_MESSAGES_PER_WINDOW,
+    DEFAULT_MAX_MESSAGES_PER_WINDOW,
+    1
+  );
+
+  const messageRateWindowMs = parsePositiveInt(
+    options.messageRateWindowMs ?? process.env.MESSAGE_RATE_WINDOW_MS,
+    DEFAULT_MESSAGE_RATE_WINDOW_MS,
+    100
+  );
 
   const allowedOrigins = parseAllowedOrigins(
     options.allowedOrigins ?? process.env.ALLOWED_ORIGINS ?? ''
@@ -138,6 +172,12 @@ function createSignalingServer(options = {}) {
     socket.isAlive = true;
     socket.on('pong', () => { socket.isAlive = true; });
 
+    // Backstop against socket-flood pressure.
+    if (wss.clients.size > maxConnections) {
+      try { socket.close(1013); } catch {}
+      return;
+    }
+
     if (allowedOrigins && !allowedOrigins.any) {
       const origin = (req && req.headers && typeof req.headers.origin === 'string') ? req.headers.origin : '';
       if (!origin || !allowedOrigins.set.has(origin)) {
@@ -146,9 +186,29 @@ function createSignalingServer(options = {}) {
       }
     }
 
-    const state = { currentRoomId: null };
+    const state = {
+      currentRoomId: null,
+      rateWindowStartedAt: Date.now(),
+      rateCount: 0,
+    };
+
+    function exceededMessageRate() {
+      const now = Date.now();
+      if ((now - state.rateWindowStartedAt) >= messageRateWindowMs) {
+        state.rateWindowStartedAt = now;
+        state.rateCount = 0;
+      }
+
+      state.rateCount += 1;
+      return state.rateCount > maxMessagesPerWindow;
+    }
 
     socket.on('message', (data) => {
+      if (exceededMessageRate()) {
+        try { socket.close(1008); } catch {}
+        return;
+      }
+
       // Extra belt-and-suspenders cap (ws maxPayload also applies).
       if (byteLengthUtf8(data) > maxPayloadBytes) {
         try { socket.close(1009); } catch {}
@@ -194,6 +254,11 @@ function createSignalingServer(options = {}) {
           const existing = rooms.getRoom(roomId);
           if (existing) {
             safeSend(socket, { type: 'error', message: 'Room already exists' });
+            return;
+          }
+
+          if (rooms.countRooms() >= maxRooms) {
+            safeSend(socket, { type: 'error', message: 'Server busy' });
             return;
           }
 
@@ -370,5 +435,9 @@ module.exports = {
   DEFAULT_MAX_PEERS_PER_ROOM,
   DEFAULT_MAX_PAYLOAD_BYTES,
   DEFAULT_PING_INTERVAL_MS,
+  DEFAULT_MAX_CONNECTIONS,
+  DEFAULT_MAX_ROOMS,
+  DEFAULT_MAX_MESSAGES_PER_WINDOW,
+  DEFAULT_MESSAGE_RATE_WINDOW_MS,
   createSignalingServer,
 };

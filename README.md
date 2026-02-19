@@ -56,13 +56,21 @@ Environment variables:
 - `TLS_KEY_PATH` + `TLS_CERT_PATH` (optional: serve HTTPS + WSS directly)
 - `ICE_SERVERS_JSON` (optional JSON array of `RTCIceServer` defaults served to clients at `/runtime-config`)
 - `ICE_TRANSPORT_POLICY` (optional: `relay` or `all`; default `all`)
+- `TURN_URLS_JSON` (optional JSON array of `turn:` / `turns:` URLs for dynamic TURN auth)
+- `TURN_AUTH_SECRET` (optional shared TURN REST secret; must be set with `TURN_URLS_JSON`)
+- `TURN_TTL_SECONDS` (optional dynamic TURN credential TTL, range `30..86400`, default `600`)
+- `ALLOWED_ORIGINS` (optional signaling Origin allowlist; comma-separated or `*`)
+- `MAX_CONNECTIONS` (optional signaling connection cap; default `2048`)
+- `MAX_ROOMS` (optional in-memory room cap; default `4096`)
+- `MAX_MESSAGES_PER_WINDOW` (optional per-socket rate cap; default `240`)
+- `MESSAGE_RATE_WINDOW_MS` (optional rate window size; default `10000`)
 
 If you don’t provide TLS in Ephera itself, deploy behind a TLS-terminating reverse proxy so browsers see `https://...` (required for folder-based saving).
 
 Health/runtime endpoints:
 - `GET /healthz` (liveness)
 - `GET /readyz` (readiness)
-- `GET /runtime-config` (server-provided ICE/TURN defaults, no persistence)
+- `GET /runtime-config` (server-provided ICE/TURN defaults; dynamic TURN creds are minted per request, no persistence)
 
 See `docs/DEPLOYMENT.md` for reverse proxy examples (and how to disable access logs).
 

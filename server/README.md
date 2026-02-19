@@ -54,6 +54,11 @@ It relays connection metadata between peers so they can establish direct peer-to
 - WebSocket `maxPayload` cap (default 256KB)
 - Optional Origin allowlist via `ALLOWED_ORIGINS` (comma-separated) or `*` to allow all
 - Ping/pong keepalive to clean up half-open sockets (no telemetry)
+- Connection cap (`MAX_CONNECTIONS`, default 2048)
+- Room cap (`MAX_ROOMS`, default 4096)
+- Per-socket message-rate limiter:
+  - `MAX_MESSAGES_PER_WINDOW` (default 240)
+  - `MESSAGE_RATE_WINDOW_MS` (default 10000)
 
 ---
 
@@ -102,6 +107,21 @@ ICE_SERVERS_JSON='[{"urls":"stun:stun.example.net:3478"},{"urls":"turn:turn.exam
 ICE_TRANSPORT_POLICY=relay \
 node serve.js
 ```
+
+Recommended production TURN mode (coturn REST auth, short-lived credentials):
+
+```bash
+TURN_URLS_JSON='["turn:turn.example.net:3478?transport=udp","turns:turn.example.net:5349?transport=tcp"]' \
+TURN_AUTH_SECRET='YOUR_TURN_SHARED_SECRET' \
+TURN_TTL_SECONDS=600 \
+ICE_TRANSPORT_POLICY=relay \
+node serve.js
+```
+
+Notes:
+- `TURN_URLS_JSON` + `TURN_AUTH_SECRET` must be set together.
+- `TURN_TTL_SECONDS` range is `30..86400` (default `600`).
+- `/runtime-config` mints fresh TURN credentials per request (RAM-only).
 
 App server operational endpoints:
 - `GET /healthz`

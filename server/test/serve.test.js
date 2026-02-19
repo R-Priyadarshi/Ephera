@@ -2,6 +2,7 @@ const assert = require('assert');
 const http = require('http');
 const net = require('net');
 const path = require('path');
+const crypto = require('crypto');
 const { spawn } = require('child_process');
 const WebSocket = require('ws');
 
@@ -78,10 +79,15 @@ async function startAppServer(extraEnv = null) {
     stdio: ['ignore', 'pipe', 'pipe'],
     env: {
       ...process.env,
-      ...(extraEnv && typeof extraEnv === 'object' ? extraEnv : {}),
       HOST: '127.0.0.1',
       PORT: String(port),
       VERBOSE: '0',
+      ICE_SERVERS_JSON: '',
+      ICE_TRANSPORT_POLICY: '',
+      TURN_URLS_JSON: '',
+      TURN_AUTH_SECRET: '',
+      TURN_TTL_SECONDS: '',
+      ...(extraEnv && typeof extraEnv === 'object' ? extraEnv : {}),
     },
   });
 
@@ -124,6 +130,18 @@ async function startAppServer(extraEnv = null) {
   }
 
   return { port, proc, stop };
+}
+
+async function assertStartFails(extraEnv = null) {
+  let failed = false;
+  try {
+    const app = await startAppServer(extraEnv);
+    await app.stop();
+  } catch (err) {
+    failed = true;
+    assert.ok(String(err && err.message).includes('exited early'));
+  }
+  assert.strictEqual(failed, true);
 }
 
 function openClient(url) {
@@ -322,9 +340,93 @@ async function testHealthAndRuntimeConfigEndpoints() {
   }
 }
 
+async function testRuntimeConfigDynamicTurnCredentials() {
+  const turnSecret = 'turn-shared-secret-alpha';
+  const ttlSeconds = 120;
+  const app = await startAppServer({
+    ICE_SERVERS_JSON: JSON.stringify([
+      { urls: 'stun:stun.example.net:3478' },
+    ]),
+    TURN_URLS_JSON: JSON.stringify([
+      'turn:turn.example.net:3478?transport=udp',
+      'turns:turn.example.net:5349?transport=tcp',
+    ]),
+    TURN_AUTH_SECRET: turnSecret,
+    TURN_TTL_SECONDS: String(ttlSeconds),
+    ICE_TRANSPORT_POLICY: 'relay',
+  });
+
+  try {
+    const first = await httpGet(app.port, '/runtime-config');
+    const second = await httpGet(app.port, '/runtime-config');
+
+    assert.strictEqual(first.status, 200);
+    assert.strictEqual(second.status, 200);
+
+    const cfgA = JSON.parse(first.body || '{}');
+    const cfgB = JSON.parse(second.body || '{}');
+
+    assert.strictEqual(cfgA.v, 1);
+    assert.strictEqual(cfgA.icePolicy, 'relay');
+    assert.ok(Array.isArray(cfgA.iceServers));
+    assert.strictEqual(cfgA.iceServers.length, 2);
+    assert.strictEqual(cfgA.iceServers[0].urls, 'stun:stun.example.net:3478');
+
+    const turnA = cfgA.iceServers[1];
+    const turnB = cfgB.iceServers[1];
+    assert.deepStrictEqual(turnA.urls, [
+      'turn:turn.example.net:3478?transport=udp',
+      'turns:turn.example.net:5349?transport=tcp',
+    ]);
+
+    assert.ok(typeof turnA.username === 'string');
+    assert.ok(/^\d+:[0-9a-f]{16}$/.test(turnA.username));
+
+    const expectedCredA = crypto.createHmac('sha1', turnSecret).update(turnA.username).digest('base64');
+    assert.strictEqual(turnA.credential, expectedCredA);
+
+    const nowSeconds = Math.floor(Date.now() / 1000);
+    const expiresA = Number(turnA.username.split(':')[0]);
+    assert.ok(Number.isFinite(expiresA));
+    assert.ok(expiresA >= (nowSeconds + ttlSeconds - 3));
+    assert.ok(expiresA <= (nowSeconds + ttlSeconds + 3));
+
+    // Fresh runtime-config calls should rotate username/credential.
+    assert.notStrictEqual(turnB.username, turnA.username);
+    assert.notStrictEqual(turnB.credential, turnA.credential);
+    const expectedCredB = crypto.createHmac('sha1', turnSecret).update(turnB.username).digest('base64');
+    assert.strictEqual(turnB.credential, expectedCredB);
+  } finally {
+    await app.stop();
+  }
+}
+
+async function testInvalidDynamicTurnEnvFailsFast() {
+  await assertStartFails({
+    TURN_AUTH_SECRET: 'secret-only',
+  });
+
+  await assertStartFails({
+    TURN_URLS_JSON: JSON.stringify(['turn:turn.example.net:3478']),
+  });
+
+  await assertStartFails({
+    TURN_URLS_JSON: JSON.stringify(['turn:turn.example.net:3478']),
+    TURN_AUTH_SECRET: 'secret',
+    TURN_TTL_SECONDS: '10',
+  });
+
+  await assertStartFails({
+    TURN_URLS_JSON: JSON.stringify(['stun:stun.example.net:3478']),
+    TURN_AUTH_SECRET: 'secret',
+  });
+}
+
 async function runServeTestSuite() {
   await testStaticHeadersAndPathGuards();
   await testHealthAndRuntimeConfigEndpoints();
+  await testRuntimeConfigDynamicTurnCredentials();
+  await testInvalidDynamicTurnEnvFailsFast();
   await testSameOriginSignalingOverAppServer();
 }
 

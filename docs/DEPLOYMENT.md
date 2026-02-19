@@ -53,6 +53,49 @@ Behavior:
 - Browser client loads these defaults automatically.
 - URL-provided ICE config (`iceServers`, `stun`, `turn`, `icePolicy`) still takes precedence.
 
+### Recommended: Dynamic TURN Credentials (No Static TURN Password In Clients)
+
+When using coturn REST auth (`use-auth-secret`), configure Ephera to mint short-lived TURN credentials per request:
+
+```bash
+TURN_URLS_JSON='["turn:turn.example.net:3478?transport=udp","turns:turn.example.net:5349?transport=tcp"]' \
+TURN_AUTH_SECRET='YOUR_TURN_SHARED_SECRET' \
+TURN_TTL_SECONDS=600 \
+ICE_TRANSPORT_POLICY=relay \
+npm start
+```
+
+Behavior:
+- Each `GET /runtime-config` call mints a fresh TURN `username` + `credential` pair in RAM.
+- Credentials are HMAC-SHA1 signed and expire after `TURN_TTL_SECONDS`.
+- No TURN credential history is persisted by Ephera.
+
+Validation rules:
+- `TURN_URLS_JSON` and `TURN_AUTH_SECRET` must be set together.
+- `TURN_TTL_SECONDS` must be between `30` and `86400`.
+- `TURN_URLS_JSON` entries must be `turn:` or `turns:` URLs.
+
+## Signaling Abuse Controls
+
+The signaling server supports built-in guardrails (all RAM-only, no telemetry):
+
+- `ALLOWED_ORIGINS` (comma-separated, or `*`)
+- `MAX_CONNECTIONS` (default `2048`)
+- `MAX_ROOMS` (default `4096`)
+- `MAX_MESSAGES_PER_WINDOW` (default `240`)
+- `MESSAGE_RATE_WINDOW_MS` (default `10000`)
+
+Example:
+
+```bash
+ALLOWED_ORIGINS='https://app.example.com' \
+MAX_CONNECTIONS=5000 \
+MAX_ROOMS=10000 \
+MAX_MESSAGES_PER_WINDOW=300 \
+MESSAGE_RATE_WINDOW_MS=10000 \
+npm start
+```
+
 ## TURN Compose Profile (Reference)
 
 This repo includes a local production-like profile with Ephera + coturn:

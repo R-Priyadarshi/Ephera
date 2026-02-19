@@ -141,6 +141,8 @@ All tests here run against the real engine stack using loopback transports (fast
     - Validates message shapes + room IDs
     - Relays opaque `signal` payloads only (no inspection)
     - Enforces `maxPayload`, max peers per room, optional Origin allowlist
+    - Enforces connection and room pressure caps (`MAX_CONNECTIONS`, `MAX_ROOMS`)
+    - Enforces per-socket message-rate caps (`MAX_MESSAGES_PER_WINDOW`, `MESSAGE_RATE_WINDOW_MS`)
     - Ping/pong keepalive to terminate dead sockets
 - `server/rooms.js`
   - In-memory room store:
@@ -155,6 +157,7 @@ All tests here run against the real engine stack using loopback transports (fast
     - Optional HTTPS if `TLS_KEY_PATH` + `TLS_CERT_PATH` are provided
     - Health endpoints: `/healthz`, `/readyz`
     - Runtime client config endpoint: `/runtime-config` (supports `ICE_SERVERS_JSON` + `ICE_TRANSPORT_POLICY`)
+    - Optional dynamic TURN credential minting (`TURN_URLS_JSON` + `TURN_AUTH_SECRET` + `TURN_TTL_SECONDS`)
     - Conservative security headers; no request logs
 
 ### `server/test/` (Signaling Regression)

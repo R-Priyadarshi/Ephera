@@ -352,6 +352,70 @@ async function testMaxPayloadCloses() {
   });
 }
 
+async function testMaxConnectionsRejectsExcess() {
+  await withServer({ maxConnections: 2 }, async ({ url }) => {
+    const a = await openClient(url);
+    const b = await openClient(url);
+    const c = new WebSocket(url);
+
+    const closed = await withTimeout(waitForClose(c), 2000, 'close excess connection');
+    assert.ok(closed.code === 1013 || closed.code === 1006);
+
+    // Existing clients should still function.
+    a.send(JSON.stringify({ type: 'create-room', roomId: 'room-conn-cap' }));
+    const created = await withTimeout(nextJsonMessage(a), 1000, 'create after cap');
+    assert.strictEqual(created.type, 'room-created');
+
+    try { a.close(); } catch {}
+    try { b.close(); } catch {}
+    await withTimeout(waitForClose(a), 1000, 'close a');
+    await withTimeout(waitForClose(b), 1000, 'close b');
+  });
+}
+
+async function testMessageRateLimitClosesFlood() {
+  await withServer({ maxMessagesPerWindow: 5, messageRateWindowMs: 1000 }, async ({ url }) => {
+    const a = await openClient(url);
+
+    // Flood with cheap invalid app messages.
+    for (let i = 0; i < 16; i++) {
+      try { a.send(JSON.stringify({ type: 'unknown' })); } catch {}
+    }
+
+    const closed = await withTimeout(waitForClose(a), 2000, 'rate-limit close');
+    assert.ok(closed.code === 1008 || closed.code === 1006);
+  });
+}
+
+async function testMaxRoomsRejectsCreateWhenServerBusy() {
+  await withServer({ maxRooms: 1 }, async ({ url }) => {
+    const a = await openClient(url);
+    const b = await openClient(url);
+
+    a.send(JSON.stringify({ type: 'create-room', roomId: 'room-cap-a' }));
+    const created = await withTimeout(nextJsonMessage(a), 1000, 'create room a');
+    assert.strictEqual(created.type, 'room-created');
+
+    b.send(JSON.stringify({ type: 'create-room', roomId: 'room-cap-b' }));
+    const err = await withTimeout(nextJsonMessage(b), 1000, 'server busy');
+    assert.strictEqual(err.type, 'error');
+    assert.strictEqual(err.message, 'Server busy');
+
+    // Joining existing room should still work under room-cap.
+    b.send(JSON.stringify({ type: 'join-room', roomId: 'room-cap-a' }));
+    const joined = await withTimeout(nextJsonMessage(b), 1000, 'join room a');
+    assert.strictEqual(joined.type, 'room-joined');
+
+    const peerJoined = await withTimeout(nextJsonMessage(a), 1000, 'peer joined');
+    assert.strictEqual(peerJoined.type, 'peer-joined');
+
+    try { a.close(); } catch {}
+    try { b.close(); } catch {}
+    await withTimeout(waitForClose(a), 1000, 'close a');
+    await withTimeout(waitForClose(b), 1000, 'close b');
+  });
+}
+
 async function runSignalingTestSuite() {
   // Keep output terse; failures will throw.
   await testRelaySignal();
@@ -364,6 +428,9 @@ async function runSignalingTestSuite() {
   await testWaitingTtlExpiresSoloPeer();
   await testWaitingTtlDoesNotKillActivePair();
   await testMaxPayloadCloses();
+  await testMaxConnectionsRejectsExcess();
+  await testMessageRateLimitClosesFlood();
+  await testMaxRoomsRejectsCreateWhenServerBusy();
 }
 
 module.exports = {
