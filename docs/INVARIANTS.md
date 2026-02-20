@@ -50,6 +50,11 @@
   - Inbound sessions received while incompatible must be aborted (best-effort) and must not be streamed
   - Capability state is RAM-only and must reset on teardown/reconnect
 
+- App-Server Shutdown Determinism (Stage 11):
+  - `/readyz` must fail closed during shutdown (`stopping=true`)
+  - Shutdown must be bounded even with stuck HTTP sockets (force-drain after grace window)
+  - Forced drain must not persist or log request data
+
 - Metadata (Stage 7):
   - META is optional and must be one-shot per transfer (duplicates abort the session)
   - META must be bounded in size and must not be persisted beyond the session

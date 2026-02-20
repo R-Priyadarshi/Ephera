@@ -204,6 +204,8 @@ All tests here run against the real engine stack using loopback transports (fast
   - Stage 9 passphrase verification handshake freeze.
 - `docs/ARCHITECTURE_FREEZE_STAGE_10.0.md`
   - Stage 10 protocol compatibility freeze.
+- `docs/ARCHITECTURE_FREEZE_STAGE_11.0.md`
+  - Stage 11 app-server shutdown determinism freeze.
 - `docs/DEPLOYMENT.md`
   - Reverse proxy examples + “disable access logs” guidance.
 
