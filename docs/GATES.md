@@ -11,6 +11,23 @@
   - Re-run manual memory heap snapshot
   - Explicitly list affected invariants (or state 'none')
 
+## CI Required Checks
+
+Branch protection must require these CI job checks before merge:
+
+- `core-tests` (`npm test`)
+- `full-gates` (`npm run gates`)
+- `relay-required` (`npm run gates:relay-local` -> includes `npm run e2e:relay:required`)
+
+Workflow file:
+
+- `.github/workflows/ci.yml`
+
+Recommended repository setting:
+
+- GitHub Settings -> Branches -> Branch protection rules -> Require status checks to pass before merging
+  - Mark `core-tests`, `full-gates`, and `relay-required` as required.
+
 NOTE:
 - Logical version name: v0.3.3-engine-frozen
 - Logical version name (Stage 4): v0.4.0-fairness-frozen

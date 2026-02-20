@@ -88,3 +88,12 @@
   - `docs/DEPLOYMENT.md`
   - `docs/PROJECT_MAP.md`
   - `server/README.md`
+- Added GitHub CI workflow with required backend gates:
+  - new `.github/workflows/ci.yml`
+  - job `core-tests` runs `npm test`
+  - job `full-gates` runs `npm run gates`
+  - job `relay-required` runs `npm run gates:relay-local` (required relay runtime path)
+  - supports optional `CI_TURN_AUTH_SECRET` repository secret for relay job
+- Updated governance/readiness docs for required CI checks:
+  - `docs/GATES.md`
+  - `RELEASE_READINESS.md`
