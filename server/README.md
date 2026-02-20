@@ -63,6 +63,10 @@ It relays connection metadata between peers so they can establish direct peer-to
 - Per-IP message-rate limiter:
   - `MAX_MESSAGES_PER_IP_PER_WINDOW` (default 1200)
   - Uses the same `MESSAGE_RATE_WINDOW_MS`
+- Per-IP room operation throttle (`create-room`/`join-room`):
+  - `MAX_ROOM_OPS_PER_IP_PER_WINDOW` (default 120)
+  - `ROOM_OPS_WINDOW_MS` (default 60000)
+  - `ROOM_OPS_COOLDOWN_MS` (default 30000)
 - `TRUST_PROXY=1` (optional) enables `X-Forwarded-For` for per-IP controls
   - Default is off (`TRUST_PROXY=0`) to prevent header spoofing
 - App-server mode (`serve.js`) enforces same-origin WebSocket `Origin` checks by default
@@ -157,6 +161,7 @@ npm test
 Current server test coverage includes:
 - signaling protocol behavior (`create-room`, `join-room`, relay, room limits)
 - signaling pressure controls (global + per-IP caps, trust-proxy behavior)
+- signaling room-abuse throttle (per-IP create/join budget + cooldown)
 - waiting-room TTL behavior
 - app server static/security headers (`Cache-Control`, `CSP`, `nosniff`, `no-referrer`)
 - app server health/readiness/runtime-config endpoints

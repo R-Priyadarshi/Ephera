@@ -25,6 +25,9 @@ const DEFAULT_MAX_MESSAGES_PER_WINDOW = 240;
 const DEFAULT_MESSAGE_RATE_WINDOW_MS = 10 * 1000;
 const DEFAULT_MAX_CONNECTIONS_PER_IP = 64;
 const DEFAULT_MAX_MESSAGES_PER_IP_PER_WINDOW = 1200;
+const DEFAULT_MAX_ROOM_OPS_PER_IP_PER_WINDOW = 120;
+const DEFAULT_ROOM_OPS_WINDOW_MS = 60 * 1000;
+const DEFAULT_ROOM_OPS_COOLDOWN_MS = 30 * 1000;
 
 function parseAllowedOrigins(value) {
   if (typeof value !== 'string') return null;
@@ -71,6 +74,8 @@ function safeSend(socket, obj) {
 }
 
 function parsePositiveInt(value, fallback, min = 1) {
+  if (value === null || value === undefined) return fallback;
+  if (typeof value === 'string' && !value.trim()) return fallback;
   const n = Number(value);
   if (!Number.isFinite(n)) return fallback;
   return Math.max(min, Math.floor(n));
@@ -215,9 +220,27 @@ function createSignalingServer(options = {}) {
     1
   );
 
+  const maxRoomOpsPerIpPerWindow = parsePositiveInt(
+    options.maxRoomOpsPerIpPerWindow ?? process.env.MAX_ROOM_OPS_PER_IP_PER_WINDOW,
+    DEFAULT_MAX_ROOM_OPS_PER_IP_PER_WINDOW,
+    1
+  );
+
   const messageRateWindowMs = parsePositiveInt(
     options.messageRateWindowMs ?? process.env.MESSAGE_RATE_WINDOW_MS,
     DEFAULT_MESSAGE_RATE_WINDOW_MS,
+    100
+  );
+
+  const roomOpsWindowMs = parsePositiveInt(
+    options.roomOpsWindowMs ?? process.env.ROOM_OPS_WINDOW_MS,
+    DEFAULT_ROOM_OPS_WINDOW_MS,
+    100
+  );
+
+  const roomOpsCooldownMs = parsePositiveInt(
+    options.roomOpsCooldownMs ?? process.env.ROOM_OPS_COOLDOWN_MS,
+    DEFAULT_ROOM_OPS_COOLDOWN_MS,
     100
   );
 
@@ -238,6 +261,7 @@ function createSignalingServer(options = {}) {
   const rooms = createRoomStore({ waitingTtlMs });
   const ipConnectionCounts = new Map();
   const ipMessageRates = new Map();
+  const ipRoomOps = new Map();
 
   const wss = new WebSocketServer({
     ...(httpServer ? { server: httpServer } : { port, ...(host ? { host } : {}) }),
@@ -294,6 +318,7 @@ function createSignalingServer(options = {}) {
     }
     ipConnectionCounts.delete(ip);
     ipMessageRates.delete(ip);
+    ipRoomOps.delete(ip);
   }
 
   function exceededIpMessageRate(ip) {
@@ -309,6 +334,50 @@ function createSignalingServer(options = {}) {
     state.count += 1;
     ipMessageRates.set(ip, state);
     return state.count > maxMessagesPerIpPerWindow;
+  }
+
+  function consumeRoomOpBudget(ip) {
+    const now = Date.now();
+    let state = ipRoomOps.get(ip);
+    if (!state) {
+      state = {
+        windowStartedAt: now,
+        count: 0,
+        cooldownUntil: 0,
+      };
+    }
+
+    if (state.cooldownUntil > now) {
+      ipRoomOps.set(ip, state);
+      return {
+        ok: false,
+        retryAfterMs: Math.max(1, state.cooldownUntil - now),
+      };
+    }
+
+    if ((now - state.windowStartedAt) >= roomOpsWindowMs) {
+      state.windowStartedAt = now;
+      state.count = 0;
+      state.cooldownUntil = 0;
+    }
+
+    state.count += 1;
+    if (state.count > maxRoomOpsPerIpPerWindow) {
+      state.count = 0;
+      state.windowStartedAt = now;
+      state.cooldownUntil = now + roomOpsCooldownMs;
+      ipRoomOps.set(ip, state);
+      return {
+        ok: false,
+        retryAfterMs: roomOpsCooldownMs,
+      };
+    }
+
+    ipRoomOps.set(ip, state);
+    return {
+      ok: true,
+      retryAfterMs: 0,
+    };
   }
 
   wss.on('connection', (socket, req) => {
@@ -407,6 +476,12 @@ function createSignalingServer(options = {}) {
 
       switch (type) {
         case 'create-room': {
+          const budget = consumeRoomOpBudget(clientIp);
+          if (!budget.ok) {
+            safeSend(socket, { type: 'error', message: 'Too many room operations; retry later', retryAfterMs: budget.retryAfterMs });
+            return;
+          }
+
           if (typeof message.roomId !== 'string') {
             safeSend(socket, { type: 'error', message: 'roomId required' });
             return;
@@ -446,6 +521,12 @@ function createSignalingServer(options = {}) {
         }
 
         case 'join-room': {
+          const budget = consumeRoomOpBudget(clientIp);
+          if (!budget.ok) {
+            safeSend(socket, { type: 'error', message: 'Too many room operations; retry later', retryAfterMs: budget.retryAfterMs });
+            return;
+          }
+
           if (typeof message.roomId !== 'string') {
             safeSend(socket, { type: 'error', message: 'roomId required' });
             return;
@@ -540,6 +621,7 @@ function createSignalingServer(options = {}) {
     try { rooms.destroyAll(); } catch {}
     try { ipConnectionCounts.clear(); } catch {}
     try { ipMessageRates.clear(); } catch {}
+    try { ipRoomOps.clear(); } catch {}
 
     // Deterministic shutdown: ensure the WebSocket server closes even if a client
     // never responds to a graceful close handshake.
@@ -606,5 +688,8 @@ module.exports = {
   DEFAULT_MESSAGE_RATE_WINDOW_MS,
   DEFAULT_MAX_CONNECTIONS_PER_IP,
   DEFAULT_MAX_MESSAGES_PER_IP_PER_WINDOW,
+  DEFAULT_MAX_ROOM_OPS_PER_IP_PER_WINDOW,
+  DEFAULT_ROOM_OPS_WINDOW_MS,
+  DEFAULT_ROOM_OPS_COOLDOWN_MS,
   createSignalingServer,
 };

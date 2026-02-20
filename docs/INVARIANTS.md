@@ -60,6 +60,11 @@
   - Proxy-supplied client IP headers (`X-Forwarded-For`) must be ignored unless `TRUST_PROXY=1`
   - Per-IP accounting state must be bounded in RAM and released when IP has no active sockets
 
+- Signaling Room-Abuse Throttling (Stage 13):
+  - `create-room` / `join-room` attempts must be budgeted per IP with deterministic cooldown on abuse
+  - Cooldown enforcement must be independent of per-socket and per-IP message-rate caps
+  - Room-op throttle accounting must remain RAM-only and be released when IP has no active sockets
+
 - Metadata (Stage 7):
   - META is optional and must be one-shot per transfer (duplicates abort the session)
   - META must be bounded in size and must not be persisted beyond the session

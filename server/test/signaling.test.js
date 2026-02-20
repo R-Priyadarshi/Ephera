@@ -511,6 +511,76 @@ async function testForwardedForIgnoredWithoutTrustProxy() {
   });
 }
 
+async function testRoomOpsBudgetAndCooldown() {
+  await withServer({
+    maxRoomOpsPerIpPerWindow: 3,
+    roomOpsWindowMs: 5000,
+    roomOpsCooldownMs: 200,
+  }, async ({ url }) => {
+    const a = await openClient(url);
+
+    for (let i = 0; i < 3; i++) {
+      a.send(JSON.stringify({ type: 'join-room', roomId: `room-miss-${i}` }));
+      const err = await withTimeout(nextJsonMessage(a), 1000, `room-op miss ${i}`);
+      assert.strictEqual(err.type, 'error');
+      assert.strictEqual(err.message, 'Room not found');
+    }
+
+    a.send(JSON.stringify({ type: 'join-room', roomId: 'room-miss-throttled' }));
+    const throttled = await withTimeout(nextJsonMessage(a), 1000, 'room-op throttled');
+    assert.strictEqual(throttled.type, 'error');
+    assert.strictEqual(throttled.message, 'Too many room operations; retry later');
+    assert.ok(Number.isFinite(throttled.retryAfterMs));
+    assert.ok(throttled.retryAfterMs >= 1);
+
+    await sleep(250);
+
+    a.send(JSON.stringify({ type: 'join-room', roomId: 'room-miss-after-cooldown' }));
+    const afterCooldown = await withTimeout(nextJsonMessage(a), 1000, 'room-op after cooldown');
+    assert.strictEqual(afterCooldown.type, 'error');
+    assert.strictEqual(afterCooldown.message, 'Room not found');
+
+    try { a.close(); } catch {}
+    await withTimeout(waitForClose(a), 1000, 'close a');
+  });
+}
+
+async function testRoomOpsBudgetUsesTrustProxy() {
+  await withServer({
+    maxRoomOpsPerIpPerWindow: 1,
+    roomOpsWindowMs: 5000,
+    roomOpsCooldownMs: 200,
+    trustProxy: true,
+  }, async ({ url }) => {
+    const a = await openClientWithOptions(url, {
+      headers: { 'X-Forwarded-For': '203.0.113.44' },
+    });
+    const b = await openClientWithOptions(url, {
+      headers: { 'X-Forwarded-For': '203.0.113.45' },
+    });
+
+    a.send(JSON.stringify({ type: 'join-room', roomId: 'room-proxy-a-1' }));
+    const aFirst = await withTimeout(nextJsonMessage(a), 1000, 'proxy a first');
+    assert.strictEqual(aFirst.type, 'error');
+    assert.strictEqual(aFirst.message, 'Room not found');
+
+    a.send(JSON.stringify({ type: 'join-room', roomId: 'room-proxy-a-2' }));
+    const aSecond = await withTimeout(nextJsonMessage(a), 1000, 'proxy a second');
+    assert.strictEqual(aSecond.type, 'error');
+    assert.strictEqual(aSecond.message, 'Too many room operations; retry later');
+
+    b.send(JSON.stringify({ type: 'join-room', roomId: 'room-proxy-b-1' }));
+    const bFirst = await withTimeout(nextJsonMessage(b), 1000, 'proxy b first');
+    assert.strictEqual(bFirst.type, 'error');
+    assert.strictEqual(bFirst.message, 'Room not found');
+
+    try { a.close(); } catch {}
+    try { b.close(); } catch {}
+    await withTimeout(waitForClose(a), 1000, 'close a');
+    await withTimeout(waitForClose(b), 1000, 'close b');
+  });
+}
+
 async function testMaxRoomsRejectsCreateWhenServerBusy() {
   await withServer({ maxRooms: 1 }, async ({ url }) => {
     const a = await openClient(url);
@@ -559,6 +629,8 @@ async function runSignalingTestSuite() {
   await testPerIpMessageRateLimitAcrossSockets();
   await testTrustProxyPerIpControls();
   await testForwardedForIgnoredWithoutTrustProxy();
+  await testRoomOpsBudgetAndCooldown();
+  await testRoomOpsBudgetUsesTrustProxy();
   await testMaxRoomsRejectsCreateWhenServerBusy();
 }
 

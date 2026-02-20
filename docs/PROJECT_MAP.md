@@ -153,6 +153,7 @@ All tests here run against the real engine stack using loopback transports (fast
     - Enforces `maxPayload`, max peers per room, optional Origin allowlist
     - Enforces connection and room pressure caps (`MAX_CONNECTIONS`, `MAX_ROOMS`)
     - Enforces per-IP admission pressure caps (`MAX_CONNECTIONS_PER_IP`, `MAX_MESSAGES_PER_IP_PER_WINDOW`)
+    - Enforces per-IP room operation throttle (`MAX_ROOM_OPS_PER_IP_PER_WINDOW`, `ROOM_OPS_WINDOW_MS`, `ROOM_OPS_COOLDOWN_MS`)
     - Enforces per-socket message-rate caps (`MAX_MESSAGES_PER_WINDOW`, `MESSAGE_RATE_WINDOW_MS`)
     - Optional proxy-aware IP attribution via `TRUST_PROXY=1` (`X-Forwarded-For`)
     - Supports optional strict same-origin Origin policy (`enforceSameOrigin`)
@@ -178,7 +179,7 @@ All tests here run against the real engine stack using loopback transports (fast
 ### `server/test/` (Signaling Regression)
 
 - `server/test/signaling.test.js`
-  - Exercises signaling behaviors: relay, room full, collisions, TTL, payload caps.
+  - Exercises signaling behaviors: relay, room/full/collision semantics, TTL, payload caps, per-IP controls, room-op throttle.
 - `server/test/serve.test.js`
   - Verifies static/security headers, path guards, app-server health/readiness/runtime-config endpoints, and same-origin WS signaling.
 - `server/test/run-all.js`
@@ -210,6 +211,8 @@ All tests here run against the real engine stack using loopback transports (fast
   - Stage 11 app-server shutdown determinism freeze.
 - `docs/ARCHITECTURE_FREEZE_STAGE_12.0.md`
   - Stage 12 signaling per-IP admission controls freeze.
+- `docs/ARCHITECTURE_FREEZE_STAGE_13.0.md`
+  - Stage 13 signaling room-abuse throttling freeze.
 - `docs/DEPLOYMENT.md`
   - Reverse proxy examples + “disable access logs” guidance.
 
