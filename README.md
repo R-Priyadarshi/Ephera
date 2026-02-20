@@ -65,6 +65,7 @@ Environment variables:
 - `MAX_MESSAGES_PER_WINDOW` (optional per-socket rate cap; default `240`)
 - `MESSAGE_RATE_WINDOW_MS` (optional rate window size; default `10000`)
 - `ENFORCE_SAME_ORIGIN` (app-server WS origin policy: default `1`; set `0` only behind trusted edge controls)
+- `SHUTDOWN_GRACE_MS` (optional app-server forced-drain timeout for stuck HTTP sockets on shutdown, range `0..600000`, default `3000`)
 
 If you don’t provide TLS in Ephera itself, deploy behind a TLS-terminating reverse proxy so browsers see `https://...` (required for folder-based saving).
 

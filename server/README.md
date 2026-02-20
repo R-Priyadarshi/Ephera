@@ -61,6 +61,9 @@ It relays connection metadata between peers so they can establish direct peer-to
   - `MESSAGE_RATE_WINDOW_MS` (default 10000)
 - App-server mode (`serve.js`) enforces same-origin WebSocket `Origin` checks by default
   - `ENFORCE_SAME_ORIGIN=1` (default), set `0` only in controlled environments
+- Deterministic app-server shutdown drain:
+  - `SHUTDOWN_GRACE_MS` (default `3000`, range `0..600000`)
+  - After this grace window, stuck HTTP sockets are force-closed so process exit cannot hang
 
 ---
 
@@ -150,6 +153,7 @@ Current server test coverage includes:
 - waiting-room TTL behavior
 - app server static/security headers (`Cache-Control`, `CSP`, `nosniff`, `no-referrer`)
 - app server health/readiness/runtime-config endpoints
+- app server deterministic shutdown under hung HTTP connections
 - same-origin WebSocket signaling on `server/serve.js`
 
 ---

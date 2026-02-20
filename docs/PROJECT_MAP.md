@@ -170,6 +170,7 @@ All tests here run against the real engine stack using loopback transports (fast
     - Health endpoints: `/healthz`, `/readyz`
     - Runtime client config endpoint: `/runtime-config` (supports `ICE_SERVERS_JSON` + `ICE_TRANSPORT_POLICY`)
     - Optional dynamic TURN credential minting (`TURN_URLS_JSON` + `TURN_AUTH_SECRET` + `TURN_TTL_SECONDS`)
+    - Deterministic shutdown drain for stuck HTTP sockets (`SHUTDOWN_GRACE_MS`)
     - Conservative security headers; no request logs
 
 ### `server/test/` (Signaling Regression)

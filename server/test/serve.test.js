@@ -237,6 +237,13 @@ function waitForClose(ws) {
   });
 }
 
+function waitForSocketClose(socket) {
+  return new Promise((resolve) => {
+    if (!socket || socket.destroyed) return resolve();
+    socket.once('close', () => resolve());
+  });
+}
+
 async function testStaticHeadersAndPathGuards() {
   const app = await startAppServer();
   try {
@@ -266,6 +273,30 @@ async function testStaticHeadersAndPathGuards() {
     assert.strictEqual(traversal.headers['referrer-policy'], 'no-referrer');
   } finally {
     await app.stop();
+  }
+}
+
+async function testGracefulShutdownWithHungConnection() {
+  const app = await startAppServer({ SHUTDOWN_GRACE_MS: '200' });
+  const socket = net.connect({ host: '127.0.0.1', port: app.port });
+
+  try {
+    await withTimeout(new Promise((resolve, reject) => {
+      socket.once('connect', resolve);
+      socket.once('error', reject);
+    }), 2000, 'hung socket connect');
+
+    // Deliberately keep an incomplete request open so graceful shutdown must force-close.
+    socket.write(`GET / HTTP/1.1\r\nHost: 127.0.0.1:${app.port}\r\nConnection: keep-alive\r\n`);
+
+    const startedAt = Date.now();
+    await app.stop();
+    const elapsed = Date.now() - startedAt;
+    assert.ok(elapsed < 4000, `Expected forced shutdown under 4000ms, got ${elapsed}ms`);
+
+    await withTimeout(waitForSocketClose(socket), 2000, 'hung socket close');
+  } finally {
+    try { socket.destroy(); } catch {}
   }
 }
 
@@ -482,10 +513,19 @@ async function testInvalidDynamicTurnEnvFailsFast() {
     TURN_URLS_JSON: JSON.stringify(['stun:stun.example.net:3478']),
     TURN_AUTH_SECRET: 'secret',
   });
+
+  await assertStartFails({
+    SHUTDOWN_GRACE_MS: '-1',
+  });
+
+  await assertStartFails({
+    SHUTDOWN_GRACE_MS: 'not-a-number',
+  });
 }
 
 async function runServeTestSuite() {
   await testStaticHeadersAndPathGuards();
+  await testGracefulShutdownWithHungConnection();
   await testDefaultSameOriginPolicyOnAppServer();
   await testDisableSameOriginPolicyOverride();
   await testHealthAndRuntimeConfigEndpoints();

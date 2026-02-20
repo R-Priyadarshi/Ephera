@@ -67,6 +67,10 @@ const ENFORCE_SAME_ORIGIN_RAW = (typeof process.env.ENFORCE_SAME_ORIGIN === 'str
   ? process.env.ENFORCE_SAME_ORIGIN.trim()
   : '';
 
+const SHUTDOWN_GRACE_MS_RAW = (typeof process.env.SHUTDOWN_GRACE_MS === 'string' && process.env.SHUTDOWN_GRACE_MS.trim())
+  ? process.env.SHUTDOWN_GRACE_MS.trim()
+  : '';
+
 function contentType(filePath) {
   const ext = path.extname(filePath).toLowerCase();
   switch (ext) {
@@ -203,6 +207,15 @@ function parseBooleanFlagOrExit(value, fallback) {
   process.exit(1);
 }
 
+function parseShutdownGraceMsOrExit(value, fallback = 3000) {
+  if (!value) return fallback;
+  const n = Number(value);
+  if (!Number.isFinite(n)) process.exit(1);
+  const ms = Math.floor(n);
+  if (ms < 0 || ms > 600000) process.exit(1);
+  return ms;
+}
+
 function buildDynamicTurnServer(turnConfig) {
   const nowSeconds = Math.floor(Date.now() / 1000);
   const expiresAt = nowSeconds + turnConfig.ttlSeconds;
@@ -304,6 +317,7 @@ function setSecurityHeaders(res) {
   res.setHeader('Cache-Control', 'no-store');
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Referrer-Policy', 'no-referrer');
+  if (stopping) res.setHeader('Connection', 'close');
 
   // Narrow CSP that still allows ws/wss signaling and module scripts.
   res.setHeader('Content-Security-Policy', [
@@ -333,6 +347,7 @@ function loadTlsOrExit() {
 
 const runtimeConfigFactory = loadRuntimeConfigFactoryOrExit();
 const enforceSameOrigin = parseBooleanFlagOrExit(ENFORCE_SAME_ORIGIN_RAW, true);
+const SHUTDOWN_GRACE_MS = parseShutdownGraceMsOrExit(SHUTDOWN_GRACE_MS_RAW, 3000);
 
 const tls = loadTlsOrExit();
 const server = tls
@@ -399,6 +414,15 @@ function onRequest(req, res) {
 
 let stopping = false;
 let signaling = null;
+const activeSockets = new Set();
+
+function trackSocket(socket) {
+  if (!socket) return;
+  activeSockets.add(socket);
+  socket.once('close', () => {
+    activeSockets.delete(socket);
+  });
+}
 
 // Same-origin signaling is the default deployment target.
 signaling = createSignalingServer({
@@ -414,6 +438,7 @@ signaling.ready
 signaling.wss.on('error', () => shutdown(1));
 
 server.on('error', () => shutdown(1));
+server.on('connection', trackSocket);
 
 server.listen(PORT, HOST, () => {
   // Intentionally silent by default.
@@ -438,8 +463,34 @@ async function shutdown(exitCode = 0) {
   try { if (signaling) await signaling.close(); } catch {}
   signaling = null;
 
+  try {
+    if (typeof server.closeIdleConnections === 'function') server.closeIdleConnections();
+  } catch {}
+
   await new Promise((resolve) => {
-    try { server.close(() => resolve()); } catch { resolve(); }
+    let finished = false;
+    let forceTimer = null;
+    const finish = () => {
+      if (finished) return;
+      finished = true;
+      if (forceTimer) clearTimeout(forceTimer);
+      resolve();
+    };
+
+    try {
+      server.close(() => finish());
+    } catch {
+      finish();
+      return;
+    }
+
+    forceTimer = setTimeout(() => {
+      for (const socket of activeSockets) {
+        try { socket.destroy(); } catch {}
+      }
+      finish();
+    }, SHUTDOWN_GRACE_MS);
+    try { forceTimer.unref(); } catch {}
   });
 
   if (exitCode) process.exit(exitCode);
