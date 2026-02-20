@@ -61,9 +61,12 @@ Environment variables:
 - `TURN_TTL_SECONDS` (optional dynamic TURN credential TTL, range `30..86400`, default `600`)
 - `ALLOWED_ORIGINS` (optional signaling Origin allowlist; comma-separated or `*`)
 - `MAX_CONNECTIONS` (optional signaling connection cap; default `2048`)
+- `MAX_CONNECTIONS_PER_IP` (optional signaling per-IP connection cap; default `64`)
 - `MAX_ROOMS` (optional in-memory room cap; default `4096`)
 - `MAX_MESSAGES_PER_WINDOW` (optional per-socket rate cap; default `240`)
+- `MAX_MESSAGES_PER_IP_PER_WINDOW` (optional per-IP rate cap within `MESSAGE_RATE_WINDOW_MS`; default `1200`)
 - `MESSAGE_RATE_WINDOW_MS` (optional rate window size; default `10000`)
+- `TRUST_PROXY` (optional, default `0`; set `1` only behind trusted proxy to use `X-Forwarded-For` for per-IP controls)
 - `ENFORCE_SAME_ORIGIN` (app-server WS origin policy: default `1`; set `0` only behind trusted edge controls)
 - `SHUTDOWN_GRACE_MS` (optional app-server forced-drain timeout for stuck HTTP sockets on shutdown, range `0..600000`, default `3000`)
 

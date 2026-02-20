@@ -152,7 +152,9 @@ All tests here run against the real engine stack using loopback transports (fast
     - Relays opaque `signal` payloads only (no inspection)
     - Enforces `maxPayload`, max peers per room, optional Origin allowlist
     - Enforces connection and room pressure caps (`MAX_CONNECTIONS`, `MAX_ROOMS`)
+    - Enforces per-IP admission pressure caps (`MAX_CONNECTIONS_PER_IP`, `MAX_MESSAGES_PER_IP_PER_WINDOW`)
     - Enforces per-socket message-rate caps (`MAX_MESSAGES_PER_WINDOW`, `MESSAGE_RATE_WINDOW_MS`)
+    - Optional proxy-aware IP attribution via `TRUST_PROXY=1` (`X-Forwarded-For`)
     - Supports optional strict same-origin Origin policy (`enforceSameOrigin`)
     - Ping/pong keepalive to terminate dead sockets
 - `server/rooms.js`
@@ -206,6 +208,8 @@ All tests here run against the real engine stack using loopback transports (fast
   - Stage 10 protocol compatibility freeze.
 - `docs/ARCHITECTURE_FREEZE_STAGE_11.0.md`
   - Stage 11 app-server shutdown determinism freeze.
+- `docs/ARCHITECTURE_FREEZE_STAGE_12.0.md`
+  - Stage 12 signaling per-IP admission controls freeze.
 - `docs/DEPLOYMENT.md`
   - Reverse proxy examples + “disable access logs” guidance.
 

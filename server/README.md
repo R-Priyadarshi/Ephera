@@ -55,10 +55,16 @@ It relays connection metadata between peers so they can establish direct peer-to
 - Optional Origin allowlist via `ALLOWED_ORIGINS` (comma-separated) or `*` to allow all
 - Ping/pong keepalive to clean up half-open sockets (no telemetry)
 - Connection cap (`MAX_CONNECTIONS`, default 2048)
+- Per-IP connection cap (`MAX_CONNECTIONS_PER_IP`, default 64)
 - Room cap (`MAX_ROOMS`, default 4096)
 - Per-socket message-rate limiter:
   - `MAX_MESSAGES_PER_WINDOW` (default 240)
   - `MESSAGE_RATE_WINDOW_MS` (default 10000)
+- Per-IP message-rate limiter:
+  - `MAX_MESSAGES_PER_IP_PER_WINDOW` (default 1200)
+  - Uses the same `MESSAGE_RATE_WINDOW_MS`
+- `TRUST_PROXY=1` (optional) enables `X-Forwarded-For` for per-IP controls
+  - Default is off (`TRUST_PROXY=0`) to prevent header spoofing
 - App-server mode (`serve.js`) enforces same-origin WebSocket `Origin` checks by default
   - `ENFORCE_SAME_ORIGIN=1` (default), set `0` only in controlled environments
 - Deterministic app-server shutdown drain:
@@ -150,6 +156,7 @@ npm test
 
 Current server test coverage includes:
 - signaling protocol behavior (`create-room`, `join-room`, relay, room limits)
+- signaling pressure controls (global + per-IP caps, trust-proxy behavior)
 - waiting-room TTL behavior
 - app server static/security headers (`Cache-Control`, `CSP`, `nosniff`, `no-referrer`)
 - app server health/readiness/runtime-config endpoints

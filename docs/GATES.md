@@ -9,6 +9,7 @@
   - Pass Stage 9 passphrase handshake regressions (covered by WebRTC E2E)
   - Pass Stage 10 protocol compatibility regressions (`client/test/capabilities.negotiation.test.js` + WebRTC `protocol-mismatch`)
   - Pass Stage 11 app-server shutdown regressions (`server/test/serve.test.js` hung-connection shutdown + env validation)
+  - Pass Stage 12 signaling per-IP admission regressions (`server/test/signaling.test.js`: per-IP cap + trust-proxy behavior)
   - Pass WebRTC E2E: `npm run e2e`
   - Re-run manual memory heap snapshot
   - Explicitly list affected invariants (or state 'none')
@@ -40,5 +41,6 @@ NOTE:
 - Logical version name (Stage 9): v0.9.0-passphrase-handshake-frozen
 - Logical version name (Stage 10): v0.10.0-protocol-compat-frozen
 - Logical version name (Stage 11): v0.11.0-server-shutdown-frozen
+- Logical version name (Stage 12): v0.12.0-signaling-ip-controls-frozen
 - This is a conceptual freeze marker, not a git tag yet
 - Git tagging will occur only when the full app is production-ready

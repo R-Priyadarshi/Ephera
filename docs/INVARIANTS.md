@@ -55,6 +55,11 @@
   - Shutdown must be bounded even with stuck HTTP sockets (force-drain after grace window)
   - Forced drain must not persist or log request data
 
+- Signaling Per-IP Admission Controls (Stage 12):
+  - Per-IP connection and message-rate caps must be enforced independently of per-socket caps
+  - Proxy-supplied client IP headers (`X-Forwarded-For`) must be ignored unless `TRUST_PROXY=1`
+  - Per-IP accounting state must be bounded in RAM and released when IP has no active sockets
+
 - Metadata (Stage 7):
   - META is optional and must be one-shot per transfer (duplicates abort the session)
   - META must be bounded in size and must not be persisted beyond the session

@@ -313,12 +313,15 @@ async function testSameOriginSignalingOverAppServer() {
     assert.strictEqual(created.type, 'room-created');
     assert.strictEqual(created.peerCount, 1);
 
+    const joinedP = withTimeout(nextJsonMessage(b), 2000, 'join ack');
+    const peerJoinedP = withTimeout(nextJsonMessage(a), 2000, 'peer joined notify');
     b.send(JSON.stringify({ type: 'join-room', roomId: 'room-app-server' }));
-    const joined = await withTimeout(nextJsonMessage(b), 2000, 'join ack');
+
+    const joined = await joinedP;
     assert.strictEqual(joined.type, 'room-joined');
     assert.strictEqual(joined.peerCount, 2);
 
-    const peerJoined = await withTimeout(nextJsonMessage(a), 2000, 'peer joined notify');
+    const peerJoined = await peerJoinedP;
     assert.strictEqual(peerJoined.type, 'peer-joined');
 
     a.send(JSON.stringify({ type: 'signal', payload: { sdp: 'fake-offer' } }));

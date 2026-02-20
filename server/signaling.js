@@ -23,6 +23,8 @@ const DEFAULT_MAX_CONNECTIONS = 2048;
 const DEFAULT_MAX_ROOMS = 4096;
 const DEFAULT_MAX_MESSAGES_PER_WINDOW = 240;
 const DEFAULT_MESSAGE_RATE_WINDOW_MS = 10 * 1000;
+const DEFAULT_MAX_CONNECTIONS_PER_IP = 64;
+const DEFAULT_MAX_MESSAGES_PER_IP_PER_WINDOW = 1200;
 
 function parseAllowedOrigins(value) {
   if (typeof value !== 'string') return null;
@@ -82,6 +84,42 @@ function parseBooleanFlag(value, fallback) {
   if (s === '1' || s === 'true' || s === 'yes' || s === 'on') return true;
   if (s === '0' || s === 'false' || s === 'no' || s === 'off') return false;
   return fallback;
+}
+
+function normalizeIp(value) {
+  if (typeof value !== 'string') return '';
+  let ip = value.trim();
+  if (!ip) return '';
+  const zone = ip.indexOf('%');
+  if (zone >= 0) ip = ip.slice(0, zone);
+  return ip;
+}
+
+function firstForwardedFor(headers) {
+  if (!headers || typeof headers !== 'object') return '';
+  const raw = headers['x-forwarded-for'];
+  if (Array.isArray(raw)) {
+    for (const item of raw) {
+      if (typeof item !== 'string') continue;
+      const first = item.split(',')[0].trim();
+      if (first) return first;
+    }
+    return '';
+  }
+  if (typeof raw === 'string') return raw.split(',')[0].trim();
+  return '';
+}
+
+function getClientIp(req, trustProxy = false) {
+  if (trustProxy) {
+    const forwarded = normalizeIp(firstForwardedFor(req && req.headers ? req.headers : null));
+    if (forwarded) return forwarded;
+  }
+
+  const remote = normalizeIp(req && req.socket && typeof req.socket.remoteAddress === 'string'
+    ? req.socket.remoteAddress
+    : '');
+  return remote || 'unknown';
 }
 
 function effectiveRequestProtocol(req) {
@@ -165,6 +203,18 @@ function createSignalingServer(options = {}) {
     1
   );
 
+  const maxConnectionsPerIp = parsePositiveInt(
+    options.maxConnectionsPerIp ?? process.env.MAX_CONNECTIONS_PER_IP,
+    DEFAULT_MAX_CONNECTIONS_PER_IP,
+    1
+  );
+
+  const maxMessagesPerIpPerWindow = parsePositiveInt(
+    options.maxMessagesPerIpPerWindow ?? process.env.MAX_MESSAGES_PER_IP_PER_WINDOW,
+    DEFAULT_MAX_MESSAGES_PER_IP_PER_WINDOW,
+    1
+  );
+
   const messageRateWindowMs = parsePositiveInt(
     options.messageRateWindowMs ?? process.env.MESSAGE_RATE_WINDOW_MS,
     DEFAULT_MESSAGE_RATE_WINDOW_MS,
@@ -176,11 +226,18 @@ function createSignalingServer(options = {}) {
     false
   );
 
+  const trustProxy = parseBooleanFlag(
+    options.trustProxy ?? process.env.TRUST_PROXY,
+    false
+  );
+
   const allowedOrigins = parseAllowedOrigins(
     options.allowedOrigins ?? process.env.ALLOWED_ORIGINS ?? ''
   );
 
   const rooms = createRoomStore({ waitingTtlMs });
+  const ipConnectionCounts = new Map();
+  const ipMessageRates = new Map();
 
   const wss = new WebSocketServer({
     ...(httpServer ? { server: httpServer } : { port, ...(host ? { host } : {}) }),
@@ -223,6 +280,37 @@ function createSignalingServer(options = {}) {
     state.currentRoomId = null;
   }
 
+  function incrementIpConnections(ip) {
+    const next = (ipConnectionCounts.get(ip) || 0) + 1;
+    ipConnectionCounts.set(ip, next);
+    return next;
+  }
+
+  function decrementIpConnections(ip) {
+    const next = (ipConnectionCounts.get(ip) || 0) - 1;
+    if (next > 0) {
+      ipConnectionCounts.set(ip, next);
+      return;
+    }
+    ipConnectionCounts.delete(ip);
+    ipMessageRates.delete(ip);
+  }
+
+  function exceededIpMessageRate(ip) {
+    const now = Date.now();
+    let state = ipMessageRates.get(ip);
+    if (!state || ((now - state.windowStartedAt) >= messageRateWindowMs)) {
+      state = {
+        windowStartedAt: now,
+        count: 0,
+      };
+    }
+
+    state.count += 1;
+    ipMessageRates.set(ip, state);
+    return state.count > maxMessagesPerIpPerWindow;
+  }
+
   wss.on('connection', (socket, req) => {
     socket.isAlive = true;
     socket.on('pong', () => { socket.isAlive = true; });
@@ -233,13 +321,22 @@ function createSignalingServer(options = {}) {
       return;
     }
 
+    const clientIp = getClientIp(req, trustProxy);
+    if (incrementIpConnections(clientIp) > maxConnectionsPerIp) {
+      decrementIpConnections(clientIp);
+      try { socket.close(1013); } catch {}
+      return;
+    }
+
     if (allowedOrigins && !allowedOrigins.any) {
       const origin = (req && req.headers && typeof req.headers.origin === 'string') ? req.headers.origin : '';
       if (!origin || !allowedOrigins.set.has(origin)) {
+        decrementIpConnections(clientIp);
         try { socket.close(1008); } catch {}
         return;
       }
     } else if (enforceSameOrigin && !isSameOriginRequest(req)) {
+      decrementIpConnections(clientIp);
       try { socket.close(1008); } catch {}
       return;
     }
@@ -249,6 +346,17 @@ function createSignalingServer(options = {}) {
       rateWindowStartedAt: Date.now(),
       rateCount: 0,
     };
+
+    let cleanedUp = false;
+    const cleanupSocket = () => {
+      if (cleanedUp) return;
+      cleanedUp = true;
+      detachFromRoom(socket, state);
+      decrementIpConnections(clientIp);
+    };
+
+    socket.on('close', cleanupSocket);
+    socket.on('error', cleanupSocket);
 
     function exceededMessageRate() {
       const now = Date.now();
@@ -262,6 +370,11 @@ function createSignalingServer(options = {}) {
     }
 
     socket.on('message', (data) => {
+      if (exceededIpMessageRate(clientIp)) {
+        try { socket.close(1008); } catch {}
+        return;
+      }
+
       if (exceededMessageRate()) {
         try { socket.close(1008); } catch {}
         return;
@@ -418,14 +531,6 @@ function createSignalingServer(options = {}) {
           safeSend(socket, { type: 'error', message: 'Unknown message type' });
       }
     });
-
-    socket.on('close', () => {
-      detachFromRoom(socket, state);
-    });
-
-    socket.on('error', () => {
-      detachFromRoom(socket, state);
-    });
   });
 
   async function close() {
@@ -433,6 +538,8 @@ function createSignalingServer(options = {}) {
     pingTimer = null;
 
     try { rooms.destroyAll(); } catch {}
+    try { ipConnectionCounts.clear(); } catch {}
+    try { ipMessageRates.clear(); } catch {}
 
     // Deterministic shutdown: ensure the WebSocket server closes even if a client
     // never responds to a graceful close handshake.
@@ -497,5 +604,7 @@ module.exports = {
   DEFAULT_MAX_ROOMS,
   DEFAULT_MAX_MESSAGES_PER_WINDOW,
   DEFAULT_MESSAGE_RATE_WINDOW_MS,
+  DEFAULT_MAX_CONNECTIONS_PER_IP,
+  DEFAULT_MAX_MESSAGES_PER_IP_PER_WINDOW,
   createSignalingServer,
 };

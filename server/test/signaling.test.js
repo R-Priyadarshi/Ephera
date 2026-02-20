@@ -396,6 +396,27 @@ async function testMaxConnectionsRejectsExcess() {
   });
 }
 
+async function testMaxConnectionsPerIpRejectsExcess() {
+  await withServer({ maxConnectionsPerIp: 2 }, async ({ url }) => {
+    const a = await openClient(url);
+    const b = await openClient(url);
+    const c = new WebSocket(url);
+
+    const closed = await withTimeout(waitForClose(c), 2000, 'close excess per-ip connection');
+    assert.ok(closed.code === 1013 || closed.code === 1006);
+
+    // Existing clients should still function.
+    a.send(JSON.stringify({ type: 'create-room', roomId: 'room-per-ip-cap' }));
+    const created = await withTimeout(nextJsonMessage(a), 1000, 'create after per-ip cap');
+    assert.strictEqual(created.type, 'room-created');
+
+    try { a.close(); } catch {}
+    try { b.close(); } catch {}
+    await withTimeout(waitForClose(a), 1000, 'close a');
+    await withTimeout(waitForClose(b), 1000, 'close b');
+  });
+}
+
 async function testMessageRateLimitClosesFlood() {
   await withServer({ maxMessagesPerWindow: 5, messageRateWindowMs: 1000 }, async ({ url }) => {
     const a = await openClient(url);
@@ -407,6 +428,86 @@ async function testMessageRateLimitClosesFlood() {
 
     const closed = await withTimeout(waitForClose(a), 2000, 'rate-limit close');
     assert.ok(closed.code === 1008 || closed.code === 1006);
+  });
+}
+
+async function testPerIpMessageRateLimitAcrossSockets() {
+  await withServer({
+    maxMessagesPerWindow: 100,
+    maxMessagesPerIpPerWindow: 6,
+    messageRateWindowMs: 2000,
+  }, async ({ url }) => {
+    const a = await openClient(url);
+    const b = await openClient(url);
+
+    for (let i = 0; i < 4; i++) {
+      try { a.send(JSON.stringify({ type: 'unknown' })); } catch {}
+    }
+    for (let i = 0; i < 4; i++) {
+      try { b.send(JSON.stringify({ type: 'unknown' })); } catch {}
+    }
+
+    const closed = await withTimeout(Promise.race([
+      waitForClose(a).then((value) => ({ id: 'a', value })),
+      waitForClose(b).then((value) => ({ id: 'b', value })),
+    ]), 2000, 'per-ip rate-limit close');
+
+    assert.ok(closed.value.code === 1008 || closed.value.code === 1006);
+
+    if (a.readyState === WebSocket.OPEN) {
+      try { a.close(); } catch {}
+      await withTimeout(waitForClose(a), 1000, 'close a');
+    }
+    if (b.readyState === WebSocket.OPEN) {
+      try { b.close(); } catch {}
+      await withTimeout(waitForClose(b), 1000, 'close b');
+    }
+  });
+}
+
+async function testTrustProxyPerIpControls() {
+  await withServer({ maxConnectionsPerIp: 2, trustProxy: true }, async ({ url }) => {
+    const localA = await openClientWithOptions(url, {
+      headers: { 'X-Forwarded-For': '203.0.113.10' },
+    });
+    const localB = await openClientWithOptions(url, {
+      headers: { 'X-Forwarded-For': '203.0.113.10' },
+    });
+
+    const blocked = new WebSocket(url, { headers: { 'X-Forwarded-For': '203.0.113.10' } });
+    const blockedClosed = await withTimeout(waitForClose(blocked), 2000, 'trust-proxy per-ip close');
+    assert.ok(blockedClosed.code === 1013 || blockedClosed.code === 1006);
+
+    // Different forwarded IP should be admitted.
+    const otherIp = await openClientWithOptions(url, {
+      headers: { 'X-Forwarded-For': '203.0.113.11' },
+    });
+
+    localA.send(JSON.stringify({ type: 'create-room', roomId: 'room-trust-proxy' }));
+    const created = await withTimeout(nextJsonMessage(localA), 1000, 'create trust-proxy room');
+    assert.strictEqual(created.type, 'room-created');
+
+    try { localA.close(); } catch {}
+    try { localB.close(); } catch {}
+    try { otherIp.close(); } catch {}
+    await withTimeout(waitForClose(localA), 1000, 'close localA');
+    await withTimeout(waitForClose(localB), 1000, 'close localB');
+    await withTimeout(waitForClose(otherIp), 1000, 'close otherIp');
+  });
+}
+
+async function testForwardedForIgnoredWithoutTrustProxy() {
+  await withServer({ maxConnectionsPerIp: 1, trustProxy: false }, async ({ url }) => {
+    const a = await openClientWithOptions(url, {
+      headers: { 'X-Forwarded-For': '198.51.100.1' },
+    });
+
+    const b = new WebSocket(url, { headers: { 'X-Forwarded-For': '198.51.100.2' } });
+    const closed = await withTimeout(waitForClose(b), 2000, 'forwarded-for ignored close');
+    assert.ok(closed.code === 1013 || closed.code === 1006);
+
+    try { a.close(); } catch {}
+    await withTimeout(waitForClose(a), 1000, 'close a');
   });
 }
 
@@ -453,7 +554,11 @@ async function runSignalingTestSuite() {
   await testWaitingTtlDoesNotKillActivePair();
   await testMaxPayloadCloses();
   await testMaxConnectionsRejectsExcess();
+  await testMaxConnectionsPerIpRejectsExcess();
   await testMessageRateLimitClosesFlood();
+  await testPerIpMessageRateLimitAcrossSockets();
+  await testTrustProxyPerIpControls();
+  await testForwardedForIgnoredWithoutTrustProxy();
   await testMaxRoomsRejectsCreateWhenServerBusy();
 }
 
