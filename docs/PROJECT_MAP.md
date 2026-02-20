@@ -101,13 +101,18 @@ Ephera is not “storage”. It is an **ephemeral P2P transport engine**:
     - AAD binds ciphertext to protocol header fields
 - `client/meaning.js`
   - “Meaning” advisory signals (not payload): category/size-range/mime-hint to improve UX hints.
+- `client/capabilities.js`
+  - Stage 10 protocol compatibility contract:
+    - Sanitizes capability payloads
+    - Evaluates protocol-range + required-feature compatibility
+    - Produces deterministic fail-closed reason codes for gating
 
 ### `client/test/` (Canonical Engine Regression)
 
 All tests here run against the real engine stack using loopback transports (fast, deterministic).
 
 - `client/test/run-all.js`
-  - Runs the full client regression suite (Stage 3 + Stage 4 + Stage 6 + Stage 7).
+  - Runs the full client regression suite (Stage 3 + Stage 4 + Stage 6 + Stage 7 + Stage 10).
 - `client/test/run-stage3.js`
   - Runs only the Stage 3 regression set (structured concurrency / abort semantics / memory test).
 - `client/test/concurrency.test.js`
@@ -130,6 +135,8 @@ All tests here run against the real engine stack using loopback transports (fast
   - Scheduler deadlock/liveness regression (slow producer must not block others).
 - `client/test/encryption.passphrase.test.js`
   - Stage 6 encryption regression (passphrase encrypt/decrypt correctness).
+- `client/test/capabilities.negotiation.test.js`
+  - Stage 10 compatibility regression (version overlap + required-feature contracts + pending/invalid states).
 - `client/test/metadata.test.js`
   - Stage 7 META framing/routing regression (bounded + one-shot).
 
@@ -194,6 +201,8 @@ All tests here run against the real engine stack using loopback transports (fast
   - Stage 8 delivery receipts + peer abort freeze.
 - `docs/ARCHITECTURE_FREEZE_STAGE_9.0.md`
   - Stage 9 passphrase verification handshake freeze.
+- `docs/ARCHITECTURE_FREEZE_STAGE_10.0.md`
+  - Stage 10 protocol compatibility freeze.
 - `docs/DEPLOYMENT.md`
   - Reverse proxy examples + “disable access logs” guidance.
 
@@ -205,6 +214,7 @@ All tests here run against the real engine stack using loopback transports (fast
     - Establishes WebRTC DataChannel via signaling
     - Sends one or more files and asserts byte counts
     - Covers: same-origin signaling, secure-by-default, plain mode, multi-file, passphrase mode,
+      protocol mismatch gating, passphrase mismatch gating,
       peer-left (receiver signaling close), signaling restart, signaling server crash mid-transfer,
       sender tab close mid-transfer, receiver cancel mid-transfer, repeated connect/disconnect cycles (no reload),
       `npm start` app-server path, relay-runtime-config path (`E2E_RELAY_RUNTIME=1`), and a forced-GC session leak gate.

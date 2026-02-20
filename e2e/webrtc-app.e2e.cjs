@@ -465,12 +465,16 @@ async function run() {
       expectAutoPassphrase = false,
       mismatchPassphrase = false,
       expectSendDisabled = false,
+      expectDisabledReason = '',
+      skipPeerReadyWait = false,
       closeReceiverSignaling = false,
       killSignaling = false,
       restartSignaling = false,
       sameOrigin = false,
       baseUrlOverride = '',
       signalUrlOverride = '',
+      senderExtraQuery = '',
+      receiverExtraQuery = '',
       recvDelayMs = 0,
       checkGc = false,
       expectReceipt = false,
@@ -486,9 +490,17 @@ async function run() {
       const passQ = passphrase ? `&passphrase=${encodeURIComponent(passphrase)}` : '';
 
       const sigQ = sameOrigin ? '' : `&signalUrl=${encodeURIComponent(activeSignalUrl)}`;
-      const senderUrl = `${activeBaseUrl}/index.html?e2e=1&role=create&roomId=${encodeURIComponent(roomId)}${sigQ}${passQ}`;
+      const normalizeExtraQuery = (value) => {
+        const s = String(value || '').trim();
+        if (!s) return '';
+        return s.startsWith('&') ? s : `&${s}`;
+      };
+      const senderExtraQ = normalizeExtraQuery(senderExtraQuery);
+      const receiverExtraQ = normalizeExtraQuery(receiverExtraQuery);
+
+      const senderUrl = `${activeBaseUrl}/index.html?e2e=1&role=create&roomId=${encodeURIComponent(roomId)}${sigQ}${passQ}${senderExtraQ}`;
       const recvDelay = Number.isFinite(recvDelayMs) && recvDelayMs > 0 ? `&recvDelayMs=${Math.floor(recvDelayMs)}` : '';
-      const receiverUrl = `${activeBaseUrl}/index.html?e2e=1&role=join&autoReady=1&roomId=${encodeURIComponent(roomId)}${sigQ}${passQ}${recvDelay}`;
+      const receiverUrl = `${activeBaseUrl}/index.html?e2e=1&role=join&autoReady=1&roomId=${encodeURIComponent(roomId)}${sigQ}${passQ}${recvDelay}${receiverExtraQ}`;
 
       const fileList = (Array.isArray(files) && files.length > 0) ? files : [filePathSingle];
       const expectedCount = fileList.length;
@@ -546,8 +558,10 @@ async function run() {
           receiver.waitForFunction(() => window.__epheraE2E && window.__epheraE2E.transportOpen === true, null, { timeout: 20_000 }),
         ]);
 
-        console.log(`--- E2E (${label}): waiting for peer ready ---`);
-        await sender.waitForFunction(() => window.__epheraE2E && window.__epheraE2E.peerReady === true, null, { timeout: 10_000 });
+        if (!skipPeerReadyWait) {
+          console.log(`--- E2E (${label}): waiting for peer ready ---`);
+          await sender.waitForFunction(() => window.__epheraE2E && window.__epheraE2E.peerReady === true, null, { timeout: 10_000 });
+        }
 
         if (!passphrase && expectAutoPassphrase) {
           console.log(`--- E2E (${label}): using auto-generated passphrase ---`);
@@ -649,6 +663,21 @@ async function run() {
           await sleep(1500);
           const stillDisabled = await sender.evaluate(() => document.getElementById('send-file').disabled);
           if (!stillDisabled) throw new Error('Expected send to remain disabled (button became enabled unexpectedly)');
+          if (expectDisabledReason) {
+            const needle = String(expectDisabledReason).toLowerCase();
+            await sender.waitForFunction(
+              (n) => {
+                const txt = (document.getElementById('send-gate-reason') || {}).textContent || '';
+                return String(txt).toLowerCase().includes(String(n || ''));
+              },
+              needle,
+              { timeout: 5_000 }
+            );
+            const reason = await sender.evaluate(() => (document.getElementById('send-gate-reason') || {}).textContent || '');
+            if (!String(reason).toLowerCase().includes(needle)) {
+              throw new Error(`Expected disabled reason to include "${expectDisabledReason}", got "${reason}"`);
+            }
+          }
           console.log(`--- E2E (${label}) PASS: send stayed disabled as expected ---`);
           return;
         }
@@ -1495,6 +1524,16 @@ async function run() {
     await runScenario({ label: 'same-origin', passphrase: null, expectAutoPassphrase: true, sameOrigin: true, expectReceipt: true });
     await runScenario({ label: 'default-secure', passphrase: null, expectAutoPassphrase: true, expectReceipt: true });
     await runScenario({ label: 'passphrase-mismatch', passphrase: null, expectAutoPassphrase: true, mismatchPassphrase: true, expectSendDisabled: true });
+    await runScenario({
+      label: 'protocol-mismatch',
+      passphrase: null,
+      expectAutoPassphrase: true,
+      expectSendDisabled: true,
+      expectDisabledReason: 'protocol version mismatch',
+      skipPeerReadyWait: true,
+      senderExtraQuery: 'protoVersion=3&protoMin=3',
+      receiverExtraQuery: 'protoVersion=1&protoMin=1',
+    });
     await runScenario({ label: 'plain', passphrase: null, expectReceipt: true });
     await runScenario({
       label: 'multi-plain',

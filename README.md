@@ -171,6 +171,7 @@ npm run gates:full
 
 This includes gates for:
 - passphrase mismatch (send stays disabled)
+- protocol mismatch (send stays disabled)
 - signaling restart/crash resilience
 - secure runtime path (`dev-secure.js`: HTTPS + WSS, self-signed cert handling)
 - join-link auto-join flow

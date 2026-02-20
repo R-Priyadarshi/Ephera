@@ -13,6 +13,7 @@ import { EpheraReceiver, MSG_ABORT, MSG_META } from './receiver.js';
 import { SessionManager } from './session/SessionManager.js';
 import { MeaningSender, MeaningReceiver } from './meaning.js';
 import { sanitizePassphrase, deriveAesGcmKey, decryptChunk, decryptMeta, encryptMeta } from './crypto.js';
+import { buildLocalCapabilities, sanitizeCapabilities, evaluateCapabilityCompatibility } from './capabilities.js';
 
 const _dec = new TextDecoder();
 const _enc = new TextEncoder();
@@ -28,12 +29,44 @@ const E2E_RECV_DELAY_MS = (() => {
   return Math.min(1000, Math.max(0, Math.floor(raw)));
 })();
 
+function parseProtocolParam(name, fallback) {
+  const raw = PARAMS.get(name);
+  if (raw == null || raw === '') return fallback;
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return fallback;
+  const v = Math.floor(n);
+  if (v < 1) return fallback;
+  return v;
+}
+
+function parseFeatureParam(name, fallbackList = []) {
+  const raw = PARAMS.get(name);
+  if (raw == null) {
+    if (Array.isArray(fallbackList)) return Array.from(fallbackList);
+    return [];
+  }
+  const s = String(raw).trim();
+  if (!s) return [];
+  return s.split(',').map((v) => String(v || '').trim()).filter(Boolean);
+}
+
+const localCapabilityOverrides = {};
+if (PARAMS.has('protoVersion')) localCapabilityOverrides.protocolVersion = parseProtocolParam('protoVersion', null);
+if (PARAMS.has('protoMin')) localCapabilityOverrides.minSupported = parseProtocolParam('protoMin', null);
+if (PARAMS.has('protoFeatures')) localCapabilityOverrides.features = parseFeatureParam('protoFeatures');
+if (PARAMS.has('protoRequired')) localCapabilityOverrides.requiredFeatures = parseFeatureParam('protoRequired');
+const LOCAL_CAPABILITIES = buildLocalCapabilities(localCapabilityOverrides);
+
 const E2E_STATE = IS_E2E ? (window.__epheraE2E = {
   role: E2E_ROLE || null,
   signalingConnected: false,
   signalingReconnects: 0,
   transportOpen: false,
   peerReady: false,
+  capabilitiesCompatible: false,
+  compatibilityReason: 'Protocol negotiation pending',
+  localProtocolVersion: LOCAL_CAPABILITIES.protocolVersion,
+  peerProtocolVersion: null,
   passphraseVerified: false,
   iceConnectionState: null,
   sentBytes: 0,
@@ -225,9 +258,24 @@ const receiveFolderLabel = document.getElementById('receive-folder-label');
 const peerStateEl = document.getElementById('peer-state');
 const fileInput = document.getElementById('file-input');
 const sendFileBtn = document.getElementById('send-file');
+const sendGateReasonEl = document.getElementById('send-gate-reason');
 const sendWeightInput = document.getElementById('send-weight');
 const sendWeightValue = document.getElementById('send-weight-value');
 const transfersEl = document.getElementById('transfers');
+const activityTimelineEl = document.getElementById('activity-timeline');
+const clearActivityBtn = document.getElementById('clear-activity');
+const activitySearchInput = document.getElementById('activity-search');
+const activityKindConnInput = document.getElementById('activity-kind-conn');
+const activityKindTransferInput = document.getElementById('activity-kind-transfer');
+const activityKindReceiptInput = document.getElementById('activity-kind-receipt');
+const activityKindWarnInput = document.getElementById('activity-kind-warn');
+const activityKindStatusInput = document.getElementById('activity-kind-status');
+const activityKindsAllBtn = document.getElementById('activity-kinds-all');
+const activityKindsNoneBtn = document.getElementById('activity-kinds-none');
+const copyActivityBtn = document.getElementById('copy-activity');
+const downloadActivityTxtBtn = document.getElementById('download-activity-txt');
+const downloadActivityJsonBtn = document.getElementById('download-activity-json');
+const activityCountEl = document.getElementById('activity-count');
 const passphraseInput = document.getElementById('passphrase');
 const generatePassphraseBtn = document.getElementById('generate-passphrase');
 const copyPassphraseBtn = document.getElementById('copy-passphrase');
@@ -243,6 +291,10 @@ const iceStateEl = document.getElementById('ice-state');
 const enableDiagnosticsInput = document.getElementById('enable-diagnostics');
 const copyDiagnosticsBtn = document.getElementById('copy-diagnostics');
 const diagnosticsEl = document.getElementById('diagnostics');
+const stateSignalingEl = document.getElementById('state-signaling');
+const stateP2PEl = document.getElementById('state-p2p');
+const stateReadyEl = document.getElementById('state-ready');
+const stateCryptoEl = document.getElementById('state-crypto');
 
 /* ---------- State ---------- */
 
@@ -252,6 +304,9 @@ let receiver = null;
 let sessionManager = null;
 let transportOpen = false;
 let peerReady = false;
+let peerCapabilities = null;
+let capabilitiesCompatible = false;
+let compatibilityReason = 'Protocol negotiation pending';
 let peerCryptoMode = 'none'; // 'none' | 'passphrase'
 let peerMeaning = null;
 let localReady = false;
@@ -285,6 +340,11 @@ const activeSenders = new Set();
 // - abort sending if the receiver requests it (peer ABORT)
 // - mark "delivered" when the receiver sends a receipt META
 const outboundTransfers = new Map(); // Map<string(hexId), { row, sender, receiptTimer, delivered }>
+const ACTIVITY_LIMIT = 240;
+const activityEntries = [];
+let activitySeq = 0;
+let lastStatusText = '';
+let lastIceState = null;
 
 /* ---------- Runtime Config ---------- */
 
@@ -347,8 +407,246 @@ if (shareJoinLinkBtn) shareJoinLinkBtn.hidden = !CAN_SHARE;
 if (sharePassphraseBtn) sharePassphraseBtn.hidden = !CAN_SHARE;
 if (sharePassphraseBtn) sharePassphraseBtn.disabled = true;
 
+function formatActivityTime(ts) {
+  const d = new Date(Number.isFinite(ts) ? ts : Date.now());
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mm = String(d.getMinutes()).padStart(2, '0');
+  const ss = String(d.getSeconds()).padStart(2, '0');
+  const ms = String(d.getMilliseconds()).padStart(3, '0');
+  return `${hh}:${mm}:${ss}.${ms}`;
+}
+
+function normalizeActivityMessage(message) {
+  const s = typeof message === 'string' ? message.trim() : '';
+  if (!s) return '';
+  const oneLine = s.replace(/\s+/g, ' ');
+  if (oneLine.length <= 220) return oneLine;
+  return `${oneLine.slice(0, 217)}...`;
+}
+
+function mapActivityKind(kind) {
+  const k = typeof kind === 'string' ? kind.trim().toLowerCase() : '';
+  if (k === 'conn' || k === 'transfer' || k === 'receipt' || k === 'warn') return k;
+  return 'status';
+}
+
+function inferActivityKindFromStatus(text) {
+  const t = String(text || '').toLowerCase();
+  if (!t) return 'status';
+  if (t.includes('error') || t.includes('failed') || t.includes('abort') || t.includes('cancel')) return 'warn';
+  if (t.includes('delivery') || t.includes('delivered') || t.includes('receipt')) return 'receipt';
+  if (t.includes('send') || t.includes('receive') || t.includes('transfer')) return 'transfer';
+  if (t.includes('signaling') || t.includes('p2p') || t.includes('ice') || t.includes('reconnect') || t.includes('joined room') || t.includes('waiting for peer')) return 'conn';
+  return 'status';
+}
+
+function isActivityKindEnabled(kind) {
+  if (kind === 'conn') return !activityKindConnInput || !!activityKindConnInput.checked;
+  if (kind === 'transfer') return !activityKindTransferInput || !!activityKindTransferInput.checked;
+  if (kind === 'receipt') return !activityKindReceiptInput || !!activityKindReceiptInput.checked;
+  if (kind === 'warn') return !activityKindWarnInput || !!activityKindWarnInput.checked;
+  return !activityKindStatusInput || !!activityKindStatusInput.checked;
+}
+
+function getActivityQuery() {
+  const raw = activitySearchInput ? String(activitySearchInput.value || '') : '';
+  return raw.trim().toLowerCase();
+}
+
+function isActivityEntryVisible(entry, query) {
+  if (!entry || typeof entry !== 'object') return false;
+  if (!isActivityKindEnabled(entry.kind)) return false;
+  if (!query) return true;
+  return String(entry.msg || '').toLowerCase().includes(query);
+}
+
+function getVisibleActivityEntries() {
+  const query = getActivityQuery();
+  const out = [];
+  const total = activityEntries.length;
+  for (let i = 0; i < total; i++) {
+    const entry = activityEntries[i];
+    if (!isActivityEntryVisible(entry, query)) continue;
+    out.push(entry);
+  }
+  return out;
+}
+
+function buildActivityRow(entry) {
+  const row = document.createElement('div');
+  row.className = 'activity-item';
+
+  const time = document.createElement('span');
+  time.className = 'activity-time';
+  time.textContent = formatActivityTime(entry.ts);
+
+  const tag = document.createElement('span');
+  tag.className = `activity-kind activity-kind-${entry.kind}`;
+  tag.textContent = entry.kind;
+
+  const body = document.createElement('span');
+  body.className = 'activity-msg';
+  body.textContent = entry.msg;
+
+  row.appendChild(time);
+  row.appendChild(tag);
+  row.appendChild(body);
+  return row;
+}
+
+function renderActivityTimeline({ autoScroll = false } = {}) {
+  if (!activityTimelineEl) return;
+
+  const visibleEntries = getVisibleActivityEntries();
+  activityTimelineEl.textContent = '';
+
+  for (let i = 0; i < visibleEntries.length; i++) {
+    const row = buildActivityRow(visibleEntries[i]);
+    activityTimelineEl.appendChild(row);
+  }
+
+  if (activityCountEl) {
+    activityCountEl.textContent = `Showing ${visibleEntries.length}/${activityEntries.length}`;
+  }
+
+  if (autoScroll) {
+    try {
+      activityTimelineEl.scrollTop = activityTimelineEl.scrollHeight;
+    } catch {}
+  }
+}
+
+function clearActivityTimeline() {
+  activityEntries.length = 0;
+  renderActivityTimeline();
+}
+
+function buildActivityExportText(entries) {
+  if (!Array.isArray(entries) || entries.length === 0) return '';
+  const lines = [];
+  for (let i = 0; i < entries.length; i++) {
+    const entry = entries[i];
+    if (!entry || typeof entry !== 'object') continue;
+    const kind = mapActivityKind(entry.kind);
+    const msg = normalizeActivityMessage(entry.msg);
+    if (!msg) continue;
+    lines.push(`[${formatActivityTime(entry.ts)}] [${kind}] ${msg}`);
+  }
+  return lines.join('\n');
+}
+
+function buildActivityFilterSnapshot() {
+  return {
+    query: getActivityQuery(),
+    kinds: {
+      conn: isActivityKindEnabled('conn'),
+      transfer: isActivityKindEnabled('transfer'),
+      receipt: isActivityKindEnabled('receipt'),
+      warn: isActivityKindEnabled('warn'),
+      status: isActivityKindEnabled('status'),
+    },
+  };
+}
+
+function buildActivityExportJson(entries) {
+  if (!Array.isArray(entries) || entries.length === 0) return '';
+  const list = [];
+  for (let i = 0; i < entries.length; i++) {
+    const entry = entries[i];
+    if (!entry || typeof entry !== 'object') continue;
+    const msg = normalizeActivityMessage(entry.msg);
+    if (!msg) continue;
+    list.push({
+      id: Number.isFinite(entry.id) ? entry.id : null,
+      timeLocal: formatActivityTime(entry.ts),
+      timeIso: new Date(Number(entry.ts) || Date.now()).toISOString(),
+      kind: mapActivityKind(entry.kind),
+      message: msg,
+    });
+  }
+
+  if (list.length < 1) return '';
+
+  const payload = {
+    exportedAt: new Date().toISOString(),
+    filters: buildActivityFilterSnapshot(),
+    visibleCount: list.length,
+    entries: list,
+  };
+  return JSON.stringify(payload, null, 2);
+}
+
+function buildActivityFileBaseName() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const mo = String(d.getMonth() + 1).padStart(2, '0');
+  const da = String(d.getDate()).padStart(2, '0');
+  const h = String(d.getHours()).padStart(2, '0');
+  const mi = String(d.getMinutes()).padStart(2, '0');
+  const s = String(d.getSeconds()).padStart(2, '0');
+  return `ephera-activity-${y}${mo}${da}-${h}${mi}${s}`;
+}
+
+function downloadTextFile(filename, text, mimeType = 'text/plain;charset=utf-8') {
+  if (!text) return false;
+
+  let url = null;
+  let link = null;
+  try {
+    const blob = new Blob([text], { type: mimeType });
+    url = URL.createObjectURL(blob);
+    link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.rel = 'noopener';
+    document.body.appendChild(link);
+    link.click();
+    return true;
+  } catch {
+    return false;
+  } finally {
+    try {
+      if (link && link.parentNode) link.parentNode.removeChild(link);
+    } catch {}
+    if (url) {
+      try {
+        setTimeout(() => URL.revokeObjectURL(url), 0);
+      } catch {}
+    }
+  }
+}
+
+function addActivity(kind, message) {
+  const msg = normalizeActivityMessage(message);
+  if (!msg) return;
+  const normalizedKind = mapActivityKind(kind);
+  activitySeq++;
+  activityEntries.push({
+    id: activitySeq,
+    ts: Date.now(),
+    kind: normalizedKind,
+    msg,
+  });
+
+  if (activityEntries.length > ACTIVITY_LIMIT) {
+    const overflow = activityEntries.length - ACTIVITY_LIMIT;
+    activityEntries.splice(0, overflow);
+  }
+
+  renderActivityTimeline({ autoScroll: true });
+}
+
 function setStatus(text) {
-  statusEl.textContent = text;
+  const value = typeof text === 'string' ? text : '';
+  statusEl.textContent = value;
+  const msg = normalizeActivityMessage(value);
+  if (!msg) {
+    lastStatusText = '';
+  } else if (msg !== lastStatusText) {
+    addActivity(inferActivityKindFromStatus(msg), msg);
+    lastStatusText = msg;
+  }
+  renderStateStrip();
 }
 
 function setIceState(text) {
@@ -503,6 +801,12 @@ async function collectDiagnosticsSnapshot(forTransport) {
       hasDirectoryPicker: typeof window.showDirectoryPicker === 'function',
       localCryptoMode: getLocalCryptoMode(),
       peerCryptoMode,
+      localProtocolVersion: LOCAL_CAPABILITIES.protocolVersion,
+      localMinProtocolVersion: LOCAL_CAPABILITIES.minSupported,
+      peerProtocolVersion: peerCapabilities ? peerCapabilities.protocolVersion : null,
+      peerMinProtocolVersion: peerCapabilities ? peerCapabilities.minSupported : null,
+      capabilitiesCompatible: !!capabilitiesCompatible,
+      compatibilityReason,
       iceRelayOnly: !!iceRelayOnly,
       iceServersCount: Array.isArray(getIceServers()) ? getIceServers().length : 0,
     },
@@ -670,17 +974,132 @@ function getLocalCryptoMode() {
   return getLocalPassphrase() ? 'passphrase' : 'none';
 }
 
-function updateSendButton() {
+function getAdvertisedReadyValue() {
+  return !!localReady && !!capabilitiesCompatible;
+}
+
+function sendReadySignal() {
+  sendApp('ready', { value: getAdvertisedReadyValue(), cryptoMode: getLocalCryptoMode() });
+}
+
+function evaluateCapabilitiesCompatibilityState() {
+  const result = evaluateCapabilityCompatibility(LOCAL_CAPABILITIES, peerCapabilities);
+  capabilitiesCompatible = !!result.ok;
+  compatibilityReason = result && typeof result.reason === 'string'
+    ? result.reason
+    : 'Protocol negotiation pending';
+
+  if (E2E_STATE) {
+    E2E_STATE.capabilitiesCompatible = capabilitiesCompatible;
+    E2E_STATE.compatibilityReason = compatibilityReason;
+    E2E_STATE.peerProtocolVersion = peerCapabilities ? peerCapabilities.protocolVersion : null;
+  }
+
+  return result;
+}
+
+function sendLocalCapabilities(reason = '') {
+  try {
+    sendApp('capabilities', LOCAL_CAPABILITIES);
+    if (reason) {
+      addActivity('conn', `Sent capabilities (${reason}) v${LOCAL_CAPABILITIES.protocolVersion}`);
+    } else {
+      addActivity('conn', `Sent capabilities v${LOCAL_CAPABILITIES.protocolVersion}`);
+    }
+  } catch {
+    // Signaling may be down; caller handles reconnect path.
+  }
+}
+
+function getSendGateState() {
   const localMode = getLocalCryptoMode();
   const modeOk = peerCryptoMode === localMode;
   const passOk = localMode !== 'passphrase' || passphraseVerified;
-  sendFileBtn.disabled = !(
-    transportOpen &&
-    peerReady &&
-    modeOk &&
-    passOk &&
-    fileInput.files.length >= 1
-  );
+  const fileCount = fileInput && fileInput.files ? fileInput.files.length : 0;
+
+  if (!transportOpen) {
+    return { enabled: false, reason: 'Waiting for P2P connection', localMode, modeOk, passOk, fileCount };
+  }
+  if (!peerCapabilities) {
+    const pendingReason = compatibilityReason && compatibilityReason !== 'Protocol negotiation pending'
+      ? compatibilityReason
+      : 'Waiting for protocol negotiation';
+    return { enabled: false, reason: pendingReason, localMode, modeOk, passOk, fileCount };
+  }
+  if (!capabilitiesCompatible) {
+    return { enabled: false, reason: compatibilityReason || 'Protocol incompatible with peer', localMode, modeOk, passOk, fileCount };
+  }
+  if (!peerReady) {
+    return { enabled: false, reason: 'Peer has not signaled ready', localMode, modeOk, passOk, fileCount };
+  }
+  if (!modeOk) {
+    const reason = localMode === 'passphrase'
+      ? 'Peer must set the same passphrase mode'
+      : 'Set a passphrase to match peer secure mode';
+    return { enabled: false, reason, localMode, modeOk, passOk, fileCount };
+  }
+  if (!passOk) {
+    return { enabled: false, reason: 'Verifying passphrase match with peer', localMode, modeOk, passOk, fileCount };
+  }
+  if (fileCount < 1) {
+    return { enabled: false, reason: 'Choose at least one file', localMode, modeOk, passOk, fileCount };
+  }
+
+  return { enabled: true, reason: 'Ready to send', localMode, modeOk, passOk, fileCount };
+}
+
+function setSendGateReason(gate) {
+  if (!sendGateReasonEl) return;
+  const enabled = !!(gate && gate.enabled);
+  const text = gate && gate.reason ? gate.reason : '';
+  sendGateReasonEl.textContent = enabled ? 'Ready to send' : text;
+  sendGateReasonEl.classList.toggle('send-gate-reason-ok', enabled);
+  sendGateReasonEl.classList.toggle('send-gate-reason-warn', !enabled);
+}
+
+function setStateChip(el, text, ok) {
+  if (!el) return;
+  el.textContent = text || '';
+  el.classList.remove('state-chip-ok', 'state-chip-warn');
+  el.classList.add(ok ? 'state-chip-ok' : 'state-chip-warn');
+}
+
+function renderStateStrip(gate) {
+  const g = gate || getSendGateState();
+  const signalingOpen = !!(ws && ws.readyState === WebSocket.OPEN);
+  const inRoom = !!activeRoomId;
+
+  if (signalingOpen) {
+    setStateChip(stateSignalingEl, 'signaling: connected', true);
+  } else if (inRoom) {
+    setStateChip(stateSignalingEl, 'signaling: reconnecting', false);
+  } else {
+    setStateChip(stateSignalingEl, 'signaling: offline', false);
+  }
+
+  setStateChip(stateP2PEl, transportOpen ? 'p2p: connected' : 'p2p: down', !!transportOpen);
+  setStateChip(stateReadyEl, peerReady ? 'peer: ready' : 'peer: not ready', !!peerReady);
+
+  const localMode = g && g.localMode ? g.localMode : getLocalCryptoMode();
+  const modeMatch = localMode === peerCryptoMode;
+  if (!modeMatch) {
+    setStateChip(stateCryptoEl, 'crypto: mismatch', false);
+    return;
+  }
+
+  if (localMode === 'passphrase') {
+    setStateChip(stateCryptoEl, passphraseVerified ? 'crypto: verified' : 'crypto: verifying', !!passphraseVerified);
+    return;
+  }
+
+  setStateChip(stateCryptoEl, 'crypto: plain', true);
+}
+
+function updateSendButton() {
+  const gate = getSendGateState();
+  sendFileBtn.disabled = !gate.enabled;
+  setSendGateReason(gate);
+  renderStateStrip(gate);
 }
 
 function setPeerState(text) {
@@ -695,6 +1114,13 @@ function setCryptoState(text) {
 function renderPeerState() {
   const parts = [];
   parts.push(peerReady ? 'Peer ready' : 'Peer not ready');
+  if (!peerCapabilities) {
+    parts.push(compatibilityReason && compatibilityReason !== 'Protocol negotiation pending' ? 'proto=error' : 'proto=pending');
+  } else if (capabilitiesCompatible) {
+    parts.push(`proto=v${peerCapabilities.protocolVersion} ok`);
+  } else {
+    parts.push('proto=mismatch');
+  }
   parts.push(`crypto=${peerCryptoMode}`);
   if (peerMeaning) parts.push(`intent: ${peerMeaning}`);
   setPeerState(parts.join(' | '));
@@ -711,6 +1137,7 @@ function renderPeerState() {
     extra = passphraseVerified ? ' (encrypted, verified)' : ' (encrypted, verifying...)';
   }
   setCryptoState(`Crypto: local=${localMode} / peer=${peerCryptoMode} (${match})${extra}`);
+  renderStateStrip();
 }
 
 function setReceiveFolderLabel(text) {
@@ -1062,6 +1489,8 @@ async function sendReceipt(transferId, { aesKey = null, status = 'ok', sink = 'd
 
   // Best-effort; never throw.
   transport.send(frame).catch(() => {});
+  const short = hexId(transferId).slice(0, 8);
+  addActivity('receipt', `Sent receipt ${receipt.status}/${receipt.sink} (${formatBytes(b)}) for ${short}`);
 }
 
 /* ---------- Signaling ---------- */
@@ -1085,6 +1514,7 @@ function scheduleSignalingReconnect() {
   const base = 250;
   const max = 10_000;
   const delay = Math.min(max, base * (2 ** attempt)) + Math.floor(Math.random() * 200);
+  addActivity('conn', `Signaling reconnect scheduled (attempt ${attempt + 1}) in ${delay}ms`);
 
   signalingReconnectTimer = setTimeout(() => {
     signalingReconnectTimer = null;
@@ -1093,9 +1523,11 @@ function scheduleSignalingReconnect() {
         signalingReconnectAttempts = 0;
         return;
       }
+      addActivity('warn', 'Signaling reconnect attempt failed; retrying');
       signalingReconnectAttempts = Math.min(30, Math.max(0, Math.floor(signalingReconnectAttempts)) + 1);
       scheduleSignalingReconnect();
     }).catch(() => {
+      addActivity('warn', 'Signaling reconnect attempt errored; retrying');
       signalingReconnectAttempts = Math.min(30, Math.max(0, Math.floor(signalingReconnectAttempts)) + 1);
       scheduleSignalingReconnect();
     });
@@ -1109,6 +1541,7 @@ async function attemptSignalingReconnect() {
   if (signalingReconnectInFlight) return false;
 
   signalingReconnectInFlight = true;
+  addActivity('conn', 'Attempting signaling reconnect');
 
   try {
     const roomId = activeRoomId;
@@ -1156,7 +1589,8 @@ async function attemptSignalingReconnect() {
 
           // Re-announce readiness state after reconnect so the peer UI remains correct.
           try {
-            sendApp('ready', { value: !!localReady, cryptoMode: getLocalCryptoMode() });
+            sendLocalCapabilities('signaling reconnected');
+            sendReadySignal();
           } catch {}
 
           // If the transport is unhealthy, try an ICE restart now that signaling is back.
@@ -1170,6 +1604,7 @@ async function attemptSignalingReconnect() {
           } catch {}
 
           setStatus('Signaling reconnected');
+          addActivity('conn', 'Signaling reconnect succeeded');
           resolve(true);
           return;
         }
@@ -1206,6 +1641,7 @@ async function attemptSignalingReconnect() {
             if (message === 'Room not found') {
               if (initiator && !triedCreate) {
                 triedCreate = true;
+                addActivity('conn', 'Reconnect room not found; attempting room recreate');
                 try {
                   socket.send(JSON.stringify({ type: 'create-room', roomId }));
                   return;
@@ -1227,6 +1663,7 @@ async function attemptSignalingReconnect() {
             }
 
             if (message === 'Room full') {
+              addActivity('warn', 'Signaling reconnect failed: room full');
               try { socket.close(); } catch {}
               resolve(false);
               return;
@@ -1239,6 +1676,7 @@ async function attemptSignalingReconnect() {
 
       socket.onerror = () => {
         // onclose will follow; keep logic deterministic.
+        addActivity('warn', 'Signaling reconnect socket error');
       };
 
       socket.onclose = () => {
@@ -1258,7 +1696,10 @@ async function attemptSignalingReconnect() {
         }
 
         // If we never settled, this attempt failed.
-        if (!settled) resolve(false);
+        if (!settled) {
+          addActivity('warn', 'Signaling reconnect closed before success');
+          resolve(false);
+        }
       };
     });
 
@@ -1292,6 +1733,7 @@ function connectSignaling(roomId, initiator) {
         activeRoomId = roomId;
         signalingReconnectAttempts = 0;
         if (E2E_STATE) E2E_STATE.signalingConnected = true;
+        sendLocalCapabilities('signaling connected');
         resolve();
         return;
       }
@@ -1412,6 +1854,7 @@ async function handleOutboundControlFrame(data) {
 
     try { if (entry.row) entry.row.setStatus('aborted by peer'); } catch {}
     try { if (entry.sender) entry.sender.destroy(); } catch {}
+    addActivity('warn', `Outbound ${key.slice(0, 8)} aborted by peer`);
 
     outboundTransfers.delete(key);
     return;
@@ -1463,6 +1906,7 @@ async function handleOutboundControlFrame(data) {
 
   if (status === 'ok') {
     try { if (entry.row) entry.row.setStatus(sink === 'saved' ? 'delivered (saved)' : 'delivered (discarded)'); } catch {}
+    addActivity('receipt', `Receipt ok (${sink}) for ${key.slice(0, 8)}`);
     entry.delivered = true;
     if (IS_E2E && E2E_STATE) {
       E2E_STATE.deliveredCount = (E2E_STATE.deliveredCount || 0) + 1;
@@ -1471,6 +1915,7 @@ async function handleOutboundControlFrame(data) {
     }
   } else {
     try { if (entry.row) entry.row.setStatus('receiver aborted'); } catch {}
+    addActivity('receipt', `Receipt abort for ${key.slice(0, 8)}`);
   }
 
   outboundTransfers.delete(key);
@@ -1485,6 +1930,10 @@ function createTransport() {
     transportOpen = true;
     transferSection.hidden = false;
     setStatus('P2P connected');
+    sendLocalCapabilities('transport open');
+    if (localReady) {
+      try { sendReadySignal(); } catch {}
+    }
     renderPeerState();
     updateSendButton();
     if (E2E_STATE) E2E_STATE.transportOpen = true;
@@ -1552,11 +2001,51 @@ async function handleSignal(payload) {
 function handleAppSignal(app) {
   if (!app || typeof app.type !== 'string') return;
 
+  if (app.type === 'capabilities') {
+    const incoming = sanitizeCapabilities(app.payload);
+    if (!incoming) {
+      peerCapabilities = null;
+      capabilitiesCompatible = false;
+      compatibilityReason = 'Invalid peer capabilities payload';
+      if (E2E_STATE) {
+        E2E_STATE.capabilitiesCompatible = false;
+        E2E_STATE.compatibilityReason = compatibilityReason;
+        E2E_STATE.peerProtocolVersion = null;
+      }
+      addActivity('warn', compatibilityReason);
+      setStatus(compatibilityReason);
+      renderPeerState();
+      updateSendButton();
+      if (localReady) {
+        try { sendReadySignal(); } catch {}
+      }
+      return;
+    }
+
+    peerCapabilities = incoming;
+    const result = evaluateCapabilitiesCompatibilityState();
+
+    if (result.ok) {
+      addActivity('conn', `Protocol compatible (negotiated v${result.negotiatedVersion})`);
+    } else {
+      addActivity('warn', compatibilityReason);
+      setStatus(compatibilityReason);
+    }
+
+    renderPeerState();
+    updateSendButton();
+    if (localReady) {
+      try { sendReadySignal(); } catch {}
+    }
+    return;
+  }
+
   if (app.type === 'ready') {
     peerReady = !!(app.payload && app.payload.value);
     peerCryptoMode = (app.payload && app.payload.cryptoMode === 'passphrase')
       ? 'passphrase'
       : 'none';
+    addActivity('conn', `Peer readiness update: ${peerReady ? 'ready' : 'not ready'} (crypto=${peerCryptoMode})`);
 
     renderPeerState();
     updateSendButton();
@@ -1584,6 +2073,10 @@ function handleTransportState(e) {
   if (E2E_STATE) E2E_STATE.iceConnectionState = state;
 
   if (!state) return;
+  if (state !== lastIceState) {
+    addActivity('conn', `ICE state: ${state}`);
+    lastIceState = state;
+  }
   if (!isInitiator) return;
   if (!transportOpen) return;
 
@@ -1611,6 +2104,7 @@ async function triggerIceRestart(reason) {
   if (restartInFlight) return;
   if (!ws || ws.readyState !== WebSocket.OPEN) {
     // Best-effort: try to regain signaling so ICE restart can happen.
+    addActivity('warn', `ICE restart deferred (${reason}): signaling unavailable`);
     scheduleSignalingReconnect();
     return;
   }
@@ -1625,10 +2119,12 @@ async function triggerIceRestart(reason) {
   try {
     const offer = await transport.createOffer({ iceRestart: true });
     sendSignal({ sdp: offer });
+    addActivity('conn', `ICE restart triggered (${reason})`);
     setStatus(`Reconnecting (${reason})`);
   } catch (err) {
     restartInFlight = false;
     if (E2E_STATE) E2E_STATE.restartInFlight = false;
+    addActivity('warn', `ICE restart failed (${reason})`);
     throw err;
   }
 }
@@ -1662,6 +2158,7 @@ async function startOutboundTransfer(file, { weight, passphrase, markE2E = false
   if (!file || !transport) return false;
 
   sendAdvisoryMeaning(file);
+  addActivity('transfer', `Outbound start: ${file.name || 'unnamed'} (${formatBytes(file.size || 0)})`);
 
   const totalBytes = Number(file.size) || 0;
   let sentBytes = 0;
@@ -1747,6 +2244,7 @@ async function startOutboundTransfer(file, { weight, passphrase, markE2E = false
   row.setCancel(() => {
     cancelled = true;
     row.setStatus('cancelling');
+    addActivity('warn', `Outbound cancel requested: ${file.name || 'unnamed'}`);
     try { localSender.destroy(); } catch {}
   });
 
@@ -1761,6 +2259,7 @@ async function startOutboundTransfer(file, { weight, passphrase, markE2E = false
       receiptTimer: null,
       delivered: false,
     });
+    addActivity('transfer', `Outbound transfer id=${transferKey.slice(0, 8)} weight=${Math.max(1, Number(weight) || 1)}`);
   }
 
   try {
@@ -1772,6 +2271,7 @@ async function startOutboundTransfer(file, { weight, passphrase, markE2E = false
 
     if (cancelled) {
       row.setStatus('cancelled');
+      addActivity('warn', `Outbound cancelled: ${file.name || 'unnamed'}`);
       return false;
     }
 
@@ -1788,6 +2288,7 @@ async function startOutboundTransfer(file, { weight, passphrase, markE2E = false
           if (!cur) return;
           if (!cur.delivered) {
             try { if (cur.row) cur.row.setStatus('sent (no receipt)'); } catch {}
+            addActivity('warn', `Receipt timeout for ${transferKey.slice(0, 8)}`);
           }
           outboundTransfers.delete(transferKey);
         }, RECEIPT_TIMEOUT_MS);
@@ -1795,16 +2296,21 @@ async function startOutboundTransfer(file, { weight, passphrase, markE2E = false
     }
 
     row.setStatus(awaitingReceipt ? 'sent (awaiting receipt)' : 'sent');
+    addActivity('transfer', awaitingReceipt
+      ? `Outbound sent: ${file.name || 'unnamed'} (awaiting receipt)`
+      : `Outbound sent: ${file.name || 'unnamed'}`);
     if (IS_E2E && E2E_STATE) E2E_STATE.sentDoneCount = (E2E_STATE.sentDoneCount || 0) + 1;
     if (markE2E && E2E_STATE) E2E_STATE.sentDone = true;
     return true;
   } catch (err) {
     if (cancelled) {
       row.setStatus('cancelled');
+      addActivity('warn', `Outbound cancelled: ${file.name || 'unnamed'}`);
       return false;
     }
 
     row.setStatus('aborted');
+    addActivity('warn', `Outbound aborted: ${file.name || 'unnamed'} (${err && err.message ? err.message : 'send failed'})`);
     if (IS_E2E && E2E_STATE) E2E_STATE.sentAbortCount = (E2E_STATE.sentAbortCount || 0) + 1;
     if (IS_E2E && E2E_STATE && !E2E_STATE.error) {
       const detail = err && err.message ? err.message : 'send failed';
@@ -1832,6 +2338,12 @@ async function sendSelectedFile() {
 
   const all = Array.from(fileInput.files || []);
   if (all.length === 0) return;
+
+  const gate = getSendGateState();
+  if (!gate.enabled) {
+    setStatus(gate.reason || 'Send blocked');
+    return;
+  }
 
   const MAX_FILES_PER_BATCH = 20;
   const files = all.slice(0, MAX_FILES_PER_BATCH);
@@ -1904,10 +2416,21 @@ async function handleIncomingSession(session) {
     title: id,
   });
   row.setStatus('receiving');
+  addActivity('transfer', `Inbound start: ${id.slice(0, 8)}`);
+
+  if (!capabilitiesCompatible) {
+    const reason = compatibilityReason || 'Protocol incompatible with peer';
+    row.setStatus('aborted (protocol incompatible)');
+    addActivity('warn', `Inbound blocked for ${id.slice(0, 8)}: ${reason}`);
+    setStatus(reason);
+    sendPeerAbort(session.transferId);
+    return;
+  }
 
   const stream = session.getStream();
   if (!stream) {
     row.setStatus('aborted');
+    addActivity('warn', `Inbound aborted before stream open: ${id.slice(0, 8)}`);
     return;
   }
 
@@ -1929,6 +2452,7 @@ async function handleIncomingSession(session) {
     if (abortSignaled) return;
     abortSignaled = true;
     sendPeerAbort(session.transferId);
+    addActivity('warn', `Sent abort for inbound ${id.slice(0, 8)}`);
   };
 
   const DEFAULT_NAME = `ephera-${id}.bin`;
@@ -2003,6 +2527,7 @@ async function handleIncomingSession(session) {
   row.setCancel(() => {
     cancelled = true;
     row.setStatus('cancelling');
+    addActivity('warn', `Inbound cancel requested: ${id.slice(0, 8)}`);
     signalAbortOnce();
     try {
       if (writable) writable.abort();
@@ -2131,6 +2656,7 @@ async function handleIncomingSession(session) {
 
     if (cancelled) {
       row.setStatus('cancelled');
+      addActivity('warn', `Inbound cancelled: ${id.slice(0, 8)}`);
       return;
     }
 
@@ -2139,6 +2665,7 @@ async function handleIncomingSession(session) {
     } else {
       row.setStatus(discard ? 'received (discarded)' : 'received (saved)');
     }
+    addActivity('transfer', `Inbound complete: ${outputName} (${formatBytes(bytes)}) [${discard ? 'discarded' : 'saved'}]`);
     if (expectedBytes && expectedBytes > 0) row.setProgress(100);
     row.setSpeed('');
     sendReceipt(session.transferId, {
@@ -2161,6 +2688,7 @@ async function handleIncomingSession(session) {
     if (!cancelled) signalAbortOnce();
     if (!cancelled && IS_E2E && E2E_STATE) E2E_STATE.recvAbortCount = (E2E_STATE.recvAbortCount || 0) + 1;
     if (!cancelled && E2E_STATE) E2E_STATE.error = err && err.message ? err.message : 'receive failed';
+    addActivity('warn', `Inbound ${cancelled ? 'cancelled' : 'aborted'}: ${id.slice(0, 8)} (${err && err.message ? err.message : 'receive failed'})`);
   } finally {
     try { reader.releaseLock(); } catch {}
     row.setCancel(null);
@@ -2170,8 +2698,12 @@ async function handleIncomingSession(session) {
 /* ---------- Cleanup ---------- */
 
 function cleanup() {
+  addActivity('conn', 'Session cleanup');
   transportOpen = false;
   peerReady = false;
+  peerCapabilities = null;
+  capabilitiesCompatible = false;
+  compatibilityReason = 'Protocol negotiation pending';
   peerCryptoMode = 'none';
   resetPassphraseVerification();
   peerMeaning = null;
@@ -2182,7 +2714,11 @@ function cleanup() {
   if (E2E_STATE) E2E_STATE.signalingConnected = false;
   if (E2E_STATE) E2E_STATE.transportOpen = false;
   if (E2E_STATE) E2E_STATE.peerReady = false;
+  if (E2E_STATE) E2E_STATE.capabilitiesCompatible = false;
+  if (E2E_STATE) E2E_STATE.compatibilityReason = compatibilityReason;
+  if (E2E_STATE) E2E_STATE.peerProtocolVersion = null;
   if (E2E_STATE) E2E_STATE.iceConnectionState = null;
+  lastIceState = null;
   restartInFlight = false;
   if (E2E_STATE) E2E_STATE.restartInFlight = false;
   if (restartTimer) {
@@ -2255,6 +2791,114 @@ function cleanup() {
 
 /* ---------- Events ---------- */
 
+if (clearActivityBtn) {
+  clearActivityBtn.onclick = () => {
+    clearActivityTimeline();
+    addActivity('status', 'Activity timeline cleared');
+  };
+}
+
+if (activitySearchInput) {
+  activitySearchInput.oninput = () => {
+    renderActivityTimeline();
+  };
+}
+
+const activityKindInputs = [
+  activityKindConnInput,
+  activityKindTransferInput,
+  activityKindReceiptInput,
+  activityKindWarnInput,
+  activityKindStatusInput,
+].filter(Boolean);
+
+for (let i = 0; i < activityKindInputs.length; i++) {
+  activityKindInputs[i].onchange = () => {
+    renderActivityTimeline();
+  };
+}
+
+if (activityKindsAllBtn) {
+  activityKindsAllBtn.onclick = () => {
+    for (let i = 0; i < activityKindInputs.length; i++) {
+      activityKindInputs[i].checked = true;
+    }
+    renderActivityTimeline();
+  };
+}
+
+if (activityKindsNoneBtn) {
+  activityKindsNoneBtn.onclick = () => {
+    for (let i = 0; i < activityKindInputs.length; i++) {
+      activityKindInputs[i].checked = false;
+    }
+    renderActivityTimeline();
+  };
+}
+
+if (copyActivityBtn) {
+  copyActivityBtn.onclick = async () => {
+    const visible = getVisibleActivityEntries();
+    if (visible.length < 1) {
+      setStatus('No visible activity to copy');
+      return;
+    }
+
+    const text = buildActivityExportText(visible);
+    if (!text) {
+      setStatus('No visible activity to copy');
+      return;
+    }
+
+    try {
+      const ok = await copyText(text);
+      setStatus(ok ? `Copied ${visible.length} activity line(s)` : 'Copy failed');
+    } catch {
+      setStatus('Copy failed');
+    }
+  };
+}
+
+if (downloadActivityTxtBtn) {
+  downloadActivityTxtBtn.onclick = () => {
+    const visible = getVisibleActivityEntries();
+    if (visible.length < 1) {
+      setStatus('No visible activity to download');
+      return;
+    }
+
+    const text = buildActivityExportText(visible);
+    if (!text) {
+      setStatus('No visible activity to download');
+      return;
+    }
+
+    const filename = `${buildActivityFileBaseName()}.txt`;
+    const ok = downloadTextFile(filename, `${text}\n`, 'text/plain;charset=utf-8');
+    setStatus(ok ? `Downloaded ${visible.length} activity line(s) as TXT` : 'Download failed');
+  };
+}
+
+if (downloadActivityJsonBtn) {
+  downloadActivityJsonBtn.onclick = () => {
+    const visible = getVisibleActivityEntries();
+    if (visible.length < 1) {
+      setStatus('No visible activity to download');
+      return;
+    }
+
+    const text = buildActivityExportJson(visible);
+    if (!text) {
+      setStatus('No visible activity to download');
+      return;
+    }
+
+    const filename = `${buildActivityFileBaseName()}.json`;
+    const ok = downloadTextFile(filename, `${text}\n`, 'application/json;charset=utf-8');
+    setStatus(ok ? `Downloaded ${visible.length} activity line(s) as JSON` : 'Download failed');
+  };
+}
+
 fileInput.onchange = updateSendButton;
 
 createRoomBtn.onclick = async () => {
@@ -2306,7 +2950,7 @@ joinRoomBtn.onclick = async () => {
     // E2E automation: signal "ready" without requiring a folder picker.
     if (IS_E2E && E2E_AUTO_READY) {
       localReady = true;
-      sendApp('ready', { value: true, cryptoMode: getLocalCryptoMode() });
+      sendReadySignal();
       renderPeerState();
     }
   } catch (err) {
@@ -2464,7 +3108,7 @@ function onPassphraseChanged() {
 
   // If we're already "ready", update the peer with our crypto mode.
   if (localReady) {
-    sendApp('ready', { value: true, cryptoMode: getLocalCryptoMode() });
+    sendReadySignal();
   }
 
   // If we are already connected and the peer is in passphrase mode, attempt
@@ -2583,7 +3227,7 @@ if (pickReceiveFolderBtn) {
       receiveDirHandle = dir;
       localReady = true;
       setReceiveFolderLabel('Receive folder set');
-      sendApp('ready', { value: true, cryptoMode: getLocalCryptoMode() });
+      sendReadySignal();
       // Locally we are "ready"; peer readiness is separate.
       setStatus('Ready to receive');
     } catch (err) {
@@ -2598,10 +3242,14 @@ if (readyDiscardBtn) {
     receiveDirHandle = null;
     localReady = true;
     setReceiveFolderLabel('Ready: discard mode');
-    sendApp('ready', { value: true, cryptoMode: getLocalCryptoMode() });
+    sendReadySignal();
     setStatus('Ready to receive (discarding)');
   };
 }
+
+// Initialize send gating + status strip before any user interaction.
+updateSendButton();
+addActivity('conn', 'App ready');
 
 /* ---------- E2E Automation (Test-Only) ---------- */
 

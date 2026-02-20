@@ -62,6 +62,12 @@
         <p class="hint">Shows local connection stats. Nothing is sent anywhere.</p>
       </details>
       <p id="status" class="status"></p>
+      <div class="state-strip" id="state-strip">
+        <span id="state-signaling" class="state-chip">signaling: offline</span>
+        <span id="state-p2p" class="state-chip">p2p: down</span>
+        <span id="state-ready" class="state-chip">peer: not ready</span>
+        <span id="state-crypto" class="state-chip">crypto: plain</span>
+      </div>
     </section>
 
     <section class="panel" id="transfer-controls" hidden>
@@ -92,6 +98,7 @@
             <input type="range" id="send-weight" min="1" max="10" value="1">
             <span id="send-weight-value" class="hint">1</span>
           </div>
+          <p id="send-gate-reason" class="hint send-gate-reason"></p>
           <p class="hint">Send is enabled only when the peer signals “ready”. Multiple files are sent as concurrent transfers.</p>
         </div>
       </div>
@@ -118,6 +125,33 @@
       <div class="card">
         <h3>Transfers</h3>
         <div id="transfers" class="transfers"></div>
+      </div>
+
+      <div class="card">
+        <div class="panel-head panel-head-inline">
+          <h3>Activity Timeline</h3>
+          <button id="clear-activity" type="button">Clear</button>
+        </div>
+        <p class="hint">Local only. Stored in memory for this page session and cleared on refresh.</p>
+        <div class="activity-controls">
+          <input type="search" id="activity-search" placeholder="Search activity">
+          <div class="activity-kinds">
+            <label class="activity-kind-toggle"><input type="checkbox" id="activity-kind-conn" checked>conn</label>
+            <label class="activity-kind-toggle"><input type="checkbox" id="activity-kind-transfer" checked>transfer</label>
+            <label class="activity-kind-toggle"><input type="checkbox" id="activity-kind-receipt" checked>receipt</label>
+            <label class="activity-kind-toggle"><input type="checkbox" id="activity-kind-warn" checked>warn</label>
+            <label class="activity-kind-toggle"><input type="checkbox" id="activity-kind-status" checked>status</label>
+          </div>
+          <div class="row">
+            <button id="activity-kinds-all" type="button">All</button>
+            <button id="activity-kinds-none" type="button">None</button>
+            <button id="copy-activity" type="button">Copy Visible</button>
+            <button id="download-activity-txt" type="button">Download TXT</button>
+            <button id="download-activity-json" type="button">Download JSON</button>
+            <span id="activity-count" class="hint"></span>
+          </div>
+        </div>
+        <div id="activity-timeline" class="activity"></div>
       </div>
     </section>
 

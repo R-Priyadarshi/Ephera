@@ -43,6 +43,13 @@
   - Handshake META must use a transferId from a disjoint domain so it can never be routed as session META (reserved: transferId[0] high bit set)
   - Outbound sending UX must be gated on verification success to avoid wasted encrypted transfers under passphrase mismatch
 
+- Protocol Compatibility Contract (Stage 10):
+  - Peers must exchange sanitized capabilities (`v`, protocol range, feature sets) before transfers are treated as compatible
+  - Compatibility requires protocol range overlap and bilateral required-feature satisfaction
+  - Local ready advertisement and outbound send must fail closed until compatibility is confirmed
+  - Inbound sessions received while incompatible must be aborted (best-effort) and must not be streamed
+  - Capability state is RAM-only and must reset on teardown/reconnect
+
 - Metadata (Stage 7):
   - META is optional and must be one-shot per transfer (duplicates abort the session)
   - META must be bounded in size and must not be persisted beyond the session
