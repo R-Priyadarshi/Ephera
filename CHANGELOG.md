@@ -71,3 +71,20 @@
 - Expanded origin-policy test coverage:
   - signaling tests for `enforceSameOrigin` accept/reject behavior
   - app-server tests for default same-origin enforcement and explicit disable override
+- Upgraded relay-runtime E2E to support dynamic TURN secret auth:
+  - `e2e/webrtc-app.e2e.cjs` now accepts `E2E_TURN_AUTH_SECRET` (+ optional `E2E_TURN_TTL_SECONDS`)
+  - static TURN username/password mode remains as fallback
+- Added required relay gate mode:
+  - new script `npm run e2e:relay:required` (`E2E_RELAY_REQUIRED=1`)
+  - new `npm run gates:full` includes required relay runtime gate
+- Added one-command local relay gate automation:
+  - new `scripts/relay-gate-local.cjs`
+  - new `npm run gates:relay-local` (compose up -> required relay E2E -> compose down)
+- Updated TURN compose profile to dynamic credentials:
+  - `deploy/docker-compose.turn.yml` now uses coturn `--use-auth-secret` + Ephera `TURN_URLS_JSON`/`TURN_AUTH_SECRET`
+  - `deploy/turn.env.example` now provides `TURN_AUTH_SECRET` + `TURN_TTL_SECONDS`
+- Updated relay/deploy docs for dynamic TURN gating workflow:
+  - `README.md`
+  - `docs/DEPLOYMENT.md`
+  - `docs/PROJECT_MAP.md`
+  - `server/README.md`

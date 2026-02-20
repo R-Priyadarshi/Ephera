@@ -127,7 +127,17 @@ Run real WebRTC E2E (headless Chrome):
 npm run e2e
 ```
 
-Run optional relay-only E2E (requires reachable TURN credentials):
+Run relay runtime E2E with dynamic TURN auth (recommended):
+
+```bash
+E2E_TURN_URL='turn:YOUR_TURN_HOST:3478?transport=udp' \
+E2E_TURN_URL_TCP='turn:YOUR_TURN_HOST:3478?transport=tcp' \
+E2E_TURN_AUTH_SECRET='YOUR_TURN_SHARED_SECRET' \
+E2E_TURN_TTL_SECONDS=600 \
+npm run e2e:relay
+```
+
+Static TURN auth fallback:
 
 ```bash
 E2E_TURN_URL='turn:YOUR_TURN_HOST:3478?transport=udp' \
@@ -135,6 +145,28 @@ E2E_TURN_URL_TCP='turn:YOUR_TURN_HOST:3478?transport=tcp' \
 E2E_TURN_USERNAME='TURN_USER' \
 E2E_TURN_CREDENTIAL='TURN_PASS' \
 npm run e2e:relay
+```
+
+Run relay runtime as a required gate (fails if relay scenario is not executed):
+
+```bash
+E2E_TURN_URL='turn:YOUR_TURN_HOST:3478?transport=udp' \
+E2E_TURN_URL_TCP='turn:YOUR_TURN_HOST:3478?transport=tcp' \
+E2E_TURN_AUTH_SECRET='YOUR_TURN_SHARED_SECRET' \
+npm run e2e:relay:required
+```
+
+Run one-command local relay gate with bundled coturn profile:
+
+```bash
+cp deploy/turn.env.example deploy/.env
+npm run gates:relay-local
+```
+
+Run full gates including required relay runtime:
+
+```bash
+npm run gates:full
 ```
 
 This includes gates for:

@@ -5,10 +5,11 @@ services:
       - -n
       - --no-cli
       - --fingerprint
+      - --use-auth-secret
+      - --static-auth-secret=${TURN_AUTH_SECRET:-change-me-secret}
       - --lt-cred-mech
       - --realm=${TURN_REALM:-ephera.local}
-      - --user=${TURN_USER:-ephera}:${TURN_PASS:-change-me}
-      - --listening-port=3478
+      - --listening-port=${TURN_PORT:-3478}
       - --min-port=${TURN_MIN_PORT:-49160}
       - --max-port=${TURN_MAX_PORT:-49200}
       - --no-tls
@@ -17,8 +18,8 @@ services:
       - --stale-nonce=600
       - --log-file=stdout
     ports:
-      - "3478:3478/tcp"
-      - "3478:3478/udp"
+      - "${TURN_PORT:-3478}:${TURN_PORT:-3478}/tcp"
+      - "${TURN_PORT:-3478}:${TURN_PORT:-3478}/udp"
       - "${TURN_MIN_PORT:-49160}-${TURN_MAX_PORT:-49200}:${TURN_MIN_PORT:-49160}-${TURN_MAX_PORT:-49200}/udp"
     restart: unless-stopped
 
@@ -32,8 +33,10 @@ services:
       HOST: 0.0.0.0
       PORT: 3000
       ICE_TRANSPORT_POLICY: relay
-      ICE_SERVERS_JSON: >-
-        [{"urls":["turn:${PUBLIC_TURN_HOST:-127.0.0.1}:3478?transport=udp","turn:${PUBLIC_TURN_HOST:-127.0.0.1}:3478?transport=tcp"],"username":"${TURN_USER:-ephera}","credential":"${TURN_PASS:-change-me}"}]
+      TURN_URLS_JSON: >-
+        ["turn:${PUBLIC_TURN_HOST:-127.0.0.1}:${TURN_PORT:-3478}?transport=udp","turn:${PUBLIC_TURN_HOST:-127.0.0.1}:${TURN_PORT:-3478}?transport=tcp"]
+      TURN_AUTH_SECRET: ${TURN_AUTH_SECRET:-change-me-secret}
+      TURN_TTL_SECONDS: ${TURN_TTL_SECONDS:-600}
     ports:
-      - "3000:3000"
+      - "${EPHERA_HTTP_PORT:-3000}:3000"
     restart: unless-stopped

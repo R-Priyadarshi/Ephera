@@ -123,8 +123,24 @@ docker compose --env-file deploy/.env -f deploy/docker-compose.turn.yml up --bui
 
 Notes:
 - Set `PUBLIC_TURN_HOST` to an address reachable by browsers (not container-internal DNS).
+- Set `TURN_AUTH_SECRET` in `deploy/.env` (compose profile uses coturn REST auth + dynamic Ephera runtime credentials).
 - Open TURN relay UDP range (`TURN_MIN_PORT` to `TURN_MAX_PORT`) in your firewall/security group.
 - No persistent TURN log volume is configured (stdout only).
+
+Relay gate commands:
+
+```bash
+# One-command local relay gate (compose up -> relay E2E required -> compose down)
+npm run gates:relay-local
+```
+
+```bash
+# Full gates + relay-required (for CI or environments with reachable TURN)
+E2E_TURN_URL='turn:TURN_HOST:3478?transport=udp' \
+E2E_TURN_URL_TCP='turn:TURN_HOST:3478?transport=tcp' \
+E2E_TURN_AUTH_SECRET='TURN_SHARED_SECRET' \
+npm run gates:full
+```
 
 ## Reverse Proxy Examples
 
@@ -171,4 +187,4 @@ example.com {
 
 - Ephera signaling rooms are RAM-only. Restarting the server destroys all rooms.
 - Keep the signaling + static server same-origin if possible (simplest and safest).
-- For NAT traversal at scale, prefer server-driven defaults (`ICE_SERVERS_JSON` + `ICE_TRANSPORT_POLICY`) over URL params.
+- For NAT traversal at scale, prefer server-driven defaults (`TURN_URLS_JSON`/`TURN_AUTH_SECRET` + `ICE_TRANSPORT_POLICY`) over URL params.

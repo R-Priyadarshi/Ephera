@@ -314,16 +314,55 @@ async function run() {
   const PERF = process.env.E2E_PERF === '1' || process.env.E2E_PERF === 'true';
   const SOAK = process.env.E2E_SOAK === '1' || process.env.E2E_SOAK === 'true';
   const RELAY_RUNTIME = process.env.E2E_RELAY_RUNTIME === '1' || process.env.E2E_RELAY_RUNTIME === 'true';
+  const RELAY_REQUIRED = process.env.E2E_RELAY_REQUIRED === '1' || process.env.E2E_RELAY_REQUIRED === 'true';
   const RELAY_TURN_URL = String(process.env.E2E_TURN_URL || '').trim();
   const RELAY_TURN_URL_TCP = String(process.env.E2E_TURN_URL_TCP || '').trim();
   const RELAY_TURN_USERNAME = String(process.env.E2E_TURN_USERNAME || process.env.E2E_TURN_USER || '').trim();
   const RELAY_TURN_CREDENTIAL = String(process.env.E2E_TURN_CREDENTIAL || process.env.E2E_TURN_PASS || '').trim();
+  const RELAY_TURN_AUTH_SECRET = String(process.env.E2E_TURN_AUTH_SECRET || '').trim();
+  const RELAY_TURN_TTL_SECONDS_RAW = String(process.env.E2E_TURN_TTL_SECONDS || '').trim();
+  const relayHasStaticCreds = !!(RELAY_TURN_USERNAME && RELAY_TURN_CREDENTIAL);
+  const relayHasDynamicSecret = !!RELAY_TURN_AUTH_SECRET;
+  const relayUseDynamicCredentials = relayHasDynamicSecret;
+  const relayUseStaticCredentials = !relayUseDynamicCredentials && relayHasStaticCreds;
+
+  const relayTurnTtlSeconds = (() => {
+    if (!RELAY_TURN_TTL_SECONDS_RAW) return 600;
+    const raw = Number(RELAY_TURN_TTL_SECONDS_RAW);
+    if (!Number.isFinite(raw)) {
+      throw new Error('Invalid E2E_TURN_TTL_SECONDS (must be a number between 30 and 86400).');
+    }
+    const n = Math.floor(raw);
+    if (n < 30 || n > 86400) {
+      throw new Error('Invalid E2E_TURN_TTL_SECONDS (must be between 30 and 86400).');
+    }
+    return n;
+  })();
+
+  if (RELAY_REQUIRED && !RELAY_RUNTIME) {
+    throw new Error('E2E_RELAY_REQUIRED=1 requires E2E_RELAY_RUNTIME=1.');
+  }
 
   if (RELAY_RUNTIME) {
-    if (!RELAY_TURN_URL || !RELAY_TURN_USERNAME || !RELAY_TURN_CREDENTIAL) {
+    if (!RELAY_TURN_URL) {
       throw new Error([
-        'Relay runtime E2E requested but TURN credentials are incomplete.',
-        'Required: E2E_TURN_URL, E2E_TURN_USERNAME (or E2E_TURN_USER), E2E_TURN_CREDENTIAL (or E2E_TURN_PASS).',
+        'Relay runtime E2E requested but E2E_TURN_URL is missing.',
+        'Required: E2E_TURN_URL.',
+      ].join(' '));
+    }
+    if (relayHasDynamicSecret && relayHasStaticCreds) {
+      throw new Error([
+        'Relay runtime E2E config is ambiguous.',
+        'Use dynamic TURN auth (E2E_TURN_AUTH_SECRET) OR static TURN auth',
+        '(E2E_TURN_USERNAME + E2E_TURN_CREDENTIAL), not both.',
+      ].join(' '));
+    }
+    if (!relayUseDynamicCredentials && !relayUseStaticCredentials) {
+      throw new Error([
+        'Relay runtime E2E requested but TURN auth config is incomplete.',
+        'Use one mode:',
+        '- Dynamic: E2E_TURN_AUTH_SECRET (recommended)',
+        '- Static: E2E_TURN_USERNAME + E2E_TURN_CREDENTIAL',
       ].join(' '));
     }
   }
@@ -360,18 +399,25 @@ async function run() {
     const relayPort = await getFreePort();
     const relayUrls = [RELAY_TURN_URL];
     if (RELAY_TURN_URL_TCP) relayUrls.push(RELAY_TURN_URL_TCP);
-    const relayIceServers = [
-      {
-        urls: relayUrls.length === 1 ? relayUrls[0] : relayUrls,
-        username: RELAY_TURN_USERNAME,
-        credential: RELAY_TURN_CREDENTIAL,
-      },
-    ];
-
-    relayAppServer = await startAppServer(relayPort, {
+    const relayEnv = {
       ICE_TRANSPORT_POLICY: 'relay',
-      ICE_SERVERS_JSON: JSON.stringify(relayIceServers),
-    });
+    };
+    if (relayUseDynamicCredentials) {
+      relayEnv.TURN_URLS_JSON = JSON.stringify(relayUrls);
+      relayEnv.TURN_AUTH_SECRET = RELAY_TURN_AUTH_SECRET;
+      relayEnv.TURN_TTL_SECONDS = String(relayTurnTtlSeconds);
+    } else {
+      const relayIceServers = [
+        {
+          urls: relayUrls.length === 1 ? relayUrls[0] : relayUrls,
+          username: RELAY_TURN_USERNAME,
+          credential: RELAY_TURN_CREDENTIAL,
+        },
+      ];
+      relayEnv.ICE_SERVERS_JSON = JSON.stringify(relayIceServers);
+    }
+
+    relayAppServer = await startAppServer(relayPort, relayEnv);
     relayAppBaseUrl = `http://127.0.0.1:${relayPort}`;
   }
 
@@ -1501,6 +1547,7 @@ async function run() {
       contextOptions: { ignoreHTTPSErrors: true },
     });
 
+    let relayScenarioRan = false;
     if (RELAY_RUNTIME) {
       await runScenario({
         label: 'relay-runtime-config',
@@ -1512,8 +1559,13 @@ async function run() {
         transferTimeoutMs: 120_000,
         expectRelayPolicy: true,
       });
+      relayScenarioRan = true;
     } else {
-      console.log('--- E2E (relay-runtime-config): SKIP (set E2E_RELAY_RUNTIME=1 + TURN env to enable) ---');
+      console.log('--- E2E (relay-runtime-config): SKIP (run `npm run e2e:relay` or `npm run e2e:relay:required`) ---');
+    }
+
+    if (RELAY_REQUIRED && !relayScenarioRan) {
+      throw new Error('Relay runtime scenario is required but did not execute.');
     }
 
     // Automated leak gate: force GC and assert TransferSession objects are collectible.

@@ -137,6 +137,8 @@ cp deploy/turn.env.example deploy/.env
 docker compose --env-file deploy/.env -f deploy/docker-compose.turn.yml up --build
 ```
 
+The compose profile uses coturn REST auth (`TURN_AUTH_SECRET`) and Ephera dynamic runtime TURN credentials.
+
 ## Tests
 
 ```bash
