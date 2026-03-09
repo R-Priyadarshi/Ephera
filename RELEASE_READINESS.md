@@ -5,28 +5,35 @@ Scope: backend production-readiness checkpoint
 
 ## Summary
 
-Release status: IN PROGRESS (not production-complete)
+Backend status: PRODUCTION-CANDIDATE (current scope)
 
 - Engine invariants/freeze docs are present through Stage 20.
 - Local automated gates are available and passing.
 - GitHub CI required checks are active and green.
-- Manual deploy-targeted gate exists (`staging-smoke`).
+- Public staging deployment is live (`https://ephera.onrender.com`).
+- Deploy-target smoke gate passed on deployed URL.
 
-## What Is Completed
+## Completed Milestones
 
 - Core transport/signaling architecture and test suites.
 - CI workflow (`.github/workflows/ci.yml`) including required-check aggregation.
 - Deploy-target WebRTC smoke gate (`.github/workflows/staging-smoke.yml`).
-- Deployment guidance for reverse proxy + TURN runtime config.
+- Public staging deployment blueprint (`render.yaml`) and live service.
+- Staging health/readiness verification:
+  - `GET /healthz` => `ok: true`
+  - `GET /readyz` => `ok: true`
+- Staging smoke verification on deployed URL:
+  - `create_join_transport` pass
+  - `small_transfer_success` pass
+  - `receiver_cancel_aborts_sender` pass
 
-## Remaining Production Blockers
+## Remaining Work (Full-App Completion)
 
-- Public HTTPS staging deployment must be live.
-- `staging-smoke` must pass against the deployed URL.
-- Production TURN path must be validated in deployed environment.
-- Final manual QA sign-off on deployed UX (create/join/send/cancel/folder-save).
+- Final frontend productization pass (world-class UX/UI quality bar).
+- Production TURN rollout validation in hosted environment (if relay-first policy is required for launch).
+- Final manual QA sign-off on deployed UX (create/join/send/cancel/folder-save on target browsers/devices).
 
-## Command Gates (Local)
+## Command Gates (Reference)
 
 - Full local gate:
   - `npm run gates`
@@ -46,7 +53,6 @@ Release status: IN PROGRESS (not production-complete)
 
 ## Current Recommendation
 
-1. Bring up public staging (for example via Render blueprint `render.yaml`).
-2. Run `staging-smoke` against that URL.
-3. Close remaining manual QA items.
-4. Then declare backend production-complete and move to frontend productization final pass.
+1. Keep backend baseline frozen at current milestone.
+2. Start frontend productization sprint.
+3. Re-run staging smoke after major frontend transport-flow changes.

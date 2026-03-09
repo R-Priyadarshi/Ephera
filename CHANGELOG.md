@@ -1,5 +1,23 @@
 # Changelog
 
+## 2026-03-09
+
+- Added public staging deployment blueprint:
+  - new `render.yaml` (Render web service: Node 20, `npm ci`, `npm start`, `/readyz` health check)
+- Added no-domain staging deployment guidance:
+  - `docs/DEPLOYMENT.md` now includes "Quick Public Staging (No Custom Domain)"
+  - `README.md` now references Render blueprint path for public staging
+- Updated release-readiness checkpoint to current truth:
+  - `RELEASE_READINESS.md` now marks backend as production-candidate for current scope
+  - records live staging URL validation and deployed smoke gate success
+- Milestone validation executed:
+  - public staging deployment live at `https://ephera.onrender.com`
+  - `/healthz` and `/readyz` verified healthy
+  - GitHub Actions `staging-smoke` run passed on deployed URL:
+    - `create_join_transport`
+    - `small_transfer_success`
+    - `receiver_cancel_aborts_sender`
+
 ## 2026-02-20
 
 - Added secure runtime E2E coverage:
