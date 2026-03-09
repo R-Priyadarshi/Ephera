@@ -44,14 +44,21 @@ function createRoomStore({ waitingTtlMs = DEFAULT_WAITING_TTL_MS } = {}) {
     room.waitingTimer = null;
   }
 
-  function createRoom(roomId) {
+  function createRoom(roomId, options = {}) {
     if (rooms.has(roomId)) {
       return rooms.get(roomId);
     }
 
+    const joinKey = (options && typeof options.joinKey === 'string') ? options.joinKey : '';
+    const ownerPeerId = (options && typeof options.ownerPeerId === 'string' && options.ownerPeerId)
+      ? options.ownerPeerId
+      : null;
     const room = {
       id: roomId,
+      joinKey,
+      ownerPeerId,
       peers: new Set(),
+      peerIds: new Map(),
       waitingTimer: null,
     };
 
@@ -60,11 +67,14 @@ function createRoomStore({ waitingTtlMs = DEFAULT_WAITING_TTL_MS } = {}) {
     return room;
   }
 
-  function joinRoom(roomId, socket) {
+  function joinRoom(roomId, socket, peerId = null) {
     const room = rooms.get(roomId);
     if (!room) return null;
 
     room.peers.add(socket);
+    if (typeof peerId === 'string' && peerId) {
+      room.peerIds.set(socket, peerId);
+    }
 
     if (room.peers.size >= 2) {
       disarmWaitingTtl(room);
@@ -77,17 +87,46 @@ function createRoomStore({ waitingTtlMs = DEFAULT_WAITING_TTL_MS } = {}) {
 
   function leaveRoom(roomId, socket) {
     const room = rooms.get(roomId);
-    if (!room) return;
+    if (!room) {
+      return {
+        destroyed: false,
+        ownerChanged: false,
+        roomOwnerPeerId: null,
+        leftPeerId: null,
+      };
+    }
 
+    const leftPeerId = room.peerIds.get(socket) || null;
     room.peers.delete(socket);
+    room.peerIds.delete(socket);
+
+    let ownerChanged = false;
+    if (leftPeerId && room.ownerPeerId === leftPeerId && room.peers.size > 0) {
+      const nextOwnerSocket = room.peers.values().next().value || null;
+      const nextOwnerPeerId = nextOwnerSocket ? (room.peerIds.get(nextOwnerSocket) || null) : null;
+      room.ownerPeerId = nextOwnerPeerId;
+      ownerChanged = !!nextOwnerPeerId;
+    }
 
     if (room.peers.size === 0) {
       destroyRoom(roomId);
-      return;
+      return {
+        destroyed: true,
+        ownerChanged: false,
+        roomOwnerPeerId: null,
+        leftPeerId,
+      };
     }
 
     // If a room becomes a waiting room again, re-arm the waiting TTL.
     if (room.peers.size < 2) armWaitingTtl(room);
+
+    return {
+      destroyed: false,
+      ownerChanged,
+      roomOwnerPeerId: room.ownerPeerId,
+      leftPeerId,
+    };
   }
 
   function destroyRoom(roomId) {
@@ -105,6 +144,8 @@ function createRoomStore({ waitingTtlMs = DEFAULT_WAITING_TTL_MS } = {}) {
     }
 
     room.peers.clear();
+    room.peerIds.clear();
+    room.ownerPeerId = null;
     rooms.delete(roomId);
   }
 

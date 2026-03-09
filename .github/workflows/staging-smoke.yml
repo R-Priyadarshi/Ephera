@@ -1,0 +1,111 @@
+name: staging-smoke
+
+on:
+  workflow_dispatch:
+    inputs:
+      staging_base_url:
+        description: 'HTTPS base URL for deployed Ephera (example: https://staging.example.com)'
+        required: true
+        type: string
+      staging_signal_url:
+        description: 'Optional signaling URL override (example: wss://signal.example.com)'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    name: smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      STAGING_BASE_URL: ${{ inputs.staging_base_url }}
+      STAGING_SIGNAL_URL: ${{ inputs.staging_signal_url }}
+      STAGING_SMOKE_SUMMARY_PATH: ${{ runner.temp }}/staging-smoke-summary.json
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Setup Chrome
+        id: chrome
+        uses: browser-actions/setup-chrome@v1
+
+      - name: Export Chrome path
+        run: echo "CHROME_PATH=${{ steps.chrome.outputs.chrome-path }}" >> "$GITHUB_ENV"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run staging smoke gate
+        run: npm run e2e:staging-smoke
+
+      - name: Append staging smoke summary
+        if: ${{ always() }}
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const out = process.env.GITHUB_STEP_SUMMARY;
+          const p = process.env.STAGING_SMOKE_SUMMARY_PATH || '';
+
+          function append(lines) {
+            if (!out) return;
+            fs.appendFileSync(out, `${lines.join('\n')}\n`);
+          }
+
+          append(['## Staging Smoke']);
+
+          if (!p || !fs.existsSync(p)) {
+            append(['- summary: not found']);
+            process.exit(0);
+          }
+
+          let data = null;
+          try {
+            data = JSON.parse(fs.readFileSync(p, 'utf8'));
+          } catch (err) {
+            append([`- summary: parse error (${String(err && err.message ? err.message : err)})`]);
+            process.exit(0);
+          }
+
+          append([
+            `- ok: \`${String(!!(data && data.ok))}\``,
+            `- baseUrl: \`${String((data && data.baseUrl) || 'n/a')}\``,
+            `- totalDurationMs: \`${Number.isFinite(data && data.totalDurationMs) ? data.totalDurationMs : 'n/a'}\``,
+          ]);
+
+          const checks = Array.isArray(data && data.checks) ? data.checks : [];
+          if (checks.length < 1) {
+            append(['- checks: none']);
+            process.exit(0);
+          }
+
+          append(['- checks:']);
+          for (const c of checks) {
+            const name = String((c && c.name) || 'unknown');
+            const ok = !!(c && c.ok);
+            const dur = Number.isFinite(c && c.durationMs) ? c.durationMs : 'n/a';
+            const prefix = ok ? 'pass' : 'fail';
+            append([`  - \`${name}\`: \`${prefix}\` (\`${dur} ms\`)`]);
+          }
+
+          if (data && data.error) {
+            append(['- error:']);
+            append(['```text', String(data.error), '```']);
+          }
+          NODE
+
+      - name: Upload staging smoke summary artifact
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: staging-smoke-summary-${{ github.run_id }}
+          path: ${{ env.STAGING_SMOKE_SUMMARY_PATH }}
+          if-no-files-found: warn

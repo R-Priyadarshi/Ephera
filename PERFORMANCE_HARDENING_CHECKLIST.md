@@ -336,7 +336,7 @@ Observe signaling server (if accessible) or attempt to join after TTL.
 
 **Pass criteria:**
 - Room is destroyed at TTL
-- Late join returns "Room not found"
+- Late join returns "Join unavailable"
 - Server memory stable
 
 **Fail criteria:**

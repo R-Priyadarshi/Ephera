@@ -80,6 +80,33 @@ function getFreePort() {
   });
 }
 
+function validateTurnSecret(raw) {
+  const value = String(raw || '').trim();
+  if (!value) {
+    throw new Error('TURN_AUTH_SECRET is required in deploy/.env for dynamic relay gate.');
+  }
+  if (value === 'change-me-secret') {
+    throw new Error('TURN_AUTH_SECRET in deploy/.env must not use the placeholder value "change-me-secret".');
+  }
+  if (value.length < 16) {
+    throw new Error('TURN_AUTH_SECRET in deploy/.env must be at least 16 characters.');
+  }
+  return value;
+}
+
+function parseTurnTtlSeconds(raw) {
+  const value = String(raw || '600').trim() || '600';
+  const n = Number(value);
+  if (!Number.isFinite(n)) {
+    throw new Error('TURN_TTL_SECONDS in deploy/.env must be a number between 30 and 86400.');
+  }
+  const ttl = Math.floor(n);
+  if (ttl < 30 || ttl > 86400) {
+    throw new Error('TURN_TTL_SECONDS in deploy/.env must be between 30 and 86400.');
+  }
+  return String(ttl);
+}
+
 async function main() {
   if (!fs.existsSync(ENV_FILE)) {
     throw new Error(`Missing ${ENV_FILE}. Copy deploy/turn.env.example to deploy/.env first.`);
@@ -90,13 +117,9 @@ async function main() {
 
   const fileEnv = parseDotEnv(fs.readFileSync(ENV_FILE, 'utf8'));
   const turnHost = String(fileEnv.PUBLIC_TURN_HOST || '127.0.0.1').trim() || '127.0.0.1';
-  const turnSecret = String(fileEnv.TURN_AUTH_SECRET || '').trim();
-  const turnTtl = String(fileEnv.TURN_TTL_SECONDS || '600').trim() || '600';
+  const turnSecret = validateTurnSecret(fileEnv.TURN_AUTH_SECRET);
+  const turnTtl = parseTurnTtlSeconds(fileEnv.TURN_TTL_SECONDS);
   const turnPort = await getFreePort();
-
-  if (!turnSecret) {
-    throw new Error('TURN_AUTH_SECRET is required in deploy/.env for dynamic relay gate.');
-  }
 
   const composeArgs = [
     'compose',

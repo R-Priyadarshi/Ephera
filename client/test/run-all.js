@@ -7,6 +7,8 @@ import { runFairnessTest } from './fairness.equal-weights.test.js';
 import { runWeightedPriorityFairnessTest } from './fairness.weighted-priority.test.js';
 import { runPassphraseEncryptionTest } from './encryption.passphrase.test.js';
 import { runMetadataTest } from './metadata.test.js';
+import { runInvitePackageParsingTest } from './invite-package.test.js';
+import { runInviteQrPayloadTest } from './invite-qr.test.js';
 import { runSchedulerLivenessTest } from './scheduler.liveness.test.js';
 import { runTransportBackpressureTest } from './transport.backpressure.test.js';
 import { runHandshakeDomainTest } from './handshake-domain.test.js';
@@ -24,6 +26,8 @@ async function main() {
 
   await runPassphraseEncryptionTest();
   await runCapabilitiesNegotiationTest();
+  await runInvitePackageParsingTest();
+  await runInviteQrPayloadTest();
   await runMetadataTest();
   await runHandshakeDomainTest();
   await runSchedulerLivenessTest();

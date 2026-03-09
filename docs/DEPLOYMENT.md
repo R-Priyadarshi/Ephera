@@ -74,6 +74,7 @@ Behavior:
 
 Validation rules:
 - `TURN_URLS_JSON` and `TURN_AUTH_SECRET` must be set together.
+- `TURN_AUTH_SECRET` must be at least `16` characters and must not be `change-me-secret`.
 - `TURN_TTL_SECONDS` must be between `30` and `86400`.
 - `TURN_URLS_JSON` entries must be `turn:` or `turns:` URLs.
 

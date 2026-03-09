@@ -216,6 +216,15 @@ function parseShutdownGraceMsOrExit(value, fallback = 3000) {
   return ms;
 }
 
+function parseTurnAuthSecretOrExit(value) {
+  const s = typeof value === 'string' ? value.trim() : '';
+  if (!s) process.exit(1);
+  // Fail-fast on placeholder/demo secrets to avoid accidental weak production config.
+  if (s === 'change-me-secret') process.exit(1);
+  if (s.length < 16) process.exit(1);
+  return s;
+}
+
 function buildDynamicTurnServer(turnConfig) {
   const nowSeconds = Math.floor(Date.now() / 1000);
   const expiresAt = nowSeconds + turnConfig.ttlSeconds;
@@ -266,7 +275,7 @@ function loadRuntimeConfigFactoryOrExit() {
 
     dynamicTurn = {
       urls: sanitizedTurnUrls,
-      secret: TURN_AUTH_SECRET,
+      secret: parseTurnAuthSecretOrExit(TURN_AUTH_SECRET),
       ttlSeconds: parseTurnTtlSecondsOrExit(TURN_TTL_SECONDS_RAW, 600),
     };
   }

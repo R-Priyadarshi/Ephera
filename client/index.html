@@ -17,12 +17,66 @@
       <div class="panel-head">
         <h2>Connection</h2>
       </div>
+      <div class="launchpad card" id="launchpad">
+        <div class="launchpad-head">
+          <h3>Launchpad</h3>
+          <span id="launchpad-state" class="launchpad-state">Idle</span>
+        </div>
+        <p id="launchpad-hint" class="hint">Start by hosting a secure session or join an existing invite package.</p>
+        <div class="row launchpad-actions">
+          <button id="launchpad-host" type="button">Host Secure Session</button>
+          <button id="launchpad-join" type="button">Join Existing Session</button>
+          <button id="copy-invite-package" type="button" disabled>Copy Invite Package</button>
+        </div>
+        <div class="row">
+          <textarea
+            id="invite-package-input"
+            rows="3"
+            placeholder="Paste invite package text or join link"
+            spellcheck="false"
+          ></textarea>
+        </div>
+        <div class="row launchpad-actions invite-package-actions">
+          <button id="paste-invite-package" type="button">Paste Package</button>
+          <button id="apply-invite-package" type="button">Apply Package</button>
+          <button id="apply-join-invite-package" type="button">Apply + Join</button>
+        </div>
+        <p id="invite-package-state" class="hint">Accepts full invite package text, JSON payload, or join link.</p>
+        <details class="details qr-pairing" id="qr-pairing-panel">
+          <summary class="hint">QR Pairing</summary>
+          <div class="row">
+            <button id="show-invite-qr" type="button">Show Invite QR</button>
+            <button id="clear-invite-qr" type="button" disabled>Clear QR</button>
+            <button id="scan-qr-image" type="button">Scan QR Image</button>
+            <input id="scan-qr-image-input" type="file" accept="image/*" hidden>
+          </div>
+          <div class="row">
+            <button id="start-qr-camera" type="button">Start Camera Scan</button>
+            <button id="stop-qr-camera" type="button" disabled>Stop Camera</button>
+          </div>
+          <canvas id="invite-qr-canvas" class="invite-qr-canvas" hidden></canvas>
+          <video id="qr-camera-preview" class="qr-camera-preview" hidden playsinline muted></video>
+          <p id="qr-pairing-state" class="hint">QR pairing idle.</p>
+          <p class="hint">QR contains invite secrets. Scan only on trusted devices.</p>
+        </details>
+        <p class="hint">Invite package includes room ID, room auth key, join link, and passphrase snapshot (if set).</p>
+      </div>
       <div class="row">
         <input type="text" id="room-id" placeholder="Room ID" autocomplete="off" spellcheck="false">
         <button id="generate-room-id" type="button">Generate</button>
         <button id="create-room">Create</button>
         <button id="join-room">Join</button>
         <button id="disconnect" disabled>Disconnect</button>
+      </div>
+      <div class="row">
+        <input type="text" id="room-join-key" placeholder="Room Auth Key" autocomplete="off" spellcheck="false">
+        <button id="generate-room-join-key" type="button">Generate Key</button>
+      </div>
+      <p class="hint">Required for joins. Generated in-memory; share via join link or out-of-band.</p>
+      <div class="row">
+        <button id="rotate-room-key" type="button" disabled>Rotate Room Key</button>
+        <button id="close-room" type="button" disabled>Close Room</button>
+        <span id="room-authority" class="hint">Authority: role=none</span>
       </div>
       <div class="row">
         <input type="text" id="join-link" placeholder="Join link" readonly>
@@ -67,12 +121,60 @@
         <span id="state-p2p" class="state-chip">p2p: down</span>
         <span id="state-ready" class="state-chip">peer: not ready</span>
         <span id="state-crypto" class="state-chip">crypto: plain</span>
+        <span id="state-owner" class="state-chip">role: none</span>
+      </div>
+      <div class="preflight card" id="preflight-panel">
+        <div class="preflight-head">
+          <h3>Environment Preflight</h3>
+          <span id="preflight-summary" class="preflight-summary">Checking...</span>
+        </div>
+        <div class="preflight-list">
+          <div class="preflight-row">
+            <span class="hint">Secure context (HTTPS)</span>
+            <span id="preflight-secure-state" class="preflight-pill">check</span>
+          </div>
+          <div class="preflight-row">
+            <span class="hint">Folder picker API</span>
+            <span id="preflight-folder-state" class="preflight-pill">check</span>
+          </div>
+          <div class="preflight-row">
+            <span class="hint">WebRTC support</span>
+            <span id="preflight-webrtc-state" class="preflight-pill">check</span>
+          </div>
+          <div class="preflight-row">
+            <span class="hint">Clipboard API</span>
+            <span id="preflight-clipboard-state" class="preflight-pill">check</span>
+          </div>
+        </div>
+        <p id="preflight-fix" class="hint preflight-fix">Checking runtime capabilities...</p>
+      </div>
+      <div class="flow-guide card" id="flow-guide">
+        <div class="flow-guide-head">
+          <h3>Transfer Flow</h3>
+          <p id="flow-current" class="flow-current">Step 1/5: Create or join a room</p>
+        </div>
+        <ol class="flow-list">
+          <li id="flow-step-room" class="flow-step">Create or join room</li>
+          <li id="flow-step-p2p" class="flow-step">Establish P2P channel</li>
+          <li id="flow-step-local-ready" class="flow-step">Peer signals ready</li>
+          <li id="flow-step-peer-ready" class="flow-step">Protocol + crypto verified</li>
+          <li id="flow-step-send" class="flow-step">Choose file and send</li>
+        </ol>
+        <p id="flow-next" class="hint">Next: create or join a room.</p>
+        <p id="role-onboarding-hint" class="hint onboarding-hint">Role hint: create a room to become owner, or join as peer.</p>
       </div>
     </section>
 
     <section class="panel" id="transfer-controls" hidden>
       <div class="panel-head">
         <h2>Transfer</h2>
+      </div>
+      <div class="card quick-transfer">
+        <div class="panel-head panel-head-inline">
+          <h3>Quick Mode</h3>
+          <span id="transfer-quick-summary" class="quick-summary">Create or join a room to start.</span>
+        </div>
+        <p class="hint">Primary path: wait for peer ready, choose files, press Send. Expand advanced controls only when needed.</p>
       </div>
 
       <div class="grid">
@@ -82,6 +184,13 @@
             <button id="pick-receive-folder">Pick Receive Folder</button>
             <button id="ready-discard" type="button">Ready (Discard)</button>
             <span id="receive-folder-label" class="hint">No folder selected</span>
+          </div>
+          <div class="receive-destination" id="receive-destination-panel">
+            <p id="receive-destination-state" class="receive-destination-state">Destination: discard mode (not ready)</p>
+            <div class="row">
+              <button id="copy-receive-destination" type="button">Copy Destination</button>
+              <button id="open-receive-folder" type="button" disabled>Open Folder</button>
+            </div>
           </div>
           <p id="peer-state" class="status"></p>
           <p class="hint">Pick a folder to save received files, or signal ready in discard mode to receive without saving.</p>
@@ -93,65 +202,73 @@
             <input type="file" id="file-input" multiple>
             <button id="send-file" disabled>Send</button>
           </div>
-          <div class="row">
-            <label for="send-weight" class="hint">Priority</label>
-            <input type="range" id="send-weight" min="1" max="10" value="1">
-            <span id="send-weight-value" class="hint">1</span>
-          </div>
           <p id="send-gate-reason" class="hint send-gate-reason"></p>
           <p class="hint">Send is enabled only when the peer signals “ready”. Multiple files are sent as concurrent transfers.</p>
         </div>
       </div>
 
-      <div class="card">
-        <h3>Secure Mode (Recommended)</h3>
-        <div class="row">
-          <input type="password" id="passphrase" placeholder="Passphrase (recommended)" autocomplete="off" spellcheck="false">
-          <button id="generate-passphrase" type="button">Generate</button>
-          <button id="copy-passphrase" type="button">Copy</button>
-          <button id="share-passphrase" type="button" hidden>Share</button>
-          <button id="clear-passphrase" type="button">Clear</button>
+      <details class="details transfer-advanced" id="transfer-advanced">
+        <summary class="hint">Advanced transfer controls</summary>
+        <div class="card">
+          <h3>Scheduler</h3>
+          <div class="row">
+            <label for="send-weight" class="hint">Priority</label>
+            <input type="range" id="send-weight" min="1" max="10" value="1">
+            <span id="send-weight-value" class="hint">1</span>
+          </div>
+          <p class="hint">Higher priority gets more early send turns when transfers run concurrently.</p>
         </div>
-        <div class="row">
-          <label class="hint">
-            <input type="checkbox" id="include-passphrase-link">
-            Include passphrase in join link (may leak via web server logs)
-          </label>
+
+        <div class="card">
+          <h3>Secure Mode (Recommended)</h3>
+          <div class="row">
+            <input type="password" id="passphrase" placeholder="Passphrase (recommended)" autocomplete="off" spellcheck="false">
+            <button id="generate-passphrase" type="button">Generate</button>
+            <button id="copy-passphrase" type="button">Copy</button>
+            <button id="share-passphrase" type="button" hidden>Share</button>
+            <button id="clear-passphrase" type="button">Clear</button>
+          </div>
+          <div class="row">
+            <label class="hint">
+              <input type="checkbox" id="include-passphrase-link">
+              Include passphrase in join link (may leak via web server logs)
+            </label>
+          </div>
+          <p id="crypto-state" class="status"></p>
+          <p class="hint">If set, each payload chunk is encrypted with AES-256-GCM using a key derived from this passphrase. Ephera does not store it.</p>
         </div>
-        <p id="crypto-state" class="status"></p>
-        <p class="hint">If set, each payload chunk is encrypted with AES-256-GCM using a key derived from this passphrase. Ephera does not store it.</p>
-      </div>
+
+        <div class="card">
+          <div class="panel-head panel-head-inline">
+            <h3>Activity Timeline</h3>
+            <button id="clear-activity" type="button">Clear</button>
+          </div>
+          <p class="hint">Local only. Stored in memory for this page session and cleared on refresh.</p>
+          <div class="activity-controls">
+            <input type="search" id="activity-search" placeholder="Search activity">
+            <div class="activity-kinds">
+              <label class="activity-kind-toggle"><input type="checkbox" id="activity-kind-conn" checked>conn</label>
+              <label class="activity-kind-toggle"><input type="checkbox" id="activity-kind-transfer" checked>transfer</label>
+              <label class="activity-kind-toggle"><input type="checkbox" id="activity-kind-receipt" checked>receipt</label>
+              <label class="activity-kind-toggle"><input type="checkbox" id="activity-kind-warn" checked>warn</label>
+              <label class="activity-kind-toggle"><input type="checkbox" id="activity-kind-status" checked>status</label>
+            </div>
+            <div class="row">
+              <button id="activity-kinds-all" type="button">All</button>
+              <button id="activity-kinds-none" type="button">None</button>
+              <button id="copy-activity" type="button">Copy Visible</button>
+              <button id="download-activity-txt" type="button">Download TXT</button>
+              <button id="download-activity-json" type="button">Download JSON</button>
+              <span id="activity-count" class="hint"></span>
+            </div>
+          </div>
+          <div id="activity-timeline" class="activity"></div>
+        </div>
+      </details>
 
       <div class="card">
         <h3>Transfers</h3>
         <div id="transfers" class="transfers"></div>
-      </div>
-
-      <div class="card">
-        <div class="panel-head panel-head-inline">
-          <h3>Activity Timeline</h3>
-          <button id="clear-activity" type="button">Clear</button>
-        </div>
-        <p class="hint">Local only. Stored in memory for this page session and cleared on refresh.</p>
-        <div class="activity-controls">
-          <input type="search" id="activity-search" placeholder="Search activity">
-          <div class="activity-kinds">
-            <label class="activity-kind-toggle"><input type="checkbox" id="activity-kind-conn" checked>conn</label>
-            <label class="activity-kind-toggle"><input type="checkbox" id="activity-kind-transfer" checked>transfer</label>
-            <label class="activity-kind-toggle"><input type="checkbox" id="activity-kind-receipt" checked>receipt</label>
-            <label class="activity-kind-toggle"><input type="checkbox" id="activity-kind-warn" checked>warn</label>
-            <label class="activity-kind-toggle"><input type="checkbox" id="activity-kind-status" checked>status</label>
-          </div>
-          <div class="row">
-            <button id="activity-kinds-all" type="button">All</button>
-            <button id="activity-kinds-none" type="button">None</button>
-            <button id="copy-activity" type="button">Copy Visible</button>
-            <button id="download-activity-txt" type="button">Download TXT</button>
-            <button id="download-activity-json" type="button">Download JSON</button>
-            <span id="activity-count" class="hint"></span>
-          </div>
-        </div>
-        <div id="activity-timeline" class="activity"></div>
       </div>
     </section>
 
@@ -160,6 +277,8 @@
     </footer>
   </main>
 
+  <script src="vendor/qrcode-generator.js"></script>
+  <script src="vendor/jsQR.js"></script>
   <script type="module" src="app.js"></script>
 </body>
 </html>

@@ -55,6 +55,11 @@ function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
+function generateRoomJoinKey(seed = '') {
+  const entropy = `${Date.now()}-${Math.random().toString(16).slice(2)}-${seed}`;
+  return `e2ejoin-${Buffer.from(entropy, 'utf8').toString('hex').slice(0, 48)}`;
+}
+
 async function createCdp(page) {
   const cdp = await page.context().newCDPSession(page);
   try { await cdp.send('Runtime.enable'); } catch {}
@@ -313,6 +318,7 @@ async function run() {
 
   const PERF = process.env.E2E_PERF === '1' || process.env.E2E_PERF === 'true';
   const SOAK = process.env.E2E_SOAK === '1' || process.env.E2E_SOAK === 'true';
+  const FAST = process.env.E2E_FAST === '1' || process.env.E2E_FAST === 'true';
   const RELAY_RUNTIME = process.env.E2E_RELAY_RUNTIME === '1' || process.env.E2E_RELAY_RUNTIME === 'true';
   const RELAY_REQUIRED = process.env.E2E_RELAY_REQUIRED === '1' || process.env.E2E_RELAY_REQUIRED === 'true';
   const RELAY_TURN_URL = String(process.env.E2E_TURN_URL || '').trim();
@@ -487,7 +493,11 @@ async function run() {
       const activeBaseUrl = baseUrlOverride || baseUrl;
       const activeSignalUrl = signalUrlOverride || signalUrl;
       const roomId = `e2e-${Date.now()}-${Math.random().toString(16).slice(2)}-${label}`;
-      const passQ = passphrase ? `&passphrase=${encodeURIComponent(passphrase)}` : '';
+      const roomJoinKey = generateRoomJoinKey(label);
+      const secretParams = new URLSearchParams();
+      secretParams.set('roomJoinKey', roomJoinKey);
+      if (passphrase) secretParams.set('passphrase', passphrase);
+      const secretHash = secretParams.toString() ? `#${secretParams.toString()}` : '';
 
       const sigQ = sameOrigin ? '' : `&signalUrl=${encodeURIComponent(activeSignalUrl)}`;
       const normalizeExtraQuery = (value) => {
@@ -498,9 +508,9 @@ async function run() {
       const senderExtraQ = normalizeExtraQuery(senderExtraQuery);
       const receiverExtraQ = normalizeExtraQuery(receiverExtraQuery);
 
-      const senderUrl = `${activeBaseUrl}/index.html?e2e=1&role=create&roomId=${encodeURIComponent(roomId)}${sigQ}${passQ}${senderExtraQ}`;
+      const senderUrl = `${activeBaseUrl}/index.html?e2e=1&role=create&roomId=${encodeURIComponent(roomId)}${sigQ}${senderExtraQ}${secretHash}`;
       const recvDelay = Number.isFinite(recvDelayMs) && recvDelayMs > 0 ? `&recvDelayMs=${Math.floor(recvDelayMs)}` : '';
-      const receiverUrl = `${activeBaseUrl}/index.html?e2e=1&role=join&autoReady=1&roomId=${encodeURIComponent(roomId)}${sigQ}${passQ}${recvDelay}${receiverExtraQ}`;
+      const receiverUrl = `${activeBaseUrl}/index.html?e2e=1&role=join&autoReady=1&roomId=${encodeURIComponent(roomId)}${sigQ}${recvDelay}${receiverExtraQ}${secretHash}`;
 
       const fileList = (Array.isArray(files) && files.length > 0) ? files : [filePathSingle];
       const expectedCount = fileList.length;
@@ -557,6 +567,81 @@ async function run() {
           sender.waitForFunction(() => window.__epheraE2E && window.__epheraE2E.transportOpen === true, null, { timeout: 20_000 }),
           receiver.waitForFunction(() => window.__epheraE2E && window.__epheraE2E.transportOpen === true, null, { timeout: 20_000 }),
         ]);
+        console.log(`--- E2E (${label}): checking preflight contract ---`);
+        await Promise.all([
+          sender.waitForFunction(() => window.__epheraE2E && window.__epheraE2E.preflightWebRTC === true, null, { timeout: 10_000 }),
+          receiver.waitForFunction(() => window.__epheraE2E && window.__epheraE2E.preflightWebRTC === true, null, { timeout: 10_000 }),
+        ]);
+        const [senderPreflight, receiverPreflight] = await Promise.all([
+          sender.evaluate(() => {
+            const s = window.__epheraE2E;
+            const btn = document.getElementById('pick-receive-folder');
+            return {
+              folderSaveCapable: s ? s.preflightFolderSaveCapable : null,
+              hasFolderSaveField: !!(s && typeof s.preflightFolderSaveCapable === 'boolean'),
+              buttonDisabled: !!(btn && btn.disabled),
+            };
+          }),
+          receiver.evaluate(() => {
+            const s = window.__epheraE2E;
+            const btn = document.getElementById('pick-receive-folder');
+            return {
+              folderSaveCapable: s ? s.preflightFolderSaveCapable : null,
+              hasFolderSaveField: !!(s && typeof s.preflightFolderSaveCapable === 'boolean'),
+              buttonDisabled: !!(btn && btn.disabled),
+            };
+          }),
+        ]);
+        for (const side of [
+          { name: 'sender', data: senderPreflight },
+          { name: 'receiver', data: receiverPreflight },
+        ]) {
+          if (!side.data || side.data.hasFolderSaveField !== true) {
+            throw new Error(`Missing preflightFolderSaveCapable boolean on ${side.name}: ${JSON.stringify(side.data)}`);
+          }
+          const expectedDisabled = !side.data.folderSaveCapable;
+          if (side.data.buttonDisabled !== expectedDisabled) {
+            throw new Error(
+              `Preflight/button mismatch on ${side.name}: folderSaveCapable=${side.data.folderSaveCapable}, buttonDisabled=${side.data.buttonDisabled}`
+            );
+          }
+        }
+        console.log(`--- E2E (${label}): checking quick-mode defaults ---`);
+        await Promise.all([
+          sender.waitForFunction(() => {
+            const d = document.getElementById('transfer-advanced');
+            return !!(d && d.open === false);
+          }, null, { timeout: 10_000 }),
+          receiver.waitForFunction(() => {
+            const d = document.getElementById('transfer-advanced');
+            return !!(d && d.open === false);
+          }, null, { timeout: 10_000 }),
+        ]);
+        console.log(`--- E2E (${label}): checking role-aware onboarding hints ---`);
+        await Promise.all([
+          sender.waitForFunction(
+            () => window.__epheraE2E && window.__epheraE2E.onboardingRole === 'owner' && String(window.__epheraE2E.onboardingHint || '').toLowerCase().includes('owner hint'),
+            null,
+            { timeout: 10_000 }
+          ),
+          receiver.waitForFunction(
+            () => window.__epheraE2E && window.__epheraE2E.onboardingRole === 'peer' && String(window.__epheraE2E.onboardingHint || '').toLowerCase().includes('peer hint'),
+            null,
+            { timeout: 10_000 }
+          ),
+        ]);
+        console.log(`--- E2E (${label}): checking receive destination default ---`);
+        await receiver.waitForFunction(
+          () => {
+            const s = window.__epheraE2E;
+            if (!s) return false;
+            const modeOk = s.receiveDestinationMode === 'discard';
+            const label = String(s.receiveDestinationLabel || '').toLowerCase();
+            return modeOk && label.includes('discard mode');
+          },
+          null,
+          { timeout: 10_000 }
+        );
 
         if (!skipPeerReadyWait) {
           console.log(`--- E2E (${label}): waiting for peer ready ---`);
@@ -653,9 +738,36 @@ async function run() {
           await sleep(Math.floor(idleMsBeforeSend));
         }
 
+        if (!expectSendDisabled) {
+          console.log(`--- E2E (${label}): validating guided flow pre-send state ---`);
+          await sender.waitForFunction(
+            () => window.__epheraE2E && window.__epheraE2E.flowStep === 5 && window.__epheraE2E.flowReady === false,
+            null,
+            { timeout: 10_000 }
+          );
+        }
+
         console.log(`--- E2E (${label}): selecting file + sending ---`);
         await sender.setInputFiles('#file-input', fileList);
         console.log(`--- E2E (${label}): files selected ---`);
+
+        if (!expectSendDisabled) {
+          await sender.waitForFunction(
+            () => window.__epheraE2E && window.__epheraE2E.flowReady === true,
+            null,
+            { timeout: 10_000 }
+          );
+          await sender.waitForFunction(
+            () => window.__epheraE2E && String(window.__epheraE2E.quickSummary || '').toLowerCase().includes('ready to send'),
+            null,
+            { timeout: 10_000 }
+          );
+          await sender.waitForFunction(
+            () => window.__epheraE2E && String(window.__epheraE2E.onboardingHint || '').toLowerCase().includes('ready to send'),
+            null,
+            { timeout: 10_000 }
+          );
+        }
 
         if (expectSendDisabled) {
           const disabledNow = await sender.evaluate(() => document.getElementById('send-file').disabled);
@@ -795,6 +907,10 @@ async function run() {
           throw new Error(`Receiver recvTotalBytes mismatch: expected ${expectedTotalBytes}, got ${receiverState.recvTotalBytes}`);
         }
 
+        if (receiverState.receiveDestinationMode !== 'discard') {
+          throw new Error(`Expected discard destination mode, got ${receiverState.receiveDestinationMode}`);
+        }
+
         if (expectedCount === 1) {
           const expectedName = expectedNames[0];
 
@@ -808,6 +924,11 @@ async function run() {
 
           if (receiverState.recvTitle !== expectedName) {
             throw new Error(`Receiver recvTitle mismatch: expected ${JSON.stringify(expectedName)}, got ${JSON.stringify(receiverState.recvTitle)}`);
+          }
+
+          const inboundOutcome = String(receiverState.lastInboundOutcome || '').toLowerCase();
+          if (!inboundOutcome.includes('discarded ->')) {
+            throw new Error(`Expected discard inbound outcome, got ${JSON.stringify(receiverState.lastInboundOutcome)}`);
           }
         } else {
           const titles = Array.isArray(receiverState.recvTitles) ? receiverState.recvTitles : [];
@@ -926,10 +1047,12 @@ async function run() {
     async function runSenderCloseMidTransferScenario() {
       const label = 'sender-close-mid-transfer';
       const roomId = `e2e-${Date.now()}-${Math.random().toString(16).slice(2)}-${label}`;
+      const roomJoinKey = generateRoomJoinKey(label);
+      const secretHash = `#roomJoinKey=${encodeURIComponent(roomJoinKey)}`;
 
       // Use the deploy path (server/serve.js) and same-origin signaling.
-      const senderUrl = `${appBaseUrl}/index.html?e2e=1&role=create&roomId=${encodeURIComponent(roomId)}`;
-      const receiverUrl = `${appBaseUrl}/index.html?e2e=1&role=join&autoReady=1&roomId=${encodeURIComponent(roomId)}`;
+      const senderUrl = `${appBaseUrl}/index.html?e2e=1&role=create&roomId=${encodeURIComponent(roomId)}${secretHash}`;
+      const receiverUrl = `${appBaseUrl}/index.html?e2e=1&role=join&autoReady=1&roomId=${encodeURIComponent(roomId)}${secretHash}`;
 
       const senderCtx = await browser.newContext();
       const receiverCtx = await browser.newContext();
@@ -1020,10 +1143,12 @@ async function run() {
     async function runReceiverCancelMidTransferScenario() {
       const label = 'receiver-cancel-mid-transfer';
       const roomId = `e2e-${Date.now()}-${Math.random().toString(16).slice(2)}-${label}`;
+      const roomJoinKey = generateRoomJoinKey(label);
+      const secretHash = `#roomJoinKey=${encodeURIComponent(roomJoinKey)}`;
 
       // Use the deploy path (server/serve.js) and same-origin signaling.
-      const senderUrl = `${appBaseUrl}/index.html?e2e=1&role=create&roomId=${encodeURIComponent(roomId)}`;
-      const receiverUrl = `${appBaseUrl}/index.html?e2e=1&role=join&autoReady=1&roomId=${encodeURIComponent(roomId)}`;
+      const senderUrl = `${appBaseUrl}/index.html?e2e=1&role=create&roomId=${encodeURIComponent(roomId)}${secretHash}`;
+      const receiverUrl = `${appBaseUrl}/index.html?e2e=1&role=join&autoReady=1&roomId=${encodeURIComponent(roomId)}${secretHash}`;
 
       const senderCtx = await browser.newContext();
       const receiverCtx = await browser.newContext();
@@ -1133,22 +1258,31 @@ async function run() {
 
         for (let i = 0; i < cycles; i++) {
           const roomId = `e2e-${Date.now()}-${Math.random().toString(16).slice(2)}-${label}-${i}`;
+          const roomJoinKey = generateRoomJoinKey(`${label}-${i}`);
 
           console.log(`--- E2E (${label}): cycle ${i + 1}/${cycles} ---`);
 
           await Promise.all([
-            sender.evaluate((rid) => {
+            sender.evaluate(({ rid, rkey }) => {
               const el = document.getElementById('room-id');
               if (!el) throw new Error('room-id input missing');
               el.value = rid;
               el.dispatchEvent(new Event('input', { bubbles: true }));
-            }, roomId),
-            receiver.evaluate((rid) => {
+              const key = document.getElementById('room-join-key');
+              if (!key) throw new Error('room-join-key input missing');
+              key.value = rkey;
+              key.dispatchEvent(new Event('input', { bubbles: true }));
+            }, { rid: roomId, rkey: roomJoinKey }),
+            receiver.evaluate(({ rid, rkey }) => {
               const el = document.getElementById('room-id');
               if (!el) throw new Error('room-id input missing');
               el.value = rid;
               el.dispatchEvent(new Event('input', { bubbles: true }));
-            }, roomId),
+              const key = document.getElementById('room-join-key');
+              if (!key) throw new Error('room-join-key input missing');
+              key.value = rkey;
+              key.dispatchEvent(new Event('input', { bubbles: true }));
+            }, { rid: roomId, rkey: roomJoinKey }),
           ]);
 
           // Reset per-cycle signaling markers so we can await cleanly.
@@ -1157,7 +1291,7 @@ async function run() {
             receiver.evaluate(() => { if (window.__epheraE2E) window.__epheraE2E.signaling = null; }),
           ]);
 
-          // Create must happen before join; otherwise join can race and fail "Room not found".
+          // Create must happen before join; otherwise join can race and fail "Join unavailable".
           await sender.evaluate(() => document.getElementById('create-room').click());
           await sender.waitForFunction(
             () => window.__epheraE2E && window.__epheraE2E.signaling === 'room-created',
@@ -1294,12 +1428,31 @@ async function run() {
 
         const joinLink = await sender.evaluate(() => (document.getElementById('join-link') || {}).value || '');
         if (!joinLink) throw new Error('Expected join link to be populated');
-        if (!joinLink.includes('autojoin=1')) throw new Error('Expected join link to include autojoin=1');
-        if (!joinLink.includes('roomId=')) throw new Error('Expected join link to include roomId');
-        if (!joinLink.includes('passphrase=')) throw new Error('Expected join link to include passphrase (test sets checkbox)');
+        const parsedJoinLink = new URL(joinLink);
+        if (parsedJoinLink.searchParams.get('autojoin') !== '1') throw new Error('Expected join link to include autojoin=1');
+        if (!parsedJoinLink.searchParams.get('roomId')) throw new Error('Expected join link to include roomId');
+        if (parsedJoinLink.searchParams.has('roomJoinKey') || parsedJoinLink.searchParams.has('joinKey')) {
+          throw new Error('Expected join link to keep roomJoinKey out of query params');
+        }
+        if (parsedJoinLink.searchParams.has('passphrase')) {
+          throw new Error('Expected join link to keep passphrase out of query params');
+        }
+        const joinHash = new URLSearchParams(parsedJoinLink.hash.replace(/^#/, ''));
+        if (!joinHash.get('roomJoinKey')) throw new Error('Expected join link hash to include roomJoinKey');
+        if (!joinHash.get('passphrase')) throw new Error('Expected join link hash to include passphrase (test sets checkbox)');
 
         console.log(`--- E2E (${label}): opening join link on receiver (should auto-join) ---`);
         await receiver.goto(joinLink, { waitUntil: 'domcontentloaded' });
+        await receiver.waitForFunction(() => {
+          const u = new URL(location.href);
+          const h = new URLSearchParams(String(u.hash || '').replace(/^#/, ''));
+          const secrets = ['roomJoinKey', 'joinKey', 'passphrase'];
+          for (const k of secrets) {
+            if (u.searchParams.has(k)) return false;
+            if (h.has(k)) return false;
+          }
+          return true;
+        }, null, { timeout: 10_000 });
 
         await receiver.waitForFunction(() => {
           const dis = document.getElementById('disconnect');
@@ -1344,14 +1497,1054 @@ async function run() {
       }
     }
 
+    async function runInvitePackageApplyScenario() {
+      const label = 'invite-package-apply-join';
+      const senderCtx = await browser.newContext();
+      const receiverCtx = await browser.newContext();
+      const sender = await senderCtx.newPage();
+      const receiver = await receiverCtx.newPage();
+
+      try {
+        console.log(`--- E2E (${label}): launching pages ---`);
+        await sender.goto(`${appBaseUrl}/index.html?e2e=1`, { waitUntil: 'domcontentloaded' });
+        await receiver.goto(`${appBaseUrl}/index.html?e2e=1`, { waitUntil: 'domcontentloaded' });
+
+        console.log(`--- E2E (${label}): host creates room from launchpad ---`);
+        await sender.evaluate(() => {
+          const host = document.getElementById('launchpad-host');
+          if (!host) throw new Error('launchpad-host button not found');
+          host.click();
+        });
+
+        await sender.waitForFunction(
+          () => window.__epheraE2E && window.__epheraE2E.signaling === 'room-created',
+          null,
+          { timeout: 20_000 }
+        );
+        await sender.waitForFunction(
+          () => window.__epheraE2E && window.__epheraE2E.invitePackageReady === true,
+          null,
+          { timeout: 10_000 }
+        );
+
+        const senderContract = await sender.evaluate(() => {
+          const roomId = (document.getElementById('room-id') || {}).value || '';
+          const roomJoinKey = (document.getElementById('room-join-key') || {}).value || '';
+          const joinLink = (document.getElementById('join-link') || {}).value || '';
+          const passphrase = (document.getElementById('passphrase') || {}).value || '';
+          if (!roomId || !roomJoinKey || !joinLink || !passphrase) return null;
+          return { roomId, roomJoinKey, joinLink, passphrase };
+        });
+        if (!senderContract) throw new Error('Sender contract fields missing');
+
+        const invitePackage = [
+          'Ephera Invite Package',
+          `Room ID: ${senderContract.roomId}`,
+          `Room Auth Key: ${senderContract.roomJoinKey}`,
+          `Join Link: ${senderContract.joinLink}`,
+          `Passphrase: ${senderContract.passphrase}`,
+        ].join('\n');
+
+        console.log(`--- E2E (${label}): receiver applies invite package and joins ---`);
+        await receiver.evaluate((text) => {
+          const input = document.getElementById('invite-package-input');
+          const applyJoin = document.getElementById('apply-join-invite-package');
+          if (!input) throw new Error('invite-package-input not found');
+          if (!applyJoin) throw new Error('apply-join-invite-package button not found');
+          input.value = text;
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+          applyJoin.click();
+        }, invitePackage);
+
+        await receiver.waitForFunction(
+          () => window.__epheraE2E && window.__epheraE2E.signaling === 'room-joined',
+          null,
+          { timeout: 20_000 }
+        );
+        await receiver.waitForFunction(() => {
+          const u = new URL(location.href);
+          const h = new URLSearchParams(String(u.hash || '').replace(/^#/, ''));
+          const secrets = ['roomJoinKey', 'joinKey', 'passphrase'];
+          for (const k of secrets) {
+            if (u.searchParams.has(k)) return false;
+            if (h.has(k)) return false;
+          }
+          return true;
+        }, null, { timeout: 10_000 });
+        await receiver.waitForFunction(
+          () => window.__epheraE2E
+            && window.__epheraE2E.invitePackageAppliedCount >= 1
+            && window.__epheraE2E.invitePackageParseState === 'ok',
+          null,
+          { timeout: 10_000 }
+        );
+
+        const receiverContract = await receiver.evaluate(() => {
+          const roomId = (document.getElementById('room-id') || {}).value || '';
+          const roomJoinKey = (document.getElementById('room-join-key') || {}).value || '';
+          const passphrase = (document.getElementById('passphrase') || {}).value || '';
+          return { roomId, roomJoinKey, passphrase };
+        });
+        if (receiverContract.roomId !== senderContract.roomId) {
+          throw new Error(`Receiver roomId mismatch: expected ${senderContract.roomId}, got ${receiverContract.roomId}`);
+        }
+        if (receiverContract.roomJoinKey !== senderContract.roomJoinKey) {
+          throw new Error('Receiver roomJoinKey mismatch');
+        }
+        if (receiverContract.passphrase !== senderContract.passphrase) {
+          throw new Error('Receiver passphrase mismatch');
+        }
+
+        console.log(`--- E2E (${label}): waiting for WebRTC transport open ---`);
+        await Promise.all([
+          sender.waitForFunction(() => window.__epheraE2E && window.__epheraE2E.transportOpen === true, null, { timeout: 20_000 }),
+          receiver.waitForFunction(() => window.__epheraE2E && window.__epheraE2E.transportOpen === true, null, { timeout: 20_000 }),
+        ]);
+
+        await receiver.evaluate(() => {
+          const btn = document.getElementById('ready-discard');
+          if (!btn) throw new Error('ready-discard button not found');
+          btn.click();
+        });
+        await sender.waitForFunction(
+          () => window.__epheraE2E && window.__epheraE2E.peerReady === true,
+          null,
+          { timeout: 15_000 }
+        );
+
+        console.log(`--- E2E (${label}): selecting file + sending ---`);
+        await sender.setInputFiles('#file-input', [filePathSingle]);
+        await sender.waitForFunction(() => !document.getElementById('send-file').disabled, null, { timeout: 20_000 });
+        await sender.evaluate(() => document.getElementById('send-file').click());
+
+        await Promise.all([
+          sender.waitForFunction(() => window.__epheraE2E && window.__epheraE2E.sentDoneCount >= 1, null, { timeout: 60_000 }),
+          receiver.waitForFunction(() => window.__epheraE2E && window.__epheraE2E.recvDoneCount >= 1, null, { timeout: 60_000 }),
+        ]);
+
+        console.log(`--- E2E (${label}) PASS: invite package apply+join path transferred successfully ---`);
+      } finally {
+        try { await senderCtx.close(); } catch {}
+        try { await receiverCtx.close(); } catch {}
+      }
+    }
+
+    async function runInviteQrPairingScenario({
+      label = 'invite-qr-pairing',
+      senderExtraQuery = '',
+      receiverExtraQuery = '',
+      expectedEngine = '',
+    } = {}) {
+      const senderCtx = await browser.newContext();
+      const receiverCtx = await browser.newContext();
+      const sender = await senderCtx.newPage();
+      const receiver = await receiverCtx.newPage();
+
+      try {
+        const normalizeExtraQuery = (value) => {
+          const s = String(value || '').trim();
+          if (!s) return '';
+          return s.startsWith('&') ? s : `&${s}`;
+        };
+        const senderExtraQ = normalizeExtraQuery(senderExtraQuery);
+        const receiverExtraQ = normalizeExtraQuery(receiverExtraQuery);
+
+        console.log(`--- E2E (${label}): launching pages ---`);
+        await sender.goto(`${appBaseUrl}/index.html?e2e=1${senderExtraQ}`, { waitUntil: 'domcontentloaded' });
+        await receiver.goto(`${appBaseUrl}/index.html?e2e=1${receiverExtraQ}`, { waitUntil: 'domcontentloaded' });
+
+        console.log(`--- E2E (${label}): host creates room and renders invite QR ---`);
+        await sender.evaluate(() => {
+          const host = document.getElementById('launchpad-host');
+          if (!host) throw new Error('launchpad-host button not found');
+          host.click();
+        });
+
+        await sender.waitForFunction(
+          () => window.__epheraE2E && window.__epheraE2E.signaling === 'room-created',
+          null,
+          { timeout: 20_000 }
+        );
+
+        const qr = await sender.evaluate(() => {
+          const show = document.getElementById('show-invite-qr');
+          if (!show) throw new Error('show-invite-qr button not found');
+          show.click();
+
+          const e2e = window.__epheraE2E || {};
+          const canvas = document.getElementById('invite-qr-canvas');
+          const dataUrl = canvas && !canvas.hidden && typeof canvas.toDataURL === 'function'
+            ? canvas.toDataURL('image/png')
+            : '';
+          return {
+            payload: String(e2e.qrPayload || ''),
+            visible: !!(canvas && !canvas.hidden),
+            dataUrl,
+          };
+        });
+
+        if (!qr || !qr.visible || !qr.payload || !qr.dataUrl) {
+          throw new Error(`Expected visible invite QR with payload, got ${JSON.stringify(qr)}`);
+        }
+
+        const m = String(qr.dataUrl || '').match(/^data:image\/png;base64,(.+)$/);
+        if (!m || !m[1]) throw new Error('Invite QR data URL is not PNG base64');
+        const qrPath = path.join(tmpDir, `${label}.png`);
+        fs.writeFileSync(qrPath, Buffer.from(m[1], 'base64'));
+
+        const receiverScanContract = await receiver.evaluate(() => {
+          const s = window.__epheraE2E || {};
+          return {
+            supported: !!s.qrScanSupported,
+          };
+        });
+
+        console.log(`--- E2E (${label}): receiver scanning QR ---`);
+        if (receiverScanContract.supported) {
+          await receiver.setInputFiles('#scan-qr-image-input', [qrPath]);
+        } else {
+          // Fallback for environments without BarcodeDetector: exercise the same
+          // QR apply path via test hook so flow stays deterministic.
+          await receiver.evaluate((raw) => {
+            const s = window.__epheraE2E;
+            if (!s || typeof s.applyQrRaw !== 'function') throw new Error('applyQrRaw hook unavailable');
+            const ok = s.applyQrRaw(raw);
+            if (!ok) throw new Error('applyQrRaw failed');
+          }, qr.payload);
+        }
+
+        await receiver.waitForFunction(
+          () => window.__epheraE2E && window.__epheraE2E.signaling === 'room-joined',
+          null,
+          { timeout: 20_000 }
+        );
+
+        if (receiverScanContract.supported) {
+          if (expectedEngine) {
+            await receiver.waitForFunction(
+              (engine) => {
+                const s = window.__epheraE2E;
+                return !!(s && s.qrLastScanStatus === 'ok' && s.qrScanEngine === engine);
+              },
+              expectedEngine,
+              { timeout: 10_000 }
+            );
+          } else {
+            await receiver.waitForFunction(
+              () => window.__epheraE2E && window.__epheraE2E.qrLastScanStatus === 'ok',
+              null,
+              { timeout: 10_000 }
+            );
+          }
+        }
+
+        console.log(`--- E2E (${label}): waiting for WebRTC transport open ---`);
+        await Promise.all([
+          sender.waitForFunction(() => window.__epheraE2E && window.__epheraE2E.transportOpen === true, null, { timeout: 20_000 }),
+          receiver.waitForFunction(() => window.__epheraE2E && window.__epheraE2E.transportOpen === true, null, { timeout: 20_000 }),
+        ]);
+
+        await receiver.evaluate(() => {
+          const btn = document.getElementById('ready-discard');
+          if (!btn) throw new Error('ready-discard button not found');
+          btn.click();
+        });
+        await sender.waitForFunction(
+          () => window.__epheraE2E && window.__epheraE2E.peerReady === true,
+          null,
+          { timeout: 15_000 }
+        );
+
+        console.log(`--- E2E (${label}): selecting file + sending ---`);
+        await sender.setInputFiles('#file-input', [filePathSingle]);
+        await sender.waitForFunction(() => !document.getElementById('send-file').disabled, null, { timeout: 20_000 });
+        await sender.evaluate(() => document.getElementById('send-file').click());
+
+        await Promise.all([
+          sender.waitForFunction(() => window.__epheraE2E && window.__epheraE2E.sentDoneCount >= 1, null, { timeout: 60_000 }),
+          receiver.waitForFunction(() => window.__epheraE2E && window.__epheraE2E.recvDoneCount >= 1, null, { timeout: 60_000 }),
+        ]);
+
+        console.log(`--- E2E (${label}) PASS: invite QR pairing path transferred successfully ---`);
+      } finally {
+        try { await senderCtx.close(); } catch {}
+        try { await receiverCtx.close(); } catch {}
+      }
+    }
+
+    async function runInviteQrInvalidImageScenario({
+      label = 'invite-qr-invalid-image',
+      receiverExtraQuery = '',
+    } = {}) {
+      const ctx = await browser.newContext();
+      const page = await ctx.newPage();
+
+      try {
+        const normalizeExtraQuery = (value) => {
+          const s = String(value || '').trim();
+          if (!s) return '';
+          return s.startsWith('&') ? s : `&${s}`;
+        };
+        const receiverExtraQ = normalizeExtraQuery(receiverExtraQuery);
+
+        console.log(`--- E2E (${label}): launching page ---`);
+        await page.goto(`${appBaseUrl}/index.html?e2e=1${receiverExtraQ}`, { waitUntil: 'domcontentloaded' });
+
+        const scanSupported = await page.evaluate(() => {
+          const s = window.__epheraE2E || {};
+          return !!s.qrScanSupported;
+        });
+        if (!scanSupported) {
+          console.log(`--- E2E (${label}): SKIP (QR scan unsupported in this browser/runtime) ---`);
+          return;
+        }
+
+        const invalidPngPath = path.join(tmpDir, `${label}.png`);
+        // 1x1 white PNG; valid image but no QR payload.
+        fs.writeFileSync(
+          invalidPngPath,
+          Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO6QxuoAAAAASUVORK5CYII=', 'base64')
+        );
+
+        console.log(`--- E2E (${label}): scanning non-QR image ---`);
+        await page.setInputFiles('#scan-qr-image-input', [invalidPngPath]);
+
+        await page.waitForFunction(() => {
+          const s = window.__epheraE2E;
+          if (!s) return false;
+          return s.qrLastScanStatus === 'empty' || s.qrLastScanStatus === 'error';
+        }, null, { timeout: 10_000 });
+
+        const scanState = await page.evaluate(() => {
+          const s = window.__epheraE2E || {};
+          return {
+            source: String(s.qrLastScanSource || ''),
+            status: String(s.qrLastScanStatus || ''),
+            signaling: String(s.signaling || ''),
+          };
+        });
+
+        if (scanState.source !== 'image') {
+          throw new Error(`Expected QR scan source=image, got ${JSON.stringify(scanState)}`);
+        }
+        if (scanState.status !== 'empty' && scanState.status !== 'error') {
+          throw new Error(`Expected QR invalid-image status empty|error, got ${JSON.stringify(scanState)}`);
+        }
+        if (scanState.signaling === 'room-joined') {
+          throw new Error('Invalid QR image must not join room');
+        }
+
+        console.log(`--- E2E (${label}) PASS: invalid image rejected without session side effects ---`);
+      } finally {
+        try { await ctx.close(); } catch {}
+      }
+    }
+
+    async function runInviteQrCameraScanScenario({
+      label = 'invite-qr-camera-scan',
+      senderExtraQuery = '',
+      receiverExtraQuery = '',
+      expectedEngine = '',
+    } = {}) {
+      const senderCtx = await browser.newContext();
+      const receiverCtx = await browser.newContext();
+      const sender = await senderCtx.newPage();
+      const receiver = await receiverCtx.newPage();
+
+      try {
+        const normalizeExtraQuery = (value) => {
+          const s = String(value || '').trim();
+          if (!s) return '';
+          return s.startsWith('&') ? s : `&${s}`;
+        };
+        const senderExtraQ = normalizeExtraQuery(senderExtraQuery);
+        const receiverExtraQ = normalizeExtraQuery(receiverExtraQuery);
+
+        console.log(`--- E2E (${label}): launching pages ---`);
+        await sender.goto(`${appBaseUrl}/index.html?e2e=1${senderExtraQ}`, { waitUntil: 'domcontentloaded' });
+        await receiver.goto(`${appBaseUrl}/index.html?e2e=1${receiverExtraQ}`, { waitUntil: 'domcontentloaded' });
+
+        console.log(`--- E2E (${label}): host creates room and renders invite QR ---`);
+        await sender.evaluate(() => {
+          const host = document.getElementById('launchpad-host');
+          if (!host) throw new Error('launchpad-host button not found');
+          host.click();
+        });
+
+        await sender.waitForFunction(
+          () => window.__epheraE2E && window.__epheraE2E.signaling === 'room-created',
+          null,
+          { timeout: 20_000 }
+        );
+
+        const qr = await sender.evaluate(() => {
+          const show = document.getElementById('show-invite-qr');
+          if (!show) throw new Error('show-invite-qr button not found');
+          show.click();
+
+          const e2e = window.__epheraE2E || {};
+          const canvas = document.getElementById('invite-qr-canvas');
+          const dataUrl = canvas && !canvas.hidden && typeof canvas.toDataURL === 'function'
+            ? canvas.toDataURL('image/png')
+            : '';
+          return {
+            payload: String(e2e.qrPayload || ''),
+            visible: !!(canvas && !canvas.hidden),
+            dataUrl,
+          };
+        });
+
+        if (!qr || !qr.visible || !qr.payload || !qr.dataUrl) {
+          throw new Error(`Expected visible invite QR with payload, got ${JSON.stringify(qr)}`);
+        }
+
+        console.log(`--- E2E (${label}): installing fake camera QR stream ---`);
+        const cameraContract = await receiver.evaluate(async (qrDataUrl) => {
+          const e2e = window.__epheraE2E || {};
+          const scanSupported = !!e2e.qrScanSupported;
+          const hasMedia = !!(navigator.mediaDevices && typeof navigator.mediaDevices.getUserMedia === 'function');
+          const canCapture = !!(
+            typeof HTMLCanvasElement !== 'undefined'
+            && HTMLCanvasElement.prototype
+            && typeof HTMLCanvasElement.prototype.captureStream === 'function'
+          );
+          if (!scanSupported || !hasMedia || !canCapture) {
+            return {
+              ok: false,
+              reason: 'unsupported-runtime',
+              scanSupported,
+              hasMedia,
+              canCapture,
+            };
+          }
+
+          const img = await new Promise((resolve, reject) => {
+            const v = new Image();
+            v.onload = () => resolve(v);
+            v.onerror = () => reject(new Error('failed to load QR image'));
+            v.src = qrDataUrl;
+          });
+
+          const canvas = document.createElement('canvas');
+          canvas.width = 420;
+          canvas.height = 420;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            return { ok: false, reason: 'canvas-context-unavailable' };
+          }
+
+          let raf = 0;
+          const drawFrame = () => {
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(img, 20, 20, canvas.width - 40, canvas.height - 40);
+            raf = requestAnimationFrame(drawFrame);
+          };
+          drawFrame();
+
+          const stream = canvas.captureStream(12);
+          const tracks = stream && typeof stream.getTracks === 'function' ? stream.getTracks() : [];
+          if (!stream || tracks.length < 1) {
+            if (raf) cancelAnimationFrame(raf);
+            return { ok: false, reason: 'stream-unavailable' };
+          }
+
+          const media = navigator.mediaDevices;
+          const original = media.getUserMedia.bind(media);
+          media.getUserMedia = async () => stream;
+          window.__epheraFakeCamera = { media, original, stream, raf };
+          return { ok: true };
+        }, qr.dataUrl);
+
+        if (!cameraContract || !cameraContract.ok) {
+          console.log(`--- E2E (${label}): SKIP (${cameraContract ? cameraContract.reason : 'unknown'}) ---`);
+          return;
+        }
+
+        console.log(`--- E2E (${label}): start camera scan and wait for auto-join ---`);
+        await receiver.evaluate(() => {
+          const btn = document.getElementById('start-qr-camera');
+          if (!btn) throw new Error('start-qr-camera button not found');
+          btn.click();
+        });
+
+        if (expectedEngine) {
+          await receiver.waitForFunction(
+            (engine) => {
+              const s = window.__epheraE2E;
+              return !!(s && s.qrLastScanSource === 'camera' && s.qrLastScanStatus === 'ok' && s.qrScanEngine === engine);
+            },
+            expectedEngine,
+            { timeout: 20_000 }
+          );
+        } else {
+          await receiver.waitForFunction(
+            () => {
+              const s = window.__epheraE2E;
+              return !!(s && s.qrLastScanSource === 'camera' && s.qrLastScanStatus === 'ok');
+            },
+            null,
+            { timeout: 20_000 }
+          );
+        }
+
+        await receiver.waitForFunction(
+          () => window.__epheraE2E && window.__epheraE2E.signaling === 'room-joined',
+          null,
+          { timeout: 20_000 }
+        );
+
+        console.log(`--- E2E (${label}): waiting for WebRTC transport open ---`);
+        await Promise.all([
+          sender.waitForFunction(() => window.__epheraE2E && window.__epheraE2E.transportOpen === true, null, { timeout: 20_000 }),
+          receiver.waitForFunction(() => window.__epheraE2E && window.__epheraE2E.transportOpen === true, null, { timeout: 20_000 }),
+        ]);
+
+        await receiver.evaluate(() => {
+          const btn = document.getElementById('ready-discard');
+          if (!btn) throw new Error('ready-discard button not found');
+          btn.click();
+        });
+        await sender.waitForFunction(
+          () => window.__epheraE2E && window.__epheraE2E.peerReady === true,
+          null,
+          { timeout: 15_000 }
+        );
+
+        console.log(`--- E2E (${label}): selecting file + sending ---`);
+        await sender.setInputFiles('#file-input', [filePathSingle]);
+        await sender.waitForFunction(() => !document.getElementById('send-file').disabled, null, { timeout: 20_000 });
+        await sender.evaluate(() => document.getElementById('send-file').click());
+
+        await Promise.all([
+          sender.waitForFunction(() => window.__epheraE2E && window.__epheraE2E.sentDoneCount >= 1, null, { timeout: 60_000 }),
+          receiver.waitForFunction(() => window.__epheraE2E && window.__epheraE2E.recvDoneCount >= 1, null, { timeout: 60_000 }),
+        ]);
+
+        console.log(`--- E2E (${label}) PASS: camera QR scan path transferred successfully ---`);
+      } finally {
+        try {
+          await receiver.evaluate(() => {
+            const s = window.__epheraFakeCamera;
+            if (!s) return;
+            try {
+              if (s.media && typeof s.original === 'function') s.media.getUserMedia = s.original;
+            } catch {}
+            try {
+              if (s.stream && typeof s.stream.getTracks === 'function') {
+                const tracks = s.stream.getTracks();
+                for (const t of tracks) {
+                  try { t.stop(); } catch {}
+                }
+              }
+            } catch {}
+            try {
+              if (s.raf) cancelAnimationFrame(s.raf);
+            } catch {}
+            try { delete window.__epheraFakeCamera; } catch {}
+          });
+        } catch {}
+        try { await senderCtx.close(); } catch {}
+        try { await receiverCtx.close(); } catch {}
+      }
+    }
+
+    async function runInviteQrCameraDeniedScenario({
+      label = 'invite-qr-camera-denied',
+      receiverExtraQuery = '',
+    } = {}) {
+      const ctx = await browser.newContext();
+      const page = await ctx.newPage();
+
+      try {
+        const normalizeExtraQuery = (value) => {
+          const s = String(value || '').trim();
+          if (!s) return '';
+          return s.startsWith('&') ? s : `&${s}`;
+        };
+        const receiverExtraQ = normalizeExtraQuery(receiverExtraQuery);
+
+        console.log(`--- E2E (${label}): launching page ---`);
+        await page.goto(`${appBaseUrl}/index.html?e2e=1${receiverExtraQ}`, { waitUntil: 'domcontentloaded' });
+
+        const cameraContract = await page.evaluate(() => {
+          const s = window.__epheraE2E || {};
+          const scanSupported = !!s.qrScanSupported;
+          const hasMedia = !!(navigator.mediaDevices && typeof navigator.mediaDevices.getUserMedia === 'function');
+          const btn = document.getElementById('start-qr-camera');
+          return {
+            scanSupported,
+            hasMedia,
+            startEnabled: !!(btn && !btn.disabled),
+          };
+        });
+
+        if (!cameraContract.scanSupported || !cameraContract.hasMedia || !cameraContract.startEnabled) {
+          console.log(`--- E2E (${label}): SKIP (unsupported-runtime) ---`);
+          return;
+        }
+
+        console.log(`--- E2E (${label}): forcing getUserMedia denial ---`);
+        await page.evaluate(() => {
+          const media = navigator.mediaDevices;
+          const original = media.getUserMedia.bind(media);
+          media.getUserMedia = async () => {
+            throw new Error('NotAllowedError');
+          };
+          window.__epheraFakeDeniedCamera = { media, original };
+        });
+
+        await page.evaluate(() => {
+          const btn = document.getElementById('start-qr-camera');
+          if (!btn) throw new Error('start-qr-camera button not found');
+          btn.click();
+        });
+
+        await page.waitForFunction(
+          () => {
+            const s = window.__epheraE2E;
+            return !!(s && s.qrLastScanSource === 'camera' && s.qrLastScanStatus === 'denied');
+          },
+          null,
+          { timeout: 10_000 }
+        );
+
+        const deniedState = await page.evaluate(() => {
+          const s = window.__epheraE2E || {};
+          const preview = document.getElementById('qr-camera-preview');
+          const stop = document.getElementById('stop-qr-camera');
+          return {
+            source: String(s.qrLastScanSource || ''),
+            status: String(s.qrLastScanStatus || ''),
+            signaling: String(s.signaling || ''),
+            previewVisible: !!(preview && !preview.hidden),
+            stopEnabled: !!(stop && !stop.disabled),
+          };
+        });
+
+        if (deniedState.source !== 'camera' || deniedState.status !== 'denied') {
+          throw new Error(`Expected camera denied state, got ${JSON.stringify(deniedState)}`);
+        }
+        if (deniedState.signaling === 'room-joined') {
+          throw new Error('Camera denial path must not join room');
+        }
+        if (deniedState.previewVisible) {
+          throw new Error('Camera preview must stay hidden when permission is denied');
+        }
+        if (deniedState.stopEnabled) {
+          throw new Error('Stop camera button must stay disabled after permission denial');
+        }
+
+        console.log(`--- E2E (${label}) PASS: permission denial handled fail-safe ---`);
+      } finally {
+        try {
+          await page.evaluate(() => {
+            const s = window.__epheraFakeDeniedCamera;
+            if (!s) return;
+            try {
+              if (s.media && typeof s.original === 'function') s.media.getUserMedia = s.original;
+            } catch {}
+            try { delete window.__epheraFakeDeniedCamera; } catch {}
+          });
+        } catch {}
+        try { await ctx.close(); } catch {}
+      }
+    }
+
+    async function runInvitePackageInvalidScenario() {
+      const label = 'invite-package-invalid';
+      const ctx = await browser.newContext();
+      const page = await ctx.newPage();
+
+      try {
+        console.log(`--- E2E (${label}): launching page ---`);
+        await page.goto(`${appBaseUrl}/index.html?e2e=1`, { waitUntil: 'domcontentloaded' });
+
+        console.log(`--- E2E (${label}): applying invalid package via apply+join ---`);
+        await page.evaluate(() => {
+          const input = document.getElementById('invite-package-input');
+          const applyJoin = document.getElementById('apply-join-invite-package');
+          if (!input) throw new Error('invite-package-input not found');
+          if (!applyJoin) throw new Error('apply-join-invite-package button not found');
+          input.value = [
+            'Ephera Invite Package',
+            'Room ID: invalid-room',
+            'Room Auth Key: bad@key',
+          ].join('\n');
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+          applyJoin.click();
+        });
+
+        await page.waitForFunction(
+          () => window.__epheraE2E && window.__epheraE2E.invitePackageParseState === 'invalid',
+          null,
+          { timeout: 10_000 }
+        );
+
+        const state = await page.evaluate(() => {
+          const s = window.__epheraE2E || null;
+          const status = (document.getElementById('status') || {}).textContent || '';
+          const inviteState = (document.getElementById('invite-package-state') || {}).textContent || '';
+          const disconnect = document.getElementById('disconnect');
+          const join = document.getElementById('join-room');
+          return {
+            signaling: s ? s.signaling || null : null,
+            status: String(status || ''),
+            inviteState: String(inviteState || ''),
+            disconnectDisabled: !!(disconnect && disconnect.disabled),
+            joinDisabled: !!(join && join.disabled),
+          };
+        });
+
+        const text = `${state.status} ${state.inviteState}`.toLowerCase();
+        if (!text.includes('missing valid room auth key')) {
+          throw new Error(`Expected invalid package reason in UI, got: ${JSON.stringify(state)}`);
+        }
+        if (state.signaling === 'room-joined' || state.signaling === 'room-created') {
+          throw new Error(`Invalid package must not start signaling session, got signaling=${state.signaling}`);
+        }
+        if (state.disconnectDisabled !== true) {
+          throw new Error('Invalid package must not enable disconnect/session state');
+        }
+        if (state.joinDisabled !== false) {
+          throw new Error('Invalid package must not disable Join control');
+        }
+
+        console.log(`--- E2E (${label}) PASS: invalid invite package failed safely without join ---`);
+      } finally {
+        try { await ctx.close(); } catch {}
+      }
+    }
+
+    async function runOwnerAuthorityScenario() {
+      const label = 'owner-authority-ui';
+      const roomId = `e2e-${Date.now()}-${Math.random().toString(16).slice(2)}-${label}`;
+      const roomJoinKey = generateRoomJoinKey(label);
+      const secretHash = `#roomJoinKey=${encodeURIComponent(roomJoinKey)}`;
+
+      const senderUrl = `${appBaseUrl}/index.html?e2e=1&role=create&roomId=${encodeURIComponent(roomId)}${secretHash}`;
+      const receiverUrl = `${appBaseUrl}/index.html?e2e=1&role=join&autoReady=1&roomId=${encodeURIComponent(roomId)}${secretHash}`;
+
+      const senderCtx = await browser.newContext();
+      const receiverCtx = await browser.newContext();
+      const sender = await senderCtx.newPage();
+      const receiver = await receiverCtx.newPage();
+
+      try {
+        console.log(`--- E2E (${label}): launching pages ---`);
+        await sender.goto(senderUrl, { waitUntil: 'domcontentloaded' });
+        await receiver.goto(receiverUrl, { waitUntil: 'domcontentloaded' });
+
+        await Promise.all([
+          sender.waitForFunction(
+            () => window.__epheraE2E && window.__epheraE2E.signaling === 'room-created',
+            null,
+            { timeout: 10_000 }
+          ),
+          receiver.waitForFunction(
+            () => window.__epheraE2E && window.__epheraE2E.signaling === 'room-joined',
+            null,
+            { timeout: 10_000 }
+          ),
+        ]);
+
+        console.log(`--- E2E (${label}): waiting for WebRTC transport open ---`);
+        await Promise.all([
+          sender.waitForFunction(() => window.__epheraE2E && window.__epheraE2E.transportOpen === true, null, { timeout: 20_000 }),
+          receiver.waitForFunction(() => window.__epheraE2E && window.__epheraE2E.transportOpen === true, null, { timeout: 20_000 }),
+        ]);
+
+        await sender.waitForFunction(() => window.__epheraE2E && window.__epheraE2E.peerReady === true, null, { timeout: 10_000 });
+
+        console.log(`--- E2E (${label}): validating owner/peer role contract ---`);
+        const readIdentity = async (page) => page.evaluate(() => {
+          const s = window.__epheraE2E;
+          if (!s) return null;
+          return {
+            peerId: s.peerId || null,
+            roomOwnerPeerId: s.roomOwnerPeerId || null,
+            localRole: s.localRole || null,
+          };
+        });
+
+        const waitIdentityPair = async (timeoutMs) => {
+          const startedAt = Date.now();
+          let lastPair = null;
+          while ((Date.now() - startedAt) < timeoutMs) {
+            // eslint-disable-next-line no-await-in-loop
+            const senderState = await readIdentity(sender);
+            // eslint-disable-next-line no-await-in-loop
+            const receiverState = await readIdentity(receiver);
+            const senderOwner = !!(senderState && senderState.peerId && senderState.roomOwnerPeerId && senderState.peerId === senderState.roomOwnerPeerId);
+            const receiverOwner = !!(receiverState && receiverState.peerId && receiverState.roomOwnerPeerId && receiverState.peerId === receiverState.roomOwnerPeerId);
+            const hasBoth = !!(
+              senderState && receiverState &&
+              senderState.peerId && senderState.roomOwnerPeerId &&
+              receiverState.peerId && receiverState.roomOwnerPeerId
+            );
+            lastPair = { senderState, receiverState, senderOwner, receiverOwner };
+            if (hasBoth && (senderOwner !== receiverOwner)) {
+              return lastPair;
+            }
+            // eslint-disable-next-line no-await-in-loop
+            await sleep(120);
+          }
+          throw new Error(`identity contract timeout (last=${JSON.stringify(lastPair)})`);
+        };
+
+        const identity = await waitIdentityPair(10_000);
+        const ownerPage = identity.senderOwner ? sender : receiver;
+        const peerPage = identity.senderOwner ? receiver : sender;
+
+        const ownerControls = await ownerPage.evaluate(() => {
+          const rotate = document.getElementById('rotate-room-key');
+          const close = document.getElementById('close-room');
+          return {
+            rotateDisabled: !rotate || !!rotate.disabled,
+            closeDisabled: !close || !!close.disabled,
+          };
+        });
+        if (ownerControls.rotateDisabled || ownerControls.closeDisabled) {
+          throw new Error(`Expected owner controls enabled on owner peer (identity=${JSON.stringify(identity)})`);
+        }
+
+        const peerControls = await peerPage.evaluate(() => {
+          const rotate = document.getElementById('rotate-room-key');
+          const close = document.getElementById('close-room');
+          return {
+            rotateDisabled: !rotate || !!rotate.disabled,
+            closeDisabled: !close || !!close.disabled,
+          };
+        });
+        if (!peerControls.rotateDisabled || !peerControls.closeDisabled) {
+          throw new Error(`Expected owner controls disabled on non-owner peer (identity=${JSON.stringify(identity)})`);
+        }
+
+        const nextKey = generateRoomJoinKey(`${label}-next`);
+        console.log(`--- E2E (${label}): rotating room auth key via owner control ---`);
+        await ownerPage.evaluate((k) => {
+          const keyInput = document.getElementById('room-join-key');
+          const rotateBtn = document.getElementById('rotate-room-key');
+          if (!keyInput) throw new Error('room-join-key input not found');
+          if (!rotateBtn) throw new Error('rotate-room-key button not found');
+          keyInput.value = k;
+          keyInput.dispatchEvent(new Event('input', { bubbles: true }));
+          rotateBtn.click();
+        }, nextKey);
+
+        await Promise.all([
+          sender.waitForFunction((k) => {
+            const input = document.getElementById('room-join-key');
+            return !!(input && input.value === k);
+          }, nextKey, { timeout: 10_000 }),
+          receiver.waitForFunction((k) => {
+            const input = document.getElementById('room-join-key');
+            return !!(input && input.value === k);
+          }, nextKey, { timeout: 10_000 }),
+        ]);
+
+        console.log(`--- E2E (${label}): closing room via owner control ---`);
+        await ownerPage.evaluate(() => {
+          const closeBtn = document.getElementById('close-room');
+          if (!closeBtn) throw new Error('close-room button not found');
+          closeBtn.click();
+        });
+
+        await Promise.all([
+          sender.waitForFunction(() => {
+            const dis = document.getElementById('disconnect');
+            const create = document.getElementById('create-room');
+            const status = (document.getElementById('status') || {}).textContent || '';
+            return !!(dis && create && dis.disabled === true && create.disabled === false && status.includes('Room closed by owner'));
+          }, null, { timeout: 12_000 }),
+          receiver.waitForFunction(() => {
+            const dis = document.getElementById('disconnect');
+            const create = document.getElementById('create-room');
+            const status = (document.getElementById('status') || {}).textContent || '';
+            return !!(dis && create && dis.disabled === true && create.disabled === false && status.includes('Room closed by owner'));
+          }, null, { timeout: 12_000 }),
+        ]);
+
+        console.log(`--- E2E (${label}) PASS: owner controls enforced + rotate/close flow succeeded ---`);
+      } finally {
+        try { await senderCtx.close(); } catch {}
+        try { await receiverCtx.close(); } catch {}
+      }
+    }
+
+    async function runOwnerDisconnectTransferScenario() {
+      const label = 'owner-disconnect-transfer-ui';
+      const roomId = `e2e-${Date.now()}-${Math.random().toString(16).slice(2)}-${label}`;
+      const roomJoinKey = generateRoomJoinKey(label);
+      const secretHash = `#roomJoinKey=${encodeURIComponent(roomJoinKey)}`;
+
+      const ownerUrl = `${appBaseUrl}/index.html?e2e=1&role=create&roomId=${encodeURIComponent(roomId)}${secretHash}`;
+      const peerUrl = `${appBaseUrl}/index.html?e2e=1&role=join&autoReady=1&roomId=${encodeURIComponent(roomId)}${secretHash}`;
+
+      const ownerCtx = await browser.newContext();
+      const peerCtx = await browser.newContext();
+      const owner = await ownerCtx.newPage();
+      const peer = await peerCtx.newPage();
+
+      try {
+        console.log(`--- E2E (${label}): launching pages ---`);
+        await owner.goto(ownerUrl, { waitUntil: 'domcontentloaded' });
+        await peer.goto(peerUrl, { waitUntil: 'domcontentloaded' });
+
+        await Promise.all([
+          owner.waitForFunction(
+            () => window.__epheraE2E && window.__epheraE2E.signaling === 'room-created',
+            null,
+            { timeout: 10_000 }
+          ),
+          peer.waitForFunction(
+            () => window.__epheraE2E && window.__epheraE2E.signaling === 'room-joined',
+            null,
+            { timeout: 10_000 }
+          ),
+        ]);
+
+        console.log(`--- E2E (${label}): waiting for initial role contract ---`);
+        await Promise.all([
+          owner.waitForFunction(() => {
+            const s = window.__epheraE2E;
+            if (!s) return false;
+            return !!(
+              s.localRole === 'owner' &&
+              s.peerId &&
+              s.roomOwnerPeerId &&
+              s.peerId === s.roomOwnerPeerId
+            );
+          }, null, { timeout: 10_000 }),
+          peer.waitForFunction(() => {
+            const s = window.__epheraE2E;
+            if (!s) return false;
+            return !!(
+              s.localRole === 'peer' &&
+              s.peerId &&
+              s.roomOwnerPeerId &&
+              s.peerId !== s.roomOwnerPeerId
+            );
+          }, null, { timeout: 10_000 }),
+        ]);
+
+        console.log(`--- E2E (${label}): waiting for WebRTC transport open ---`);
+        await Promise.all([
+          owner.waitForFunction(() => window.__epheraE2E && window.__epheraE2E.transportOpen === true, null, { timeout: 20_000 }),
+          peer.waitForFunction(() => window.__epheraE2E && window.__epheraE2E.transportOpen === true, null, { timeout: 20_000 }),
+        ]);
+
+        const preTransferControls = await peer.evaluate(() => {
+          const rotate = document.getElementById('rotate-room-key');
+          const close = document.getElementById('close-room');
+          return {
+            rotateDisabled: !rotate || !!rotate.disabled,
+            closeDisabled: !close || !!close.disabled,
+          };
+        });
+        if (!preTransferControls.rotateDisabled || !preTransferControls.closeDisabled) {
+          throw new Error(`Expected non-owner controls to be disabled before owner disconnect (${JSON.stringify(preTransferControls)})`);
+        }
+
+        console.log(`--- E2E (${label}): closing owner signaling to force ownership transfer ---`);
+        await owner.evaluate(() => {
+          const e = window.__epheraE2E;
+          if (!e || typeof e.closeSignaling !== 'function') {
+            throw new Error('e2e closeSignaling hook not available');
+          }
+          e.closeSignaling();
+        });
+
+        await peer.waitForFunction(() => {
+          const s = window.__epheraE2E;
+          const rotate = document.getElementById('rotate-room-key');
+          const close = document.getElementById('close-room');
+          if (!s) return false;
+          const nowOwner = !!(
+            s.localRole === 'owner' &&
+              s.peerId &&
+              s.roomOwnerPeerId &&
+              s.peerId === s.roomOwnerPeerId
+          );
+          const controlsEnabled = !!(rotate && close && !rotate.disabled && !close.disabled);
+          return nowOwner && controlsEnabled;
+        }, null, { timeout: 20_000 });
+
+        console.log(`--- E2E (${label}): rotating room key as transferred owner ---`);
+        const nextJoinKey = generateRoomJoinKey(`${label}-rotated`);
+        const rotatedBaseline = await peer.evaluate(() => {
+          const s = window.__epheraE2E;
+          return s ? (s.roomKeyRotatedCount || 0) : 0;
+        });
+
+        await peer.evaluate((k) => {
+          const keyInput = document.getElementById('room-join-key');
+          const rotateBtn = document.getElementById('rotate-room-key');
+          if (!keyInput) throw new Error('room-join-key input not found');
+          if (!rotateBtn) throw new Error('rotate-room-key button not found');
+          keyInput.value = k;
+          keyInput.dispatchEvent(new Event('input', { bubbles: true }));
+          rotateBtn.click();
+        }, nextJoinKey);
+
+        await peer.waitForFunction(({ k, baseline }) => {
+          const s = window.__epheraE2E;
+          const keyInput = document.getElementById('room-join-key');
+          if (!s || !keyInput) return false;
+          return (
+            keyInput.value === k &&
+            (s.roomKeyRotatedCount || 0) > baseline
+          );
+        }, { k: nextJoinKey, baseline: rotatedBaseline }, { timeout: 10_000 });
+
+        console.log(`--- E2E (${label}): validating old key denied / rotated key accepted ---`);
+        const lateJoinerCtx = await browser.newContext();
+        const lateJoiner = await lateJoinerCtx.newPage();
+        try {
+          const staleHash = `#roomJoinKey=${encodeURIComponent(roomJoinKey)}`;
+          const staleUrl = `${appBaseUrl}/index.html?e2e=1&role=join&roomId=${encodeURIComponent(roomId)}${staleHash}`;
+          await lateJoiner.goto(staleUrl, { waitUntil: 'domcontentloaded' });
+
+          await lateJoiner.waitForFunction(() => {
+            const status = (document.getElementById('status') || {}).textContent || '';
+            return status.includes('Join unavailable');
+          }, null, { timeout: 12_000 });
+
+          await lateJoiner.evaluate((k) => {
+            const keyInput = document.getElementById('room-join-key');
+            const joinBtn = document.getElementById('join-room');
+            if (!keyInput) throw new Error('room-join-key input not found');
+            if (!joinBtn) throw new Error('join-room button not found');
+            keyInput.value = k;
+            keyInput.dispatchEvent(new Event('input', { bubbles: true }));
+            joinBtn.click();
+          }, nextJoinKey);
+
+          await lateJoiner.waitForFunction(() => {
+            const s = window.__epheraE2E;
+            return !!(s && s.signaling === 'room-joined');
+          }, null, { timeout: 12_000 });
+        } finally {
+          try { await lateJoinerCtx.close(); } catch {}
+        }
+
+        console.log(`--- E2E (${label}) PASS: ownership transferred on disconnect and owner controls remained correct ---`);
+      } finally {
+        try { await ownerCtx.close(); } catch {}
+        try { await peerCtx.close(); } catch {}
+      }
+    }
+
     async function runFolderSavePolyfillScenario() {
       const label = 'folder-save-polyfill';
       const roomId = `e2e-${Date.now()}-${Math.random().toString(16).slice(2)}-${label}`;
+      const roomJoinKey = generateRoomJoinKey(label);
+      const secretHash = `#roomJoinKey=${encodeURIComponent(roomJoinKey)}`;
 
       // Use the deploy path (server/serve.js) and same-origin signaling.
-      const senderUrl = `${appBaseUrl}/index.html?e2e=1&role=create&roomId=${encodeURIComponent(roomId)}`;
+      const senderUrl = `${appBaseUrl}/index.html?e2e=1&role=create&roomId=${encodeURIComponent(roomId)}${secretHash}`;
       // Disable autoReady so the "ready" event is produced only by the folder picker path.
-      const receiverUrl = `${appBaseUrl}/index.html?e2e=1&role=join&roomId=${encodeURIComponent(roomId)}`;
+      const receiverUrl = `${appBaseUrl}/index.html?e2e=1&role=join&roomId=${encodeURIComponent(roomId)}${secretHash}`;
 
       const senderCtx = await browser.newContext();
       const receiverCtx = await browser.newContext();
@@ -1410,6 +2603,7 @@ async function run() {
           };
 
           window.showDirectoryPicker = async () => ({
+            name: 'ephera-e2e',
             async requestPermission() { return 'granted'; },
             async getFileHandle(name, opts) {
               const create = !!(opts && opts.create);
@@ -1470,6 +2664,16 @@ async function run() {
             },
           });
         });
+        await receiver.evaluate(() => {
+          const s = window.__epheraE2E;
+          if (s && typeof s.refreshPreflight === 'function') s.refreshPreflight();
+        });
+        await receiver.waitForFunction(() => {
+          const s = window.__epheraE2E;
+          const btn = document.getElementById('pick-receive-folder');
+          if (!s || !btn) return false;
+          return s.preflightFolderSaveCapable === true && btn.disabled === false;
+        }, null, { timeout: 10_000 });
 
         console.log(`--- E2E (${label}): picking receive folder (polyfilled) ---`);
         await receiver.evaluate(() => {
@@ -1480,6 +2684,13 @@ async function run() {
 
         // Wait for sender to observe receiver readiness (requires signaling).
         await sender.waitForFunction(() => window.__epheraE2E && window.__epheraE2E.peerReady === true, null, { timeout: 15_000 });
+        await receiver.waitForFunction(() => {
+          const s = window.__epheraE2E;
+          if (!s) return false;
+          const modeOk = s.receiveDestinationMode === 'saved';
+          const label = String(s.receiveDestinationLabel || '').toLowerCase();
+          return modeOk && label.includes('save to folder');
+        }, null, { timeout: 15_000 });
 
         console.log(`--- E2E (${label}): selecting file + sending ---`);
         await sender.setInputFiles('#file-input', [filePathSingle]);
@@ -1514,11 +2725,56 @@ async function run() {
           throw new Error(`Saved last16 mismatch: ${JSON.stringify(digest.last16)}`);
         }
 
+        const receiverState = await receiver.evaluate(() => window.__epheraE2E);
+        if (!receiverState) throw new Error('Missing receiver __epheraE2E state');
+        if (receiverState.receiveDestinationMode !== 'saved') {
+          throw new Error(`Expected saved destination mode, got ${receiverState.receiveDestinationMode}`);
+        }
+        const inboundOutcome = String(receiverState.lastInboundOutcome || '').toLowerCase();
+        if (!inboundOutcome.includes('saved -> ephera-e2e/e2e.bin')) {
+          throw new Error(`Expected saved inbound outcome, got ${JSON.stringify(receiverState.lastInboundOutcome)}`);
+        }
+
         console.log(`--- E2E (${label}) PASS: saved receipt + saved bytes verified (polyfill) ---`);
       } finally {
         try { await senderCtx.close(); } catch {}
         try { await receiverCtx.close(); } catch {}
       }
+    }
+
+    if (FAST) {
+      console.log('--- E2E MODE: FAST (smoke subset) ---');
+      await runScenario({
+        label: 'fast-same-origin',
+        passphrase: null,
+        expectAutoPassphrase: true,
+        sameOrigin: true,
+        expectReceipt: true,
+      });
+      await runScenario({
+        label: 'fast-plain',
+        passphrase: null,
+        expectReceipt: true,
+      });
+      await runScenario({
+        label: 'fast-app-server',
+        passphrase: null,
+        expectAutoPassphrase: true,
+        sameOrigin: true,
+        baseUrlOverride: appBaseUrl,
+        expectReceipt: true,
+      });
+      await runInvitePackageApplyScenario();
+      await runInviteQrPairingScenario({
+        label: 'fast-invite-qr-pairing-jsqr',
+        receiverExtraQuery: 'qrScanMode=jsqr',
+        expectedEngine: 'jsqr',
+      });
+      await runInviteQrCameraDeniedScenario({
+        receiverExtraQuery: 'qrScanMode=jsqr',
+      });
+      await runInvitePackageInvalidScenario();
+      return;
     }
 
     await runScenario({ label: 'same-origin', passphrase: null, expectAutoPassphrase: true, sameOrigin: true, expectReceipt: true });
@@ -1619,6 +2875,26 @@ async function run() {
     }
 
     await runJoinLinkAutojoinScenario();
+    await runInvitePackageApplyScenario();
+    await runInviteQrPairingScenario();
+    await runInviteQrPairingScenario({
+      label: 'invite-qr-pairing-jsqr',
+      receiverExtraQuery: 'qrScanMode=jsqr',
+      expectedEngine: 'jsqr',
+    });
+    await runInviteQrCameraScanScenario({
+      receiverExtraQuery: 'qrScanMode=jsqr',
+      expectedEngine: 'jsqr',
+    });
+    await runInviteQrCameraDeniedScenario({
+      receiverExtraQuery: 'qrScanMode=jsqr',
+    });
+    await runInviteQrInvalidImageScenario({
+      receiverExtraQuery: 'qrScanMode=jsqr',
+    });
+    await runInvitePackageInvalidScenario();
+    await runOwnerAuthorityScenario();
+    await runOwnerDisconnectTransferScenario();
     await runFolderSavePolyfillScenario();
 
     await runScenario({

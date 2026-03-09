@@ -110,6 +110,107 @@ h3 {
   letter-spacing: 0.02em;
 }
 
+.launchpad {
+  margin-bottom: 12px;
+  border-color: rgba(25, 122, 106, 0.22);
+  background:
+    linear-gradient(180deg, rgba(25, 122, 106, 0.08), rgba(25, 122, 106, 0.03)),
+    var(--panel-strong);
+}
+
+.launchpad-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.launchpad-head h3 {
+  margin: 0;
+}
+
+.launchpad-state {
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--hair);
+  background: rgba(20, 20, 20, 0.04);
+  color: rgba(20, 20, 20, 0.72);
+}
+
+.launchpad-state-ok {
+  border-color: rgba(25, 122, 106, 0.32);
+  background: rgba(25, 122, 106, 0.12);
+  color: rgba(14, 88, 74, 0.92);
+}
+
+.launchpad-state-warn {
+  border-color: rgba(178, 74, 43, 0.32);
+  background: rgba(178, 74, 43, 0.1);
+  color: rgba(126, 49, 27, 0.92);
+}
+
+.launchpad-actions {
+  margin: 8px 0 6px;
+}
+
+.invite-package-actions {
+  margin-top: 2px;
+}
+
+#invite-package-input {
+  min-height: 86px;
+}
+
+#invite-package-state {
+  min-height: 1.45em;
+}
+
+.invite-package-state-ok {
+  color: rgba(14, 88, 74, 0.92);
+}
+
+.invite-package-state-warn {
+  color: rgba(126, 49, 27, 0.92);
+}
+
+.qr-pairing {
+  margin-top: 8px;
+}
+
+.invite-qr-canvas {
+  margin-top: 8px;
+  width: 256px;
+  max-width: 100%;
+  border: 1px solid var(--hair);
+  border-radius: 10px;
+  background: #fff;
+  image-rendering: pixelated;
+}
+
+.qr-camera-preview {
+  margin-top: 8px;
+  width: min(360px, 100%);
+  border: 1px solid var(--hair);
+  border-radius: 10px;
+  background: rgba(20, 20, 20, 0.08);
+}
+
+#qr-pairing-state {
+  min-height: 1.45em;
+}
+
+.qr-pairing-state-ok {
+  color: rgba(14, 88, 74, 0.92);
+}
+
+.qr-pairing-state-warn {
+  color: rgba(126, 49, 27, 0.92);
+}
+
 .row {
   display: flex;
   align-items: center;
@@ -235,6 +336,151 @@ button:disabled {
   color: rgba(126, 49, 27, 0.92);
 }
 
+.preflight {
+  margin-top: 12px;
+  padding: 12px;
+}
+
+.preflight-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.preflight-head h3 {
+  margin: 0;
+}
+
+.preflight-summary {
+  font-size: 12px;
+  color: rgba(20, 20, 20, 0.78);
+}
+
+.preflight-summary-ok {
+  color: rgba(14, 88, 74, 0.92);
+}
+
+.preflight-summary-warn {
+  color: rgba(126, 49, 27, 0.92);
+}
+
+.preflight-list {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.preflight-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 1px solid var(--hair);
+  background: rgba(20, 20, 20, 0.03);
+}
+
+.preflight-pill {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border-radius: 999px;
+  border: 1px solid var(--hair);
+  padding: 3px 8px;
+  color: rgba(20, 20, 20, 0.72);
+  background: rgba(20, 20, 20, 0.04);
+}
+
+.preflight-pill-ok {
+  border-color: rgba(25, 122, 106, 0.32);
+  color: rgba(14, 88, 74, 0.92);
+  background: rgba(25, 122, 106, 0.1);
+}
+
+.preflight-pill-warn {
+  border-color: rgba(178, 74, 43, 0.32);
+  color: rgba(126, 49, 27, 0.92);
+  background: rgba(178, 74, 43, 0.1);
+}
+
+.preflight-fix {
+  margin: 10px 0 0;
+}
+
+.flow-guide {
+  margin-top: 12px;
+  padding: 12px;
+}
+
+.flow-guide-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.flow-guide-head h3 {
+  margin: 0;
+}
+
+.flow-current {
+  margin: 0;
+  font-size: 12px;
+  color: rgba(20, 20, 20, 0.82);
+}
+
+.flow-list {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.flow-step {
+  position: relative;
+  padding: 8px 10px 8px 38px;
+  border-radius: 10px;
+  border: 1px solid var(--hair);
+  background: rgba(20, 20, 20, 0.03);
+  color: rgba(20, 20, 20, 0.72);
+  font-size: 12px;
+}
+
+.flow-step::before {
+  content: "[ ]";
+  position: absolute;
+  left: 10px;
+  top: 8px;
+  color: rgba(20, 20, 20, 0.62);
+  letter-spacing: 0.02em;
+}
+
+.flow-step-active {
+  border-color: rgba(178, 74, 43, 0.3);
+  background: rgba(178, 74, 43, 0.09);
+  color: rgba(90, 39, 25, 0.95);
+}
+
+.flow-step-active::before {
+  content: "[>]";
+  color: rgba(126, 49, 27, 0.92);
+}
+
+.flow-step-done {
+  border-color: rgba(25, 122, 106, 0.32);
+  background: rgba(25, 122, 106, 0.1);
+  color: rgba(14, 88, 74, 0.92);
+}
+
+.flow-step-done::before {
+  content: "[x]";
+  color: rgba(14, 88, 74, 0.92);
+}
+
 .hint {
   color: rgba(20, 20, 20, 0.55);
   font-size: 12px;
@@ -262,6 +508,83 @@ button:disabled {
 .details > summary {
   cursor: pointer;
   user-select: none;
+}
+
+.quick-transfer {
+  margin-bottom: 12px;
+}
+
+.quick-summary {
+  font-size: 12px;
+  line-height: 1.4;
+  color: rgba(20, 20, 20, 0.76);
+}
+
+.quick-summary-ok {
+  color: rgba(14, 88, 74, 0.92);
+}
+
+.quick-summary-warn {
+  color: rgba(126, 49, 27, 0.92);
+}
+
+.transfer-advanced {
+  margin: 10px 0 14px;
+}
+
+.transfer-advanced > summary {
+  padding: 8px 2px;
+  color: rgba(20, 20, 20, 0.72);
+}
+
+.transfer-advanced[open] > summary {
+  color: rgba(14, 88, 74, 0.92);
+}
+
+.transfer-advanced > .card {
+  margin-top: 10px;
+}
+
+.onboarding-hint {
+  margin-top: 10px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--hair);
+  background: rgba(20, 20, 20, 0.04);
+}
+
+.onboarding-hint-ok {
+  color: rgba(14, 88, 74, 0.92);
+  border-color: rgba(25, 122, 106, 0.3);
+  background: rgba(25, 122, 106, 0.1);
+}
+
+.onboarding-hint-warn {
+  color: rgba(126, 49, 27, 0.92);
+  border-color: rgba(178, 74, 43, 0.3);
+  background: rgba(178, 74, 43, 0.09);
+}
+
+.receive-destination {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--hair);
+  background: rgba(20, 20, 20, 0.03);
+}
+
+.receive-destination-state {
+  margin: 0 0 8px;
+  font-size: 12px;
+  color: rgba(20, 20, 20, 0.8);
+}
+
+.receive-destination-ready {
+  color: rgba(14, 88, 74, 0.92);
+}
+
+.receive-destination-discard {
+  color: rgba(126, 49, 27, 0.92);
 }
 
 .diag {
@@ -446,6 +769,21 @@ button:disabled {
 .transfer-speed {
   color: rgba(20, 20, 20, 0.6);
   white-space: nowrap;
+}
+
+.transfer-outcome {
+  margin-top: 8px;
+  font-size: 12px;
+  color: rgba(20, 20, 20, 0.76);
+  word-break: break-word;
+}
+
+.transfer-outcome-ok {
+  color: rgba(14, 88, 74, 0.92);
+}
+
+.transfer-outcome-warn {
+  color: rgba(126, 49, 27, 0.92);
 }
 
 .transfer-progress {

@@ -58,6 +58,10 @@ Ephera is not “storage”. It is an **ephemeral P2P transport engine**:
 - `client/app.js`
   - Browser wiring only:
     - WebSocket signaling (create/join room, relay SDP/ICE)
+    - Ephemeral room admission key handling (`roomJoinKey`) for create/join/reconnect
+    - Secret-link hygiene for `roomJoinKey`/`passphrase`:
+      - Generate join links with secrets in URL fragment (`#...`), not query
+      - Accept legacy query secrets as fallback, then strip from address bar
     - Creates `EpheraTransport` and hooks it to the signaling channel
     - Sets up `EpheraReceiver + SessionManager` for inbound transfers
     - Streams outbound files with `EpheraSender` (supports concurrent sends + weights)
@@ -66,6 +70,10 @@ Ephera is not “storage”. It is an **ephemeral P2P transport engine**:
       - Peer abort propagation (receiver cancel -> sender abort)
     - Passphrase verification handshake (P2P, encrypted META) to prevent wasted transfers under passphrase mismatch
     - Secure mode passphrase UX (never stored; used only in memory)
+    - Owner authority UX:
+      - Displays local/owner signaling identities (`peerId`, `ownerPeerId`)
+      - Gated owner-only controls for room key rotation and room close
+      - Handles owner-governance signaling events (`room-key-rotated`, `room-owner-changed`, `room-closed`)
     - Folder-based receive via File System Access API (secure contexts only)
     - Key hardening invariant: **signaling loss must not kill an active P2P session**
 - `client/transport.js`
@@ -154,6 +162,11 @@ All tests here run against the real engine stack using loopback transports (fast
     - Enforces connection and room pressure caps (`MAX_CONNECTIONS`, `MAX_ROOMS`)
     - Enforces per-IP admission pressure caps (`MAX_CONNECTIONS_PER_IP`, `MAX_MESSAGES_PER_IP_PER_WINDOW`)
     - Enforces per-IP room operation throttle (`MAX_ROOM_OPS_PER_IP_PER_WINDOW`, `ROOM_OPS_WINDOW_MS`, `ROOM_OPS_COOLDOWN_MS`)
+    - Shapes `join-room` denials (`JOIN_DENY_DELAY_MS`) with unified `Join unavailable` miss/full surface
+    - Enforces ephemeral room admission auth (`roomJoinKey`) for joins
+    - Mints ephemeral per-connection `peerId` and tracks in-room owner identity (`ownerPeerId`)
+    - Enforces owner-only room controls (`rotate-room-join-key`, `close-room`) with deterministic owner transfer on owner leave
+    - Enforces per-IP owner-op abuse throttle (`MAX_OWNER_OPS_PER_IP_PER_WINDOW`, `OWNER_OPS_WINDOW_MS`, `OWNER_OPS_COOLDOWN_MS`)
     - Enforces per-socket message-rate caps (`MAX_MESSAGES_PER_WINDOW`, `MESSAGE_RATE_WINDOW_MS`)
     - Optional proxy-aware IP attribution via `TRUST_PROXY=1` (`X-Forwarded-For`)
     - Supports optional strict same-origin Origin policy (`enforceSameOrigin`)
@@ -179,7 +192,7 @@ All tests here run against the real engine stack using loopback transports (fast
 ### `server/test/` (Signaling Regression)
 
 - `server/test/signaling.test.js`
-  - Exercises signaling behaviors: relay, room/full/collision semantics, TTL, payload caps, per-IP controls, room-op throttle.
+  - Exercises signaling behaviors: relay, room/full/collision semantics, TTL, payload caps, per-IP controls, room-op throttle, and owner-op abuse throttle.
 - `server/test/serve.test.js`
   - Verifies static/security headers, path guards, app-server health/readiness/runtime-config endpoints, and same-origin WS signaling.
 - `server/test/run-all.js`
@@ -213,6 +226,20 @@ All tests here run against the real engine stack using loopback transports (fast
   - Stage 12 signaling per-IP admission controls freeze.
 - `docs/ARCHITECTURE_FREEZE_STAGE_13.0.md`
   - Stage 13 signaling room-abuse throttling freeze.
+- `docs/ARCHITECTURE_FREEZE_STAGE_14.0.md`
+  - Stage 14 signaling join-enumeration resistance freeze.
+- `docs/ARCHITECTURE_FREEZE_STAGE_15.0.md`
+  - Stage 15 room admission auth freeze.
+- `docs/ARCHITECTURE_FREEZE_STAGE_16.0.md`
+  - Stage 16 log-safe secret-link handling freeze.
+- `docs/ARCHITECTURE_FREEZE_STAGE_17.0.md`
+  - Stage 17 ephemeral peer identity + owner authority freeze.
+- `docs/ARCHITECTURE_FREEZE_STAGE_18.0.md`
+  - Stage 18 owner-control UX gating freeze.
+- `docs/ARCHITECTURE_FREEZE_STAGE_19.0.md`
+  - Stage 19 owner-op abuse throttling freeze.
+- `docs/ARCHITECTURE_FREEZE_STAGE_20.0.md`
+  - Stage 20 TURN secret hygiene + relay required aggregation freeze.
 - `docs/DEPLOYMENT.md`
   - Reverse proxy examples + “disable access logs” guidance.
 
@@ -227,6 +254,9 @@ All tests here run against the real engine stack using loopback transports (fast
       protocol mismatch gating, passphrase mismatch gating,
       peer-left (receiver signaling close), signaling restart, signaling server crash mid-transfer,
       sender tab close mid-transfer, receiver cancel mid-transfer, repeated connect/disconnect cycles (no reload),
-      `npm start` app-server path, relay-runtime-config path (`E2E_RELAY_RUNTIME=1`), and a forced-GC session leak gate.
+      `npm start` app-server path, relay-runtime-config path (`E2E_RELAY_RUNTIME=1`),
+      join-link fragment secret assertions (no secret query params),
+      owner-authority control flows (`owner-authority-ui`, `owner-disconnect-transfer-ui`),
+      and a forced-GC session leak gate.
     - Optional perf mode (`npm run e2e:perf` / `E2E_PERF=1`):
       100MB transfer with heap + `bufferedAmount` sampling (automated approximation of manual performance gates).

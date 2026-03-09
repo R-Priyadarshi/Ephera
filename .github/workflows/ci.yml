@@ -5,6 +5,9 @@ on:
     branches:
       - '**'
   pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 3 * * *'
 
 permissions:
   contents: read
@@ -14,30 +17,10 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  core-tests:
-    name: core-tests
+  fast-checks:
+    name: fast-checks
     runs-on: ubuntu-latest
-    timeout-minutes: 25
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Run unit/integration tests
-        run: npm test
-
-  full-gates:
-    name: full-gates
-    runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 40
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -58,11 +41,43 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run full standard gates
-        run: npm run gates
+      - name: Run unit/integration tests
+        run: npm test
+
+      - name: Run fast E2E smoke suite
+        run: npm run e2e:fast
+
+  full-e2e:
+    name: full-e2e
+    if: ${{ github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 70
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Setup Chrome
+        id: chrome
+        uses: browser-actions/setup-chrome@v1
+
+      - name: Export Chrome path
+        run: echo "CHROME_PATH=${{ steps.chrome.outputs.chrome-path }}" >> "$GITHUB_ENV"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run full E2E matrix
+        run: npm run e2e
 
   relay-required:
     name: relay-required
+    if: ${{ github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' }}
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
@@ -91,8 +106,220 @@ jobs:
         run: |
           cp deploy/turn.env.example deploy/.env
           if [ -n "$CI_TURN_AUTH_SECRET" ]; then
-            sed -i "s/^TURN_AUTH_SECRET=.*/TURN_AUTH_SECRET=$CI_TURN_AUTH_SECRET/" deploy/.env
+            TURN_SECRET="$CI_TURN_AUTH_SECRET"
+          else
+            TURN_SECRET="$(openssl rand -hex 32)"
           fi
+          echo "::add-mask::$TURN_SECRET"
+          sed -i "s/^TURN_AUTH_SECRET=.*/TURN_AUTH_SECRET=$TURN_SECRET/" deploy/.env
 
       - name: Run relay required gate
         run: npm run gates:relay-local
+
+  nightly-signaling-stress:
+    name: nightly-signaling-stress
+    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      SIGNALING_STRESS_SUMMARY_PATH: ${{ runner.temp }}/signaling-stress-summary.json
+      SIGNALING_FUZZ_SUMMARY_PATH: ${{ runner.temp }}/signaling-fuzz-summary.json
+      SIGNALING_FUZZ_SEED: ${{ github.run_id }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run heavy signaling stress profile
+        run: npm run test:server:stress-heavy
+
+      - name: Append stress metrics to job summary
+        if: ${{ always() }}
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+
+          const out = process.env.GITHUB_STEP_SUMMARY;
+          const p = process.env.SIGNALING_STRESS_SUMMARY_PATH || '';
+
+          function append(lines) {
+            if (!out) return;
+            fs.appendFileSync(out, `${lines.join('\n')}\n`);
+          }
+
+          if (!p || !fs.existsSync(p)) {
+            append([
+              '## Nightly Signaling Stress',
+              '- summary: not found',
+            ]);
+            process.exit(0);
+          }
+
+          let data = null;
+          try {
+            data = JSON.parse(fs.readFileSync(p, 'utf8'));
+          } catch (err) {
+            append([
+              '## Nightly Signaling Stress',
+              `- summary: parse error (${String(err && err.message ? err.message : err)})`,
+            ]);
+            process.exit(0);
+          }
+
+          const checks = Array.isArray(data && data.checks) ? data.checks : [];
+          const header = [
+            '## Nightly Signaling Stress',
+            `- profile: \`${String((data && data.profile) || 'unknown')}\``,
+            `- totalDurationMs: \`${Number.isFinite(data && data.totalDurationMs) ? data.totalDurationMs : 'n/a'}\``,
+            `- expected total sockets (signal burst): \`${data && data.expectedLoads && Number.isFinite(data.expectedLoads.totalSocketsSignalBurst) ? data.expectedLoads.totalSocketsSignalBurst : 'n/a'}\``,
+            `- expected room op attempts: \`${data && data.expectedLoads && Number.isFinite(data.expectedLoads.roomOpsAttempts) ? data.expectedLoads.roomOpsAttempts : 'n/a'}\``,
+          ];
+          append(header);
+
+          if (checks.length > 0) {
+            append(['- checks:']);
+            for (const c of checks) {
+              const name = String((c && c.name) || 'unknown');
+              const dur = Number.isFinite(c && c.durationMs) ? c.durationMs : 'n/a';
+              append([`  - \`${name}\`: \`${dur} ms\``]);
+            }
+          }
+          NODE
+
+      - name: Append fuzz metrics to job summary
+        if: ${{ always() }}
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+
+          const out = process.env.GITHUB_STEP_SUMMARY;
+          const p = process.env.SIGNALING_FUZZ_SUMMARY_PATH || '';
+
+          function append(lines) {
+            if (!out) return;
+            fs.appendFileSync(out, `${lines.join('\n')}\n`);
+          }
+
+          if (!p || !fs.existsSync(p)) {
+            append([
+              '## Nightly Signaling Fuzz',
+              '- summary: not found',
+            ]);
+            process.exit(0);
+          }
+
+          let data = null;
+          try {
+            data = JSON.parse(fs.readFileSync(p, 'utf8'));
+          } catch (err) {
+            append([
+              '## Nightly Signaling Fuzz',
+              `- summary: parse error (${String(err && err.message ? err.message : err)})`,
+            ]);
+            process.exit(0);
+          }
+
+          const stats = data && data.stats ? data.stats : {};
+          append([
+            '## Nightly Signaling Fuzz',
+            `- profile: \`${String((data && data.profile) || 'unknown')}\``,
+            `- seed: \`${String((data && data.seed) || 'unknown')}\``,
+            `- ok: \`${String(!!(data && data.ok))}\``,
+            `- totalDurationMs: \`${Number.isFinite(data && data.totalDurationMs) ? data.totalDurationMs : 'n/a'}\``,
+            `- sentFrames: \`${Number.isFinite(stats.sentFrames) ? stats.sentFrames : 'n/a'}\``,
+            `- socketCloses: \`${Number.isFinite(stats.socketCloses) ? stats.socketCloses : 'n/a'}\``,
+            `- errorMessages: \`${Number.isFinite(stats.errorMessages) ? stats.errorMessages : 'n/a'}\``,
+          ]);
+          NODE
+
+      - name: Upload signaling stress summary artifact
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: signaling-stress-summary-${{ github.run_id }}
+          path: ${{ env.SIGNALING_STRESS_SUMMARY_PATH }}
+          if-no-files-found: warn
+
+      - name: Upload signaling fuzz summary artifact
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: signaling-fuzz-summary-${{ github.run_id }}
+          path: ${{ env.SIGNALING_FUZZ_SUMMARY_PATH }}
+          if-no-files-found: warn
+
+  required-checks:
+    name: required-checks
+    runs-on: ubuntu-latest
+    if: ${{ always() }}
+    needs:
+      - fast-checks
+      - full-e2e
+      - relay-required
+      - nightly-signaling-stress
+    steps:
+      - name: Assert upstream jobs succeeded
+        env:
+          FAST_CHECKS_RESULT: ${{ needs.fast-checks.result }}
+          FULL_E2E_RESULT: ${{ needs.full-e2e.result }}
+          RELAY_REQUIRED_RESULT: ${{ needs.relay-required.result }}
+          NIGHTLY_STRESS_RESULT: ${{ needs.nightly-signaling-stress.result }}
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          GITHUB_REF: ${{ github.ref }}
+        run: |
+          REQUIRES_FULL=0
+          REQUIRES_NIGHTLY=0
+          if [ "$GITHUB_REF" = "refs/heads/main" ] || [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ] || [ "$GITHUB_EVENT_NAME" = "schedule" ]; then
+            REQUIRES_FULL=1
+          fi
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ] || [ "$GITHUB_EVENT_NAME" = "schedule" ]; then
+            REQUIRES_NIGHTLY=1
+          fi
+
+          echo "requires_full=$REQUIRES_FULL"
+          echo "requires_nightly=$REQUIRES_NIGHTLY"
+          echo "fast-checks=$FAST_CHECKS_RESULT"
+          echo "full-e2e=$FULL_E2E_RESULT"
+          echo "relay-required=$RELAY_REQUIRED_RESULT"
+          echo "nightly-signaling-stress=$NIGHTLY_STRESS_RESULT"
+          {
+            echo "## Required CI checks"
+            echo "- requires_full: \`$REQUIRES_FULL\`"
+            echo "- requires_nightly: \`$REQUIRES_NIGHTLY\`"
+            echo "- fast-checks: \`$FAST_CHECKS_RESULT\`"
+            echo "- full-e2e: \`$FULL_E2E_RESULT\`"
+            echo "- relay-required: \`$RELAY_REQUIRED_RESULT\`"
+            echo "- nightly-signaling-stress: \`$NIGHTLY_STRESS_RESULT\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+          [ "$FAST_CHECKS_RESULT" = "success" ] || exit 1
+
+          if [ "$REQUIRES_FULL" = "1" ]; then
+            [ "$FULL_E2E_RESULT" = "success" ] || exit 1
+            [ "$RELAY_REQUIRED_RESULT" = "success" ] || exit 1
+          else
+            case "$FULL_E2E_RESULT" in
+              success|skipped) ;;
+              *) exit 1 ;;
+            esac
+            case "$RELAY_REQUIRED_RESULT" in
+              success|skipped) ;;
+              *) exit 1 ;;
+            esac
+          fi
+
+          if [ "$REQUIRES_NIGHTLY" = "1" ]; then
+            [ "$NIGHTLY_STRESS_RESULT" = "success" ] || exit 1
+          else
+            case "$NIGHTLY_STRESS_RESULT" in
+              success|skipped) ;;
+              *) exit 1 ;;
+            esac
+          fi

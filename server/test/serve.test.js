@@ -244,6 +244,16 @@ function waitForSocketClose(socket) {
   });
 }
 
+async function createRoom(ws, roomId, label = 'create ack') {
+  ws.send(JSON.stringify({ type: 'create-room', roomId }));
+  const created = await withTimeout(nextJsonMessage(ws), 2000, label);
+  assert.strictEqual(created.type, 'room-created');
+  assert.strictEqual(created.roomId, roomId);
+  assert.strictEqual(typeof created.roomJoinKey, 'string');
+  assert.ok(created.roomJoinKey.length >= 16);
+  return created;
+}
+
 async function testStaticHeadersAndPathGuards() {
   const app = await startAppServer();
   try {
@@ -308,14 +318,12 @@ async function testSameOriginSignalingOverAppServer() {
     const a = await openClient(url);
     const b = await openClient(url);
 
-    a.send(JSON.stringify({ type: 'create-room', roomId: 'room-app-server' }));
-    const created = await withTimeout(nextJsonMessage(a), 2000, 'create ack');
-    assert.strictEqual(created.type, 'room-created');
+    const created = await createRoom(a, 'room-app-server', 'create ack');
     assert.strictEqual(created.peerCount, 1);
 
     const joinedP = withTimeout(nextJsonMessage(b), 2000, 'join ack');
     const peerJoinedP = withTimeout(nextJsonMessage(a), 2000, 'peer joined notify');
-    b.send(JSON.stringify({ type: 'join-room', roomId: 'room-app-server' }));
+    b.send(JSON.stringify({ type: 'join-room', roomId: 'room-app-server', roomJoinKey: created.roomJoinKey }));
 
     const joined = await joinedP;
     assert.strictEqual(joined.type, 'room-joined');
@@ -352,9 +360,7 @@ async function testDefaultSameOriginPolicyOnAppServer() {
     assert.ok(badClosed.code === 1008 || badClosed.code === 1006);
 
     const ok = await openClient(url);
-    ok.send(JSON.stringify({ type: 'create-room', roomId: 'room-origin-policy' }));
-    const created = await withTimeout(nextJsonMessage(ok), 1000, 'origin-policy create');
-    assert.strictEqual(created.type, 'room-created');
+    await createRoom(ok, 'room-origin-policy', 'origin-policy create');
     try { ok.close(); } catch {}
     await withTimeout(waitForClose(ok), 1000, 'origin-policy close');
   } finally {
@@ -368,9 +374,7 @@ async function testDisableSameOriginPolicyOverride() {
 
   try {
     const a = await openClientRaw(url);
-    a.send(JSON.stringify({ type: 'create-room', roomId: 'room-origin-override' }));
-    const created = await withTimeout(nextJsonMessage(a), 1000, 'origin-override create');
-    assert.strictEqual(created.type, 'room-created');
+    await createRoom(a, 'room-origin-override', 'origin-override create');
 
     try { a.close(); } catch {}
     await withTimeout(waitForClose(a), 1000, 'origin-override close');
@@ -515,6 +519,16 @@ async function testInvalidDynamicTurnEnvFailsFast() {
   await assertStartFails({
     TURN_URLS_JSON: JSON.stringify(['stun:stun.example.net:3478']),
     TURN_AUTH_SECRET: 'secret',
+  });
+
+  await assertStartFails({
+    TURN_URLS_JSON: JSON.stringify(['turn:turn.example.net:3478']),
+    TURN_AUTH_SECRET: 'change-me-secret',
+  });
+
+  await assertStartFails({
+    TURN_URLS_JSON: JSON.stringify(['turn:turn.example.net:3478']),
+    TURN_AUTH_SECRET: 'short-secret',
   });
 
   await assertStartFails({

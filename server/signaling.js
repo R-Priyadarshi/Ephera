@@ -14,6 +14,7 @@
  */
 
 const { WebSocketServer } = require('ws');
+const { randomBytes } = require('crypto');
 const { createRoomStore } = require('./rooms');
 
 const DEFAULT_MAX_PEERS_PER_ROOM = 2;
@@ -28,6 +29,12 @@ const DEFAULT_MAX_MESSAGES_PER_IP_PER_WINDOW = 1200;
 const DEFAULT_MAX_ROOM_OPS_PER_IP_PER_WINDOW = 120;
 const DEFAULT_ROOM_OPS_WINDOW_MS = 60 * 1000;
 const DEFAULT_ROOM_OPS_COOLDOWN_MS = 30 * 1000;
+const DEFAULT_MAX_OWNER_OPS_PER_IP_PER_WINDOW = 60;
+const DEFAULT_OWNER_OPS_WINDOW_MS = 60 * 1000;
+const DEFAULT_OWNER_OPS_COOLDOWN_MS = 30 * 1000;
+const DEFAULT_JOIN_DENY_DELAY_MS = 120;
+const DEFAULT_JOIN_KEY_BYTES = 24;
+const DEFAULT_PEER_ID_BYTES = 12;
 
 function parseAllowedOrigins(value) {
   if (typeof value !== 'string') return null;
@@ -54,6 +61,25 @@ function sanitizeRoomId(value) {
   if (s.length > 96) return null;
   if (!/^[A-Za-z0-9][A-Za-z0-9_-]*$/.test(s)) return null;
   return s;
+}
+
+function sanitizeRoomJoinKey(value) {
+  if (typeof value !== 'string') return null;
+  const s = value.trim();
+  if (!s) return null;
+  if (s.length < 16 || s.length > 128) return null;
+  if (!/^[A-Za-z0-9_-]+$/.test(s)) return null;
+  return s;
+}
+
+function generateRoomJoinKey() {
+  // 24 random bytes -> 32 base64url chars.
+  return randomBytes(DEFAULT_JOIN_KEY_BYTES).toString('base64url');
+}
+
+function generatePeerId() {
+  // 12 random bytes -> 16 base64url chars.
+  return randomBytes(DEFAULT_PEER_ID_BYTES).toString('base64url');
 }
 
 function byteLengthUtf8(value) {
@@ -226,6 +252,12 @@ function createSignalingServer(options = {}) {
     1
   );
 
+  const maxOwnerOpsPerIpPerWindow = parsePositiveInt(
+    options.maxOwnerOpsPerIpPerWindow ?? process.env.MAX_OWNER_OPS_PER_IP_PER_WINDOW,
+    DEFAULT_MAX_OWNER_OPS_PER_IP_PER_WINDOW,
+    1
+  );
+
   const messageRateWindowMs = parsePositiveInt(
     options.messageRateWindowMs ?? process.env.MESSAGE_RATE_WINDOW_MS,
     DEFAULT_MESSAGE_RATE_WINDOW_MS,
@@ -242,6 +274,24 @@ function createSignalingServer(options = {}) {
     options.roomOpsCooldownMs ?? process.env.ROOM_OPS_COOLDOWN_MS,
     DEFAULT_ROOM_OPS_COOLDOWN_MS,
     100
+  );
+
+  const ownerOpsWindowMs = parsePositiveInt(
+    options.ownerOpsWindowMs ?? process.env.OWNER_OPS_WINDOW_MS,
+    DEFAULT_OWNER_OPS_WINDOW_MS,
+    100
+  );
+
+  const ownerOpsCooldownMs = parsePositiveInt(
+    options.ownerOpsCooldownMs ?? process.env.OWNER_OPS_COOLDOWN_MS,
+    DEFAULT_OWNER_OPS_COOLDOWN_MS,
+    100
+  );
+
+  const joinDenyDelayMs = parsePositiveInt(
+    options.joinDenyDelayMs ?? process.env.JOIN_DENY_DELAY_MS,
+    DEFAULT_JOIN_DENY_DELAY_MS,
+    0
   );
 
   const enforceSameOrigin = parseBooleanFlag(
@@ -262,6 +312,8 @@ function createSignalingServer(options = {}) {
   const ipConnectionCounts = new Map();
   const ipMessageRates = new Map();
   const ipRoomOps = new Map();
+  const ipOwnerOps = new Map();
+  const socketStates = new Map();
 
   const wss = new WebSocketServer({
     ...(httpServer ? { server: httpServer } : { port, ...(host ? { host } : {}) }),
@@ -295,13 +347,31 @@ function createSignalingServer(options = {}) {
     const roomId = state.currentRoomId;
     if (!roomId) return;
 
-    const peers = rooms.getPeers(roomId, socket);
-    for (const peer of peers) {
-      safeSend(peer, { type: 'peer-left', roomId });
+    const room = rooms.getRoom(roomId);
+    if (!room) {
+      state.currentRoomId = null;
+      return;
     }
 
-    rooms.leaveRoom(roomId, socket);
+    const leavingPeerId = room.peerIds.get(socket) || null;
+    const peers = rooms.getPeers(roomId, socket);
+    for (const peer of peers) {
+      safeSend(peer, { type: 'peer-left', roomId, peerId: leavingPeerId });
+    }
+
+    const left = rooms.leaveRoom(roomId, socket);
     state.currentRoomId = null;
+
+    if (left && left.ownerChanged && left.roomOwnerPeerId) {
+      const updatedPeers = rooms.getPeers(roomId, null);
+      for (const peer of updatedPeers) {
+        safeSend(peer, {
+          type: 'room-owner-changed',
+          roomId,
+          roomOwnerPeerId: left.roomOwnerPeerId,
+        });
+      }
+    }
   }
 
   function incrementIpConnections(ip) {
@@ -319,6 +389,7 @@ function createSignalingServer(options = {}) {
     ipConnectionCounts.delete(ip);
     ipMessageRates.delete(ip);
     ipRoomOps.delete(ip);
+    ipOwnerOps.delete(ip);
   }
 
   function exceededIpMessageRate(ip) {
@@ -380,6 +451,63 @@ function createSignalingServer(options = {}) {
     };
   }
 
+  function consumeOwnerOpBudget(ip) {
+    const now = Date.now();
+    let state = ipOwnerOps.get(ip);
+    if (!state) {
+      state = {
+        windowStartedAt: now,
+        count: 0,
+        cooldownUntil: 0,
+      };
+    }
+
+    if (state.cooldownUntil > now) {
+      ipOwnerOps.set(ip, state);
+      return {
+        ok: false,
+        retryAfterMs: Math.max(1, state.cooldownUntil - now),
+      };
+    }
+
+    if ((now - state.windowStartedAt) >= ownerOpsWindowMs) {
+      state.windowStartedAt = now;
+      state.count = 0;
+      state.cooldownUntil = 0;
+    }
+
+    state.count += 1;
+    if (state.count > maxOwnerOpsPerIpPerWindow) {
+      state.count = 0;
+      state.windowStartedAt = now;
+      state.cooldownUntil = now + ownerOpsCooldownMs;
+      ipOwnerOps.set(ip, state);
+      return {
+        ok: false,
+        retryAfterMs: ownerOpsCooldownMs,
+      };
+    }
+
+    ipOwnerOps.set(ip, state);
+    return {
+      ok: true,
+      retryAfterMs: 0,
+    };
+  }
+
+  function sendJoinUnavailable(socket) {
+    const payload = { type: 'error', message: 'Join unavailable' };
+    if (joinDenyDelayMs <= 0) {
+      safeSend(socket, payload);
+      return;
+    }
+
+    const t = setTimeout(() => {
+      safeSend(socket, payload);
+    }, joinDenyDelayMs);
+    try { t.unref(); } catch {}
+  }
+
   wss.on('connection', (socket, req) => {
     socket.isAlive = true;
     socket.on('pong', () => { socket.isAlive = true; });
@@ -411,10 +539,12 @@ function createSignalingServer(options = {}) {
     }
 
     const state = {
+      peerId: generatePeerId(),
       currentRoomId: null,
       rateWindowStartedAt: Date.now(),
       rateCount: 0,
     };
+    socketStates.set(socket, state);
 
     let cleanedUp = false;
     const cleanupSocket = () => {
@@ -422,6 +552,7 @@ function createSignalingServer(options = {}) {
       cleanedUp = true;
       detachFromRoom(socket, state);
       decrementIpConnections(clientIp);
+      socketStates.delete(socket);
     };
 
     socket.on('close', cleanupSocket);
@@ -508,14 +639,32 @@ function createSignalingServer(options = {}) {
             return;
           }
 
-          const room = rooms.createRoom(roomId);
-          rooms.joinRoom(roomId, socket);
+          let roomJoinKey = null;
+          if (message.roomJoinKey !== undefined) {
+            roomJoinKey = sanitizeRoomJoinKey(message.roomJoinKey);
+            if (!roomJoinKey) {
+              safeSend(socket, { type: 'error', message: 'Invalid roomJoinKey' });
+              return;
+            }
+          } else {
+            roomJoinKey = generateRoomJoinKey();
+          }
+
+          const room = rooms.createRoom(roomId, {
+            joinKey: roomJoinKey,
+            ownerPeerId: state.peerId,
+          });
+          rooms.joinRoom(roomId, socket, state.peerId);
           state.currentRoomId = roomId;
 
           safeSend(socket, {
             type: 'room-created',
             roomId: room.id,
             peerCount: room.peers.size,
+            roomJoinKey: room.joinKey,
+            peerId: state.peerId,
+            roomOwnerPeerId: room.ownerPeerId,
+            role: 'owner',
           });
           break;
         }
@@ -544,27 +693,134 @@ function createSignalingServer(options = {}) {
 
           const room = rooms.getRoom(roomId);
           if (!room) {
-            safeSend(socket, { type: 'error', message: 'Room not found' });
+            sendJoinUnavailable(socket);
+            return;
+          }
+
+          const roomJoinKey = sanitizeRoomJoinKey(message.roomJoinKey);
+          if (!roomJoinKey || room.joinKey !== roomJoinKey) {
+            sendJoinUnavailable(socket);
             return;
           }
 
           if (!room.peers.has(socket) && room.peers.size >= maxPeersPerRoom) {
-            safeSend(socket, { type: 'error', message: 'Room full' });
+            sendJoinUnavailable(socket);
             return;
           }
 
-          rooms.joinRoom(roomId, socket);
+          rooms.joinRoom(roomId, socket, state.peerId);
           state.currentRoomId = roomId;
 
           safeSend(socket, {
             type: 'room-joined',
             roomId: room.id,
             peerCount: room.peers.size,
+            roomJoinKey: room.joinKey,
+            peerId: state.peerId,
+            roomOwnerPeerId: room.ownerPeerId || null,
+            role: (room.ownerPeerId && room.ownerPeerId === state.peerId) ? 'owner' : 'peer',
           });
 
           const peers = rooms.getPeers(roomId, socket);
           for (const peer of peers) {
-            safeSend(peer, { type: 'peer-joined', roomId });
+            safeSend(peer, {
+              type: 'peer-joined',
+              roomId,
+              peerId: state.peerId,
+              roomOwnerPeerId: room.ownerPeerId || null,
+            });
+          }
+          break;
+        }
+
+        case 'rotate-room-join-key': {
+          const budget = consumeOwnerOpBudget(clientIp);
+          if (!budget.ok) {
+            safeSend(socket, { type: 'error', message: 'Too many owner operations; retry later', retryAfterMs: budget.retryAfterMs });
+            return;
+          }
+
+          if (!state.currentRoomId) {
+            safeSend(socket, { type: 'error', message: 'Not in a room' });
+            return;
+          }
+
+          const room = rooms.getRoom(state.currentRoomId);
+          if (!room) {
+            state.currentRoomId = null;
+            safeSend(socket, { type: 'error', message: 'Room not found' });
+            return;
+          }
+
+          if (!room.ownerPeerId || room.ownerPeerId !== state.peerId) {
+            safeSend(socket, { type: 'error', message: 'Owner privileges required' });
+            return;
+          }
+
+          let nextJoinKey = null;
+          if (message.roomJoinKey !== undefined) {
+            nextJoinKey = sanitizeRoomJoinKey(message.roomJoinKey);
+            if (!nextJoinKey) {
+              safeSend(socket, { type: 'error', message: 'Invalid roomJoinKey' });
+              return;
+            }
+          } else {
+            nextJoinKey = generateRoomJoinKey();
+          }
+
+          room.joinKey = nextJoinKey;
+
+          const peers = rooms.getPeers(room.id, null);
+          for (const peer of peers) {
+            safeSend(peer, {
+              type: 'room-key-rotated',
+              roomId: room.id,
+              roomJoinKey: room.joinKey,
+              roomOwnerPeerId: room.ownerPeerId,
+              rotatedByPeerId: state.peerId,
+            });
+          }
+          break;
+        }
+
+        case 'close-room': {
+          const budget = consumeOwnerOpBudget(clientIp);
+          if (!budget.ok) {
+            safeSend(socket, { type: 'error', message: 'Too many owner operations; retry later', retryAfterMs: budget.retryAfterMs });
+            return;
+          }
+
+          if (!state.currentRoomId) {
+            safeSend(socket, { type: 'error', message: 'Not in a room' });
+            return;
+          }
+
+          const room = rooms.getRoom(state.currentRoomId);
+          if (!room) {
+            state.currentRoomId = null;
+            safeSend(socket, { type: 'error', message: 'Room not found' });
+            return;
+          }
+
+          if (!room.ownerPeerId || room.ownerPeerId !== state.peerId) {
+            safeSend(socket, { type: 'error', message: 'Owner privileges required' });
+            return;
+          }
+
+          const roomId = room.id;
+          const peers = Array.from(room.peers);
+          for (const peer of peers) {
+            const peerState = socketStates.get(peer);
+            if (peerState) peerState.currentRoomId = null;
+            safeSend(peer, {
+              type: 'room-closed',
+              roomId,
+              closedByPeerId: state.peerId,
+            });
+          }
+
+          for (const peer of peers) {
+            rooms.leaveRoom(roomId, peer);
           }
           break;
         }
@@ -622,6 +878,8 @@ function createSignalingServer(options = {}) {
     try { ipConnectionCounts.clear(); } catch {}
     try { ipMessageRates.clear(); } catch {}
     try { ipRoomOps.clear(); } catch {}
+    try { ipOwnerOps.clear(); } catch {}
+    try { socketStates.clear(); } catch {}
 
     // Deterministic shutdown: ensure the WebSocket server closes even if a client
     // never responds to a graceful close handshake.
@@ -691,5 +949,11 @@ module.exports = {
   DEFAULT_MAX_ROOM_OPS_PER_IP_PER_WINDOW,
   DEFAULT_ROOM_OPS_WINDOW_MS,
   DEFAULT_ROOM_OPS_COOLDOWN_MS,
+  DEFAULT_MAX_OWNER_OPS_PER_IP_PER_WINDOW,
+  DEFAULT_OWNER_OPS_WINDOW_MS,
+  DEFAULT_OWNER_OPS_COOLDOWN_MS,
+  DEFAULT_JOIN_DENY_DELAY_MS,
+  DEFAULT_JOIN_KEY_BYTES,
+  DEFAULT_PEER_ID_BYTES,
   createSignalingServer,
 };

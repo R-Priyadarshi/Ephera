@@ -25,6 +25,7 @@ For a file-by-file map, see `docs/PROJECT_MAP.md`.
 2. `npm run dev`
 3. Open `http://localhost:3000` in two browser tabs or two machines on the same LAN.
 4. Create a room on one side, join from the other.
+   - The creator gets an ephemeral **Room Auth Key** (shown in UI and embedded in join link).
 5. On the receiving side, click **Pick Receive Folder** (saves) or **Ready (Discard)** (receive without saving). This is the peer “ready” signal.
 6. Send one or more files from the other side (each file is a concurrent transfer).
 
@@ -38,9 +39,15 @@ Notes:
 - The receiver saves to a user-chosen folder (user action, outside the trust boundary). If no folder is chosen, incoming bytes are discarded to preserve zero-memory behavior.
 - File metadata (name/type/size) is sent over the P2P channel to allow the receiver to save using the original filename and show progress.
 - Recommended: use the **Secure Mode passphrase** on both peers to enable app-layer encryption (AES-256-GCM per chunk). The initiator auto-generates a passphrase on **Create**; share it out-of-band (do not rely on URLs).
-- The in-app **Join link** intentionally does not include passphrase or ICE/TURN config unless you explicitly enable the checkboxes (to reduce accidental leakage via access logs).
+- The in-app **Join link** always places `roomJoinKey` in the URL fragment (`#...`), not query params, so it is not sent in HTTP request lines/server access logs.
+- If you explicitly enable **Include passphrase in join link**, passphrase is also placed in the URL fragment (`#...`) only.
+- ICE/TURN config is excluded from join links unless you explicitly enable **Include ICE/TURN config in join link**.
+- Room owner controls: the room owner can rotate the room auth key and close the room from the **Connection** panel; non-owner peers are fail-closed.
 - Join links include `autojoin=1` so receivers open and join immediately; receiving still requires explicit **Pick Receive Folder** or **Ready (Discard)**.
-- If a share link contains `passphrase` or ICE/TURN config, Ephera strips it from the address bar after reading it (reduces persistence risk).
+- Launchpad supports **Invite Package** intake: paste a full package, JSON payload, or raw join link, then click **Apply** or **Apply + Join**.
+- Launchpad also supports **QR Pairing**: render invite QR locally, scan from QR image, or use camera scan. Scan uses `BarcodeDetector` when available, with local `jsQR` fallback for browsers without detector support.
+- If a share link contains `passphrase`, `roomJoinKey`/`joinKey`, or ICE/TURN config, Ephera strips it from the address bar after reading it (reduces persistence risk).
+- Legacy secret links that used query params are still accepted for compatibility, then stripped immediately.
 
 ## Run (Single Port / Deploy)
 
@@ -57,7 +64,7 @@ Environment variables:
 - `ICE_SERVERS_JSON` (optional JSON array of `RTCIceServer` defaults served to clients at `/runtime-config`)
 - `ICE_TRANSPORT_POLICY` (optional: `relay` or `all`; default `all`)
 - `TURN_URLS_JSON` (optional JSON array of `turn:` / `turns:` URLs for dynamic TURN auth)
-- `TURN_AUTH_SECRET` (optional shared TURN REST secret; must be set with `TURN_URLS_JSON`)
+- `TURN_AUTH_SECRET` (optional shared TURN REST secret; must be set with `TURN_URLS_JSON`, min length `16`, must not be `change-me-secret`)
 - `TURN_TTL_SECONDS` (optional dynamic TURN credential TTL, range `30..86400`, default `600`)
 - `ALLOWED_ORIGINS` (optional signaling Origin allowlist; comma-separated or `*`)
 - `MAX_CONNECTIONS` (optional signaling connection cap; default `2048`)
@@ -69,6 +76,10 @@ Environment variables:
 - `MAX_ROOM_OPS_PER_IP_PER_WINDOW` (optional per-IP `create-room`/`join-room` attempt budget; default `120`)
 - `ROOM_OPS_WINDOW_MS` (optional room-op budget window; default `60000`)
 - `ROOM_OPS_COOLDOWN_MS` (optional per-IP cooldown after room-op budget is exceeded; default `30000`)
+- `MAX_OWNER_OPS_PER_IP_PER_WINDOW` (optional per-IP owner-op budget for `rotate-room-join-key` / `close-room`; default `60`)
+- `OWNER_OPS_WINDOW_MS` (optional owner-op budget window; default `60000`)
+- `OWNER_OPS_COOLDOWN_MS` (optional per-IP cooldown after owner-op budget is exceeded; default `30000`)
+- `JOIN_DENY_DELAY_MS` (optional delay for `join-room` denial shaping; default `120`; miss/full return `Join unavailable`)
 - `TRUST_PROXY` (optional, default `0`; set `1` only behind trusted proxy to use `X-Forwarded-For` for per-IP controls)
 - `ENFORCE_SAME_ORIGIN` (app-server WS origin policy: default `1`; set `0` only behind trusted edge controls)
 - `SHUTDOWN_GRACE_MS` (optional app-server forced-drain timeout for stuck HTTP sockets on shutdown, range `0..600000`, default `3000`)
@@ -128,10 +139,63 @@ Run the full test suite (client engine + signaling server):
 npm test
 ```
 
+Run server-only tests:
+
+```bash
+npm run test:server
+```
+
 Run real WebRTC E2E (headless Chrome):
 
 ```bash
 npm run e2e
+```
+
+Run fast E2E smoke suite (for quick CI/local feedback):
+
+```bash
+npm run e2e:fast
+```
+
+Run deploy-targeted staging smoke (expects a running environment URL):
+
+```bash
+STAGING_BASE_URL='https://staging.example.com' npm run e2e:staging-smoke
+```
+
+### CI (GitHub Actions)
+
+- `fast-checks` runs on all pushes/PRs: `npm test` + `npm run e2e:fast`.
+- `full-e2e` runs on `main`, scheduled runs, or manual dispatch.
+- `relay-required` runs on `main`, scheduled runs, or manual dispatch.
+- `staging-smoke` is manual (`workflow_dispatch`) and validates create/join, transport open, small transfer, and receiver-cancel abort on a deployed URL.
+- `nightly-signaling-stress` runs on schedule/manual with heavy server stress + fuzz profiles.
+  - uses reproducible fuzz seed: `SIGNALING_FUZZ_SEED=<github.run_id>`
+  - uploads JSON artifacts:
+    - `signaling-stress-summary-<run_id>`
+    - `signaling-fuzz-summary-<run_id>`
+- `required-checks` always runs and enforces:
+  - all events: `fast-checks` must pass
+  - `main`/schedule/manual: `full-e2e` and `relay-required` must also pass
+  - schedule/manual: `nightly-signaling-stress` must also pass
+  - other branches/PRs: full jobs may be skipped without failing required checks
+
+Run heavy server stress profile locally:
+
+```bash
+npm run test:server:stress-heavy
+```
+
+Run standalone signaling fuzz suite:
+
+```bash
+npm run test:server:fuzz
+```
+
+Run heavy signaling fuzz profile:
+
+```bash
+npm run test:server:fuzz-heavy
 ```
 
 Run relay runtime E2E with dynamic TURN auth (recommended):
@@ -167,6 +231,7 @@ Run one-command local relay gate with bundled coturn profile:
 
 ```bash
 cp deploy/turn.env.example deploy/.env
+# edit deploy/.env and set TURN_AUTH_SECRET to a real secret (not "change-me-secret")
 npm run gates:relay-local
 ```
 

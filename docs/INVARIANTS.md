@@ -65,6 +65,43 @@
   - Cooldown enforcement must be independent of per-socket and per-IP message-rate caps
   - Room-op throttle accounting must remain RAM-only and be released when IP has no active sockets
 
+- Join Enumeration Resistance (Stage 14):
+  - `join-room` negative outcomes that reveal room presence (`missing` vs `full`) must emit an indistinguishable error surface
+  - Join-deny response shaping (bounded delay) must be configurable and RAM-only
+  - Join-deny shaping must not bypass or weaken room-op budget/cooldown enforcement
+
+- Ephemeral Room Admission Auth (Stage 15):
+  - Room admission key must be RAM-only and scoped to room lifetime (destroyed with room/process)
+  - `room-created` must return a join key, and `join-room` must require a matching key
+  - Join auth failures must fail closed through the same non-enumerating denial surface (`Join unavailable`)
+
+- Log-Safe Secret Link Handling (Stage 16):
+  - Join-link secret material (`roomJoinKey`, optional `passphrase`) must be encoded in URL fragment (`#...`) rather than query params
+  - Client link ingest must remain hash-first with query fallback for legacy links, then strip secrets from both query/hash immediately after read
+  - Secret-link handling must remain RAM-only and must not introduce persistence or telemetry
+
+- Ephemeral Peer Identity + Owner Authority (Stage 17):
+  - Each signaling connection must receive an ephemeral RAM-only `peerId` (destroyed on disconnect/process death)
+  - Each room must maintain an in-memory owner identity (`ownerPeerId`) and enforce owner-only privileged operations
+  - Non-owner attempts for privileged room operations must fail closed (`Owner privileges required`)
+  - Owner departure with remaining peers must deterministically transfer ownership in RAM-only state
+
+- Owner Control UX Gating (Stage 18):
+  - Client owner controls (`rotate-room-join-key`, `close-room`) must be locally gated to owner role and fail closed when signaling is unavailable
+  - Client authority state (`peerId`, `ownerPeerId`, local role) must be RAM-only and reset on disconnect/cleanup
+  - Client must handle owner-governance signaling events deterministically (`room-key-rotated`, `room-owner-changed`, `room-closed`)
+  - Owner disconnect transfer must deterministically promote the remaining peer and unlock owner controls without reload
+
+- Owner Operation Abuse Throttling (Stage 19):
+  - Owner-op messages (`rotate-room-join-key`, `close-room`) must consume a bounded per-IP budget with cooldown
+  - Exceeded owner-op budget must fail closed with `Too many owner operations; retry later` and bounded `retryAfterMs`
+  - Owner-op throttling must also apply to non-owner abuse attempts and remain RAM-only
+
+- TURN Secret Hygiene + Relay Required Aggregation (Stage 20):
+  - Dynamic TURN runtime config must fail closed when `TURN_AUTH_SECRET` is weak (placeholder or length < 16)
+  - Relay local gate must fail closed before runtime when relay secret/TTL env is invalid
+  - CI aggregate required status must fail if any of `core-tests`, `full-gates`, or `relay-required` fails
+
 - Metadata (Stage 7):
   - META is optional and must be one-shot per transfer (duplicates abort the session)
   - META must be bounded in size and must not be persisted beyond the session

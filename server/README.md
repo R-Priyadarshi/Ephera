@@ -41,10 +41,12 @@ It relays connection metadata between peers so they can establish direct peer-to
 
 | Action | Description |
 |--------|-------------|
-| `create-room` | Creates an ephemeral room in memory |
-| `join-room` | Adds a peer to an existing room |
+| `create-room` | Creates an ephemeral room in memory, mints `peerId`, returns `roomJoinKey` and owner role |
+| `join-room` | Adds a peer only when `roomJoinKey` matches; returns ephemeral `peerId` + owner state |
 | `signal` | Relays opaque signaling data to peers |
 | `leave-room` | Removes peer and destroys room if empty |
+| `rotate-room-join-key` | Owner-only: rotates room admission key in RAM and notifies current peers |
+| `close-room` | Owner-only: closes room membership (without persistence) and notifies current peers |
 
 ---
 
@@ -67,6 +69,26 @@ It relays connection metadata between peers so they can establish direct peer-to
   - `MAX_ROOM_OPS_PER_IP_PER_WINDOW` (default 120)
   - `ROOM_OPS_WINDOW_MS` (default 60000)
   - `ROOM_OPS_COOLDOWN_MS` (default 30000)
+- Per-IP owner operation throttle (`rotate-room-join-key`/`close-room`):
+  - `MAX_OWNER_OPS_PER_IP_PER_WINDOW` (default 60)
+  - `OWNER_OPS_WINDOW_MS` (default 60000)
+  - `OWNER_OPS_COOLDOWN_MS` (default 30000)
+- Join denial shaping (`join-room` miss/full):
+  - `JOIN_DENY_DELAY_MS` (default 120)
+  - Both missing-room and full-room joins return `Join unavailable`
+- Ephemeral room admission auth:
+  - `create-room` returns in-memory `roomJoinKey`
+  - `join-room` requires matching `roomJoinKey` (missing/wrong key -> `Join unavailable`)
+- Ephemeral peer identity + owner authority:
+  - Each socket gets ephemeral `peerId` (RAM-only)
+  - Room owner (`ownerPeerId`) is tracked in RAM and returned in create/join responses
+  - Owner-only controls:
+    - `rotate-room-join-key` (non-owner -> `Owner privileges required`)
+    - `close-room` (non-owner -> `Owner privileges required`)
+  - Owner departure transfers ownership to a remaining peer deterministically (if any)
+- Client join-link secret hygiene:
+  - Join links carry `roomJoinKey` (and optional passphrase) in URL fragment (`#...`), not query params
+  - URL fragments are not sent to HTTP/WebSocket servers, reducing accidental secret exposure in access logs
 - `TRUST_PROXY=1` (optional) enables `X-Forwarded-For` for per-IP controls
   - Default is off (`TRUST_PROXY=0`) to prevent header spoofing
 - App-server mode (`serve.js`) enforces same-origin WebSocket `Origin` checks by default
@@ -135,6 +157,7 @@ node serve.js
 
 Notes:
 - `TURN_URLS_JSON` + `TURN_AUTH_SECRET` must be set together.
+- `TURN_AUTH_SECRET` must be at least 16 characters and must not be `change-me-secret`.
 - `TURN_TTL_SECONDS` range is `30..86400` (default `600`).
 - `/runtime-config` mints fresh TURN credentials per request (RAM-only).
 
@@ -162,6 +185,10 @@ Current server test coverage includes:
 - signaling protocol behavior (`create-room`, `join-room`, relay, room limits)
 - signaling pressure controls (global + per-IP caps, trust-proxy behavior)
 - signaling room-abuse throttle (per-IP create/join budget + cooldown)
+- signaling join-enumeration resistance (unified miss/full denial + delay shaping)
+- signaling room admission auth (`roomJoinKey` required for join success)
+- signaling Stage 17 owner-authority behavior (`peerId` contract, owner-only controls, owner transfer)
+- signaling Stage 19 owner-op abuse throttling (`rotate-room-join-key`/`close-room` per-IP cooldown enforcement)
 - waiting-room TTL behavior
 - app server static/security headers (`Cache-Control`, `CSP`, `nosniff`, `no-referrer`)
 - app server health/readiness/runtime-config endpoints

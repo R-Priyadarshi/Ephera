@@ -14,11 +14,22 @@ import { SessionManager } from './session/SessionManager.js';
 import { MeaningSender, MeaningReceiver } from './meaning.js';
 import { sanitizePassphrase, deriveAesGcmKey, decryptChunk, decryptMeta, encryptMeta } from './crypto.js';
 import { buildLocalCapabilities, sanitizeCapabilities, evaluateCapabilityCompatibility } from './capabilities.js';
+import { INVITE_PACKAGE_ACCEPT_TEXT, sanitizeRoomJoinKey, parseInvitePackageText } from './invite-package.js';
+import { buildInviteQrPayload } from './invite-qr.js';
 
 const _dec = new TextDecoder();
 const _enc = new TextEncoder();
 
 const PARAMS = new URLSearchParams(location.search);
+const HASH_PARAMS = (() => {
+  try {
+    const raw = String(location.hash || '').replace(/^#/, '').trim();
+    if (!raw) return new URLSearchParams();
+    return new URLSearchParams(raw);
+  } catch {
+    return new URLSearchParams();
+  }
+})();
 const IS_E2E = PARAMS.get('e2e') === '1' || PARAMS.has('e2e');
 const E2E_ROLE = PARAMS.get('role'); // 'create' | 'join'
 const E2E_AUTO_READY = PARAMS.get('autoReady') === '1' || PARAMS.has('autoReady');
@@ -27,6 +38,11 @@ const E2E_RECV_DELAY_MS = (() => {
   const raw = Number(PARAMS.get('recvDelayMs') || 0);
   if (!Number.isFinite(raw) || raw <= 0) return 0;
   return Math.min(1000, Math.max(0, Math.floor(raw)));
+})();
+const QR_SCAN_MODE = (() => {
+  const raw = String(PARAMS.get('qrScanMode') || '').trim().toLowerCase();
+  if (raw === 'detector' || raw === 'jsqr') return raw;
+  return 'auto';
 })();
 
 function parseProtocolParam(name, fallback) {
@@ -87,6 +103,43 @@ const E2E_STATE = IS_E2E ? (window.__epheraE2E = {
   sessionWeakRefs: [],
   restartCount: 0,
   restartInFlight: false,
+  peerId: null,
+  roomOwnerPeerId: null,
+  localRole: 'none',
+  roomKeyRotatedCount: 0,
+  roomOwnerChangedCount: 0,
+  roomClosedCount: 0,
+  flowStep: 1,
+  flowReady: false,
+  quickSummary: '',
+  transferAdvancedOpen: false,
+  onboardingHint: '',
+  onboardingRole: 'none',
+  receiveDestinationMode: 'discard',
+  receiveDestinationLabel: '',
+  receiveDestinationPath: '',
+  canOpenReceiveFolder: false,
+  lastInboundOutcome: '',
+  preflightSecureContext: false,
+  preflightDirectoryPicker: false,
+  preflightFolderSaveCapable: false,
+  preflightWebRTC: false,
+  preflightClipboard: false,
+  preflightSummary: '',
+  preflightFix: '',
+  preflightOverall: false,
+  launchpadState: '',
+  launchpadHint: '',
+  invitePackageReady: false,
+  invitePackageAppliedCount: 0,
+  invitePackageParseState: '',
+  qrPayload: '',
+  qrVisible: false,
+  qrScanSupported: false,
+  qrScanMode: '',
+  qrScanEngine: '',
+  qrLastScanSource: '',
+  qrLastScanStatus: '',
   error: null,
 }) : null;
 
@@ -113,14 +166,59 @@ const SIGNALING_URL = (() => {
 
 function stripPassphraseFromUrl() {
   // If a share link contained a passphrase, remove it from the address bar and
-  // from PARAMS to avoid accidental persistence (history, server access logs).
+  // in-memory param stores to avoid accidental persistence.
   try {
-    if (!PARAMS.has('passphrase')) return;
+    if (!PARAMS.has('passphrase') && !HASH_PARAMS.has('passphrase')) return;
     const url = new URL(location.href);
     url.searchParams.delete('passphrase');
+    const hash = new URLSearchParams(String(url.hash || '').replace(/^#/, ''));
+    hash.delete('passphrase');
+    url.hash = hash.toString() ? `#${hash.toString()}` : '';
     PARAMS.delete('passphrase');
+    HASH_PARAMS.delete('passphrase');
     history.replaceState(null, '', url.toString());
   } catch {}
+}
+
+function stripRoomJoinKeyFromUrl() {
+  // If a share link contained room auth key material, remove it from the
+  // address bar and in-memory params to reduce accidental persistence.
+  try {
+    if (
+      !PARAMS.has('roomJoinKey')
+      && !PARAMS.has('joinKey')
+      && !HASH_PARAMS.has('roomJoinKey')
+      && !HASH_PARAMS.has('joinKey')
+    ) return;
+    const url = new URL(location.href);
+    url.searchParams.delete('roomJoinKey');
+    url.searchParams.delete('joinKey');
+    const hash = new URLSearchParams(String(url.hash || '').replace(/^#/, ''));
+    hash.delete('roomJoinKey');
+    hash.delete('joinKey');
+    url.hash = hash.toString() ? `#${hash.toString()}` : '';
+    PARAMS.delete('roomJoinKey');
+    PARAMS.delete('joinKey');
+    HASH_PARAMS.delete('roomJoinKey');
+    HASH_PARAMS.delete('joinKey');
+    history.replaceState(null, '', url.toString());
+  } catch {}
+}
+
+function getSecretParam(...names) {
+  for (const name of names) {
+    if (HASH_PARAMS.has(name)) {
+      const v = HASH_PARAMS.get(name);
+      if (typeof v === 'string' && v.trim()) return v;
+    }
+  }
+  for (const name of names) {
+    if (PARAMS.has(name)) {
+      const v = PARAMS.get(name);
+      if (typeof v === 'string' && v.trim()) return v;
+    }
+  }
+  return '';
 }
 
 function stripIceFromUrl() {
@@ -244,17 +342,44 @@ const ICE_POLICY = (() => {
 
 const roomIdInput = document.getElementById('room-id');
 const generateRoomIdBtn = document.getElementById('generate-room-id');
+const roomJoinKeyInput = document.getElementById('room-join-key');
+const generateRoomJoinKeyBtn = document.getElementById('generate-room-join-key');
+const rotateRoomKeyBtn = document.getElementById('rotate-room-key');
+const closeRoomBtn = document.getElementById('close-room');
+const roomAuthorityEl = document.getElementById('room-authority');
 const createRoomBtn = document.getElementById('create-room');
 const joinRoomBtn = document.getElementById('join-room');
 const disconnectBtn = document.getElementById('disconnect');
 const joinLinkInput = document.getElementById('join-link');
 const copyJoinLinkBtn = document.getElementById('copy-join-link');
 const shareJoinLinkBtn = document.getElementById('share-join-link');
+const launchpadStateEl = document.getElementById('launchpad-state');
+const launchpadHintEl = document.getElementById('launchpad-hint');
+const launchpadHostBtn = document.getElementById('launchpad-host');
+const launchpadJoinBtn = document.getElementById('launchpad-join');
+const copyInvitePackageBtn = document.getElementById('copy-invite-package');
+const invitePackageInput = document.getElementById('invite-package-input');
+const pasteInvitePackageBtn = document.getElementById('paste-invite-package');
+const applyInvitePackageBtn = document.getElementById('apply-invite-package');
+const applyJoinInvitePackageBtn = document.getElementById('apply-join-invite-package');
+const invitePackageStateEl = document.getElementById('invite-package-state');
+const showInviteQrBtn = document.getElementById('show-invite-qr');
+const clearInviteQrBtn = document.getElementById('clear-invite-qr');
+const scanQrImageBtn = document.getElementById('scan-qr-image');
+const scanQrImageInput = document.getElementById('scan-qr-image-input');
+const startQrCameraBtn = document.getElementById('start-qr-camera');
+const stopQrCameraBtn = document.getElementById('stop-qr-camera');
+const inviteQrCanvas = document.getElementById('invite-qr-canvas');
+const qrCameraPreview = document.getElementById('qr-camera-preview');
+const qrPairingStateEl = document.getElementById('qr-pairing-state');
 
 const transferSection = document.getElementById('transfer-controls');
 const pickReceiveFolderBtn = document.getElementById('pick-receive-folder');
 const readyDiscardBtn = document.getElementById('ready-discard');
 const receiveFolderLabel = document.getElementById('receive-folder-label');
+const receiveDestinationStateEl = document.getElementById('receive-destination-state');
+const copyReceiveDestinationBtn = document.getElementById('copy-receive-destination');
+const openReceiveFolderBtn = document.getElementById('open-receive-folder');
 const peerStateEl = document.getElementById('peer-state');
 const fileInput = document.getElementById('file-input');
 const sendFileBtn = document.getElementById('send-file');
@@ -295,6 +420,23 @@ const stateSignalingEl = document.getElementById('state-signaling');
 const stateP2PEl = document.getElementById('state-p2p');
 const stateReadyEl = document.getElementById('state-ready');
 const stateCryptoEl = document.getElementById('state-crypto');
+const stateOwnerEl = document.getElementById('state-owner');
+const preflightSummaryEl = document.getElementById('preflight-summary');
+const preflightSecureStateEl = document.getElementById('preflight-secure-state');
+const preflightFolderStateEl = document.getElementById('preflight-folder-state');
+const preflightWebrtcStateEl = document.getElementById('preflight-webrtc-state');
+const preflightClipboardStateEl = document.getElementById('preflight-clipboard-state');
+const preflightFixEl = document.getElementById('preflight-fix');
+const transferQuickSummaryEl = document.getElementById('transfer-quick-summary');
+const transferAdvancedDetailsEl = document.getElementById('transfer-advanced');
+const roleOnboardingHintEl = document.getElementById('role-onboarding-hint');
+const flowCurrentEl = document.getElementById('flow-current');
+const flowNextEl = document.getElementById('flow-next');
+const flowStepRoomEl = document.getElementById('flow-step-room');
+const flowStepP2PEl = document.getElementById('flow-step-p2p');
+const flowStepLocalReadyEl = document.getElementById('flow-step-local-ready');
+const flowStepPeerReadyEl = document.getElementById('flow-step-peer-ready');
+const flowStepSendEl = document.getElementById('flow-step-send');
 
 /* ---------- State ---------- */
 
@@ -332,6 +474,14 @@ let activeRoomId = null;
 let signalingReconnectTimer = null;
 let signalingReconnectAttempts = 0;
 let signalingReconnectInFlight = false;
+let activeRoomJoinKey = null;
+let localPeerId = null;
+let roomOwnerPeerId = null;
+let localRoomRole = 'none'; // 'none' | 'owner' | 'peer'
+let lastInviteQrPayload = '';
+let qrCameraStream = null;
+let qrScanTimer = null;
+let qrScanInFlight = false;
 
 // Allow multiple concurrent outbound transfers (Stage 3/4 engine supports this).
 const activeSenders = new Set();
@@ -345,6 +495,13 @@ const activityEntries = [];
 let activitySeq = 0;
 let lastStatusText = '';
 let lastIceState = null;
+const QR_DETECTOR_SUPPORTED = typeof BarcodeDetector === 'function';
+const QR_JSQR_SUPPORTED = typeof window !== 'undefined' && typeof window.jsQR === 'function';
+const QR_SCAN_SUPPORTED = QR_DETECTOR_SUPPORTED || QR_JSQR_SUPPORTED;
+if (E2E_STATE) {
+  E2E_STATE.qrScanSupported = QR_SCAN_SUPPORTED;
+  E2E_STATE.qrScanMode = QR_SCAN_MODE;
+}
 
 /* ---------- Runtime Config ---------- */
 
@@ -664,6 +821,36 @@ function generateRoomId() {
   return hex.match(/.{1,4}/g).join('-');
 }
 
+function sanitizePeerId(value) {
+  if (typeof value !== 'string') return '';
+  const s = value.trim();
+  if (!s) return '';
+  if (s.length < 8 || s.length > 64) return '';
+  if (!/^[A-Za-z0-9_-]+$/.test(s)) return '';
+  return s;
+}
+
+function generateRoomJoinKey() {
+  const bytes = new Uint8Array(24);
+  crypto.getRandomValues(bytes);
+  let hex = '';
+  for (let i = 0; i < bytes.length; i++) {
+    hex += bytes[i].toString(16).padStart(2, '0');
+  }
+  return hex;
+}
+
+function shortPeerId(peerId) {
+  const s = sanitizePeerId(peerId);
+  if (!s) return 'unknown';
+  if (s.length <= 8) return s;
+  return s.slice(0, 8);
+}
+
+function isLocalRoomOwner() {
+  return !!(localPeerId && roomOwnerPeerId && localPeerId === roomOwnerPeerId);
+}
+
 function getIceServers() {
   return iceServersOverride || ICE_SERVERS || runtimeIceServers || null;
 }
@@ -675,6 +862,8 @@ function getRtcConfig() {
 function buildJoinLink({ includePassphrase = false, includeIce = false } = {}) {
   const roomId = roomIdInput.value.trim();
   if (!roomId) return '';
+  const roomJoinKey = sanitizeRoomJoinKey(roomJoinKeyInput ? roomJoinKeyInput.value : '');
+  if (!roomJoinKey) return '';
 
   const url = new URL(location.origin + location.pathname);
 
@@ -721,10 +910,16 @@ function buildJoinLink({ includePassphrase = false, includeIce = false } = {}) {
   // UX: opening a join link should immediately join the room (no extra clicks).
   url.searchParams.set('autojoin', '1');
 
+  const secret = new URLSearchParams();
+  secret.set('roomJoinKey', roomJoinKey);
+
   if (includePassphrase) {
     const p = getLocalPassphrase();
-    if (p) url.searchParams.set('passphrase', p);
+    if (p) secret.set('passphrase', p);
   }
+
+  const hashText = secret.toString();
+  url.hash = hashText ? `#${hashText}` : '';
 
   return url.toString();
 }
@@ -738,6 +933,456 @@ function updateJoinLink() {
   joinLinkInput.value = link;
   if (copyJoinLinkBtn) copyJoinLinkBtn.disabled = !link;
   if (shareJoinLinkBtn) shareJoinLinkBtn.disabled = !link;
+  renderLaunchpad();
+}
+
+function buildInvitePackageText() {
+  const roomId = roomIdInput ? roomIdInput.value.trim() : '';
+  const roomJoinKey = sanitizeRoomJoinKey(roomJoinKeyInput ? roomJoinKeyInput.value : '');
+  const joinLink = joinLinkInput ? String(joinLinkInput.value || '').trim() : '';
+  if (!roomId || !roomJoinKey || !joinLink) return '';
+
+  const passphrase = getLocalPassphrase();
+  const lines = [
+    'Ephera Invite Package',
+    `Room ID: ${roomId}`,
+    `Room Auth Key: ${roomJoinKey}`,
+    `Join Link: ${joinLink}`,
+    `Passphrase: ${passphrase || '(not set - plain mode)'}`,
+    'Note: verify passphrase out-of-band before transfer.',
+  ];
+  return lines.join('\n');
+}
+
+function setInvitePackageState(text, ok) {
+  if (!invitePackageStateEl) return;
+  invitePackageStateEl.textContent = text || '';
+  invitePackageStateEl.classList.toggle('invite-package-state-ok', !!ok);
+  invitePackageStateEl.classList.toggle('invite-package-state-warn', !ok);
+}
+
+function resetInvitePackageState() {
+  if (!invitePackageStateEl) return;
+  invitePackageStateEl.textContent = INVITE_PACKAGE_ACCEPT_TEXT;
+  invitePackageStateEl.classList.remove('invite-package-state-ok', 'invite-package-state-warn');
+}
+
+function applyInvitePackage(rawText, { join = false } = {}) {
+  const parsed = parseInvitePackageText(rawText);
+  if (!parsed.ok) {
+    setInvitePackageState(parsed.reason, false);
+    setStatus(parsed.reason);
+    if (E2E_STATE) E2E_STATE.invitePackageParseState = 'invalid';
+    return false;
+  }
+
+  if (roomIdInput) roomIdInput.value = parsed.roomId;
+  if (roomJoinKeyInput) roomJoinKeyInput.value = parsed.roomJoinKey;
+  activeRoomJoinKey = parsed.roomJoinKey || null;
+
+  if (passphraseInput && parsed.passphraseSeen) {
+    passphraseInput.value = parsed.passphrase;
+    onPassphraseChanged();
+  } else {
+    updateJoinLink();
+    renderPeerState();
+  }
+
+  let appliedHint = 'Invite package applied.';
+  if (parsed.source === 'link') appliedHint = 'Join link applied.';
+  if (parsed.source === 'json') appliedHint = 'Invite JSON applied.';
+  if (!parsed.passphraseSeen) {
+    appliedHint += ' Passphrase not included; verify out-of-band.';
+  }
+
+  setInvitePackageState(appliedHint, true);
+  if (E2E_STATE) {
+    E2E_STATE.invitePackageAppliedCount = (E2E_STATE.invitePackageAppliedCount || 0) + 1;
+    E2E_STATE.invitePackageParseState = 'ok';
+  }
+
+  if (join) {
+    setStatus('Invite package applied. Joining room...');
+    if (launchpadJoinBtn) launchpadJoinBtn.click();
+    else if (joinRoomBtn) joinRoomBtn.click();
+  } else {
+    setStatus('Invite package applied');
+  }
+
+  return true;
+}
+
+function setQrPairingState(text, ok = null) {
+  if (!qrPairingStateEl) return;
+  qrPairingStateEl.textContent = text || 'QR pairing idle.';
+  if (ok === true) {
+    qrPairingStateEl.classList.add('qr-pairing-state-ok');
+    qrPairingStateEl.classList.remove('qr-pairing-state-warn');
+  } else if (ok === false) {
+    qrPairingStateEl.classList.add('qr-pairing-state-warn');
+    qrPairingStateEl.classList.remove('qr-pairing-state-ok');
+  } else {
+    qrPairingStateEl.classList.remove('qr-pairing-state-ok', 'qr-pairing-state-warn');
+  }
+}
+
+function updateQrE2EState({ source = '', status = '', engine = '' } = {}) {
+  if (!E2E_STATE) return;
+  E2E_STATE.qrPayload = lastInviteQrPayload || '';
+  E2E_STATE.qrVisible = !!(inviteQrCanvas && !inviteQrCanvas.hidden);
+  if (engine) E2E_STATE.qrScanEngine = engine;
+  if (source) E2E_STATE.qrLastScanSource = source;
+  if (status) E2E_STATE.qrLastScanStatus = status;
+}
+
+function clearInviteQr() {
+  lastInviteQrPayload = '';
+  if (inviteQrCanvas) {
+    try {
+      const ctx = inviteQrCanvas.getContext('2d');
+      if (ctx) ctx.clearRect(0, 0, inviteQrCanvas.width, inviteQrCanvas.height);
+    } catch {}
+    inviteQrCanvas.hidden = true;
+  }
+  if (clearInviteQrBtn) clearInviteQrBtn.disabled = true;
+  updateQrE2EState();
+}
+
+function resetQrPairingUi() {
+  clearInviteQr();
+  stopQrCamera({ silent: true });
+  if (startQrCameraBtn) startQrCameraBtn.disabled = false;
+  if (scanQrImageBtn) scanQrImageBtn.disabled = false;
+  if (scanQrImageInput) scanQrImageInput.value = '';
+  if (E2E_STATE) {
+    E2E_STATE.qrLastScanSource = '';
+    E2E_STATE.qrLastScanStatus = '';
+    E2E_STATE.qrScanEngine = '';
+  }
+  if (QR_SCAN_SUPPORTED) {
+    setQrPairingState('QR pairing idle.', null);
+  } else {
+    setQrPairingState('QR scan unavailable in this browser. Use paste/apply path.', false);
+  }
+}
+
+function getInviteQrPayload() {
+  const roomId = roomIdInput ? roomIdInput.value.trim() : '';
+  const roomJoinKey = sanitizeRoomJoinKey(roomJoinKeyInput ? roomJoinKeyInput.value : '');
+  const joinLink = joinLinkInput ? String(joinLinkInput.value || '').trim() : '';
+  const passphrase = getLocalPassphrase() || '';
+  return buildInviteQrPayload({
+    roomId,
+    roomJoinKey,
+    joinLink,
+    passphrase,
+  });
+}
+
+function renderInviteQr(payload) {
+  if (!(inviteQrCanvas instanceof HTMLCanvasElement)) return false;
+  const text = typeof payload === 'string' ? payload.trim() : '';
+  if (!text) return false;
+
+  if (typeof window.qrcode !== 'function') {
+    setQrPairingState('QR generator unavailable (local script missing).', false);
+    return false;
+  }
+
+  try {
+    const qr = window.qrcode(0, 'M');
+    qr.addData(text);
+    qr.make();
+
+    const quiet = 4;
+    const modules = qr.getModuleCount();
+    const cells = modules + (quiet * 2);
+    const targetSize = 280;
+    const scale = Math.max(2, Math.floor(targetSize / cells));
+    const px = cells * scale;
+
+    inviteQrCanvas.width = px;
+    inviteQrCanvas.height = px;
+    const ctx = inviteQrCanvas.getContext('2d');
+    if (!ctx) {
+      setQrPairingState('QR canvas unavailable.', false);
+      return false;
+    }
+
+    ctx.imageSmoothingEnabled = false;
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, px, px);
+    ctx.fillStyle = '#111111';
+    for (let y = 0; y < modules; y++) {
+      for (let x = 0; x < modules; x++) {
+        if (!qr.isDark(y, x)) continue;
+        ctx.fillRect((x + quiet) * scale, (y + quiet) * scale, scale, scale);
+      }
+    }
+
+    inviteQrCanvas.hidden = false;
+    lastInviteQrPayload = text;
+    if (clearInviteQrBtn) clearInviteQrBtn.disabled = false;
+    setQrPairingState('Invite QR ready. Scan with receiver device.', true);
+    updateQrE2EState();
+    return true;
+  } catch {
+    setQrPairingState('Failed to render QR (payload too large or invalid).', false);
+    return false;
+  }
+}
+
+let qrWorkCanvas = null;
+
+function getSourceDimensions(source) {
+  if (!source) return { width: 0, height: 0 };
+  if (source instanceof HTMLVideoElement) {
+    return {
+      width: Math.max(0, Math.floor(source.videoWidth || 0)),
+      height: Math.max(0, Math.floor(source.videoHeight || 0)),
+    };
+  }
+  if (typeof source.width === 'number' && typeof source.height === 'number') {
+    return {
+      width: Math.max(0, Math.floor(source.width || 0)),
+      height: Math.max(0, Math.floor(source.height || 0)),
+    };
+  }
+  return { width: 0, height: 0 };
+}
+
+function getQrImageData(source) {
+  const { width, height } = getSourceDimensions(source);
+  if (!width || !height) return null;
+
+  if (!(qrWorkCanvas instanceof HTMLCanvasElement)) {
+    qrWorkCanvas = document.createElement('canvas');
+  }
+  qrWorkCanvas.width = width;
+  qrWorkCanvas.height = height;
+
+  const ctx = qrWorkCanvas.getContext('2d', { willReadFrequently: true });
+  if (!ctx) return null;
+
+  try {
+    ctx.drawImage(source, 0, 0, width, height);
+    return ctx.getImageData(0, 0, width, height);
+  } catch {
+    return null;
+  }
+}
+
+async function decodeQrWithBarcodeDetector(source) {
+  if (!QR_DETECTOR_SUPPORTED || QR_SCAN_MODE === 'jsqr') return '';
+  let detector = null;
+  try {
+    detector = new BarcodeDetector({ formats: ['qr_code'] });
+  } catch {
+    try { detector = new BarcodeDetector(); } catch { return ''; }
+  }
+
+  try {
+    const results = await detector.detect(source);
+    if (!Array.isArray(results) || results.length < 1) return '';
+    const raw = results[0] && typeof results[0].rawValue === 'string'
+      ? results[0].rawValue.trim()
+      : '';
+    return raw;
+  } catch {
+    return '';
+  }
+}
+
+function decodeQrWithJsQr(source) {
+  if (!QR_JSQR_SUPPORTED || QR_SCAN_MODE === 'detector') return '';
+  const imageData = getQrImageData(source);
+  if (!imageData || !imageData.data || !imageData.width || !imageData.height) return '';
+
+  let out = null;
+  try {
+    out = window.jsQR(imageData.data, imageData.width, imageData.height, {
+      inversionAttempts: 'attemptBoth',
+    });
+  } catch {
+    return '';
+  }
+  if (!out || typeof out.data !== 'string') return '';
+  return out.data.trim();
+}
+
+async function decodeQrFromSource(source) {
+  if (!QR_SCAN_SUPPORTED) return { raw: '', engine: '' };
+
+  if (QR_SCAN_MODE !== 'jsqr') {
+    const raw = await decodeQrWithBarcodeDetector(source);
+    if (raw) return { raw, engine: 'detector' };
+    if (QR_SCAN_MODE === 'detector') return { raw: '', engine: 'detector' };
+  }
+
+  if (QR_SCAN_MODE !== 'detector') {
+    const raw = decodeQrWithJsQr(source);
+    if (raw) return { raw, engine: 'jsqr' };
+    if (QR_SCAN_MODE === 'jsqr') return { raw: '', engine: 'jsqr' };
+  }
+
+  return { raw: '', engine: '' };
+}
+
+async function loadQrImageSourceFromFile(file) {
+  if (!file) return null;
+
+  if (typeof createImageBitmap === 'function') {
+    try { return await createImageBitmap(file); } catch {}
+  }
+
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      try { URL.revokeObjectURL(url); } catch {}
+      resolve(img);
+    };
+    img.onerror = () => {
+      try { URL.revokeObjectURL(url); } catch {}
+      reject(new Error('image load failed'));
+    };
+    img.src = url;
+  });
+}
+
+function applyScannedQrRaw(rawValue, source, engine = '') {
+  const raw = typeof rawValue === 'string' ? rawValue.trim() : '';
+  if (!raw) {
+    setQrPairingState('QR scan yielded no payload.', false);
+    updateQrE2EState({ source, status: 'empty', engine: engine || '' });
+    return false;
+  }
+
+  if (invitePackageInput) invitePackageInput.value = raw;
+  const ok = applyInvitePackage(raw, { join: true });
+  if (!ok) {
+    setQrPairingState('QR payload invalid. Verify room ID and auth key.', false);
+    updateQrE2EState({ source, status: 'invalid', engine: engine || '' });
+    return false;
+  }
+
+  setQrPairingState('QR payload applied. Joining room...', true);
+  updateQrE2EState({ source, status: 'ok', engine: engine || '' });
+  return true;
+}
+
+async function scanQrFromImageFile(file) {
+  if (!file) {
+    setQrPairingState('No image selected for QR scan.', false);
+    updateQrE2EState({ source: 'image', status: 'empty' });
+    return false;
+  }
+  if (!QR_SCAN_SUPPORTED) {
+    setQrPairingState('QR image scan unavailable in this browser.', false);
+    updateQrE2EState({ source: 'image', status: 'unsupported' });
+    return false;
+  }
+
+  let source = null;
+  try {
+    source = await loadQrImageSourceFromFile(file);
+    const decoded = await decodeQrFromSource(source);
+    if (source && typeof source.close === 'function') source.close();
+    return applyScannedQrRaw(decoded.raw, 'image', decoded.engine);
+  } catch {
+    if (source && typeof source.close === 'function') {
+      try { source.close(); } catch {}
+    }
+    setQrPairingState('Failed to decode QR from image.', false);
+    updateQrE2EState({ source: 'image', status: 'error' });
+    return false;
+  }
+}
+
+function stopQrCamera({ silent = false } = {}) {
+  if (qrScanTimer) {
+    clearInterval(qrScanTimer);
+    qrScanTimer = null;
+  }
+  qrScanInFlight = false;
+
+  if (qrCameraStream) {
+    try {
+      const tracks = qrCameraStream.getTracks();
+      for (const t of tracks) {
+        try { t.stop(); } catch {}
+      }
+    } catch {}
+    qrCameraStream = null;
+  }
+
+  if (qrCameraPreview) {
+    try { qrCameraPreview.pause(); } catch {}
+    try { qrCameraPreview.srcObject = null; } catch {}
+    qrCameraPreview.hidden = true;
+  }
+
+  if (stopQrCameraBtn) stopQrCameraBtn.disabled = true;
+  if (startQrCameraBtn) startQrCameraBtn.disabled = false;
+
+  if (!silent) setQrPairingState('QR camera stopped.', null);
+  updateQrE2EState();
+}
+
+async function startQrCameraScan() {
+  if (!QR_SCAN_SUPPORTED || !navigator.mediaDevices || typeof navigator.mediaDevices.getUserMedia !== 'function') {
+    setQrPairingState('Camera QR scan unavailable in this browser.', false);
+    updateQrE2EState({ source: 'camera', status: 'unsupported' });
+    return false;
+  }
+  if (!(qrCameraPreview instanceof HTMLVideoElement)) {
+    setQrPairingState('Camera preview unavailable.', false);
+    updateQrE2EState({ source: 'camera', status: 'error' });
+    return false;
+  }
+  if (qrCameraStream) return true;
+
+  try {
+    qrCameraStream = await navigator.mediaDevices.getUserMedia({
+      audio: false,
+      video: { facingMode: 'environment' },
+    });
+  } catch {
+    setQrPairingState('Camera permission denied or unavailable.', false);
+    updateQrE2EState({ source: 'camera', status: 'denied' });
+    return false;
+  }
+
+  try {
+    qrCameraPreview.srcObject = qrCameraStream;
+    qrCameraPreview.hidden = false;
+    await qrCameraPreview.play();
+  } catch {
+    stopQrCamera({ silent: true });
+    setQrPairingState('Failed to start camera preview.', false);
+    updateQrE2EState({ source: 'camera', status: 'error' });
+    return false;
+  }
+
+  if (startQrCameraBtn) startQrCameraBtn.disabled = true;
+  if (stopQrCameraBtn) stopQrCameraBtn.disabled = false;
+  setQrPairingState('Scanning QR from camera...', null);
+
+  qrScanTimer = setInterval(async () => {
+    if (!qrCameraPreview || qrCameraPreview.hidden || !qrCameraStream) return;
+    if (qrScanInFlight) return;
+    qrScanInFlight = true;
+    try {
+      const decoded = await decodeQrFromSource(qrCameraPreview);
+      if (!decoded.raw) return;
+      const ok = applyScannedQrRaw(decoded.raw, 'camera', decoded.engine);
+      if (ok) stopQrCamera({ silent: true });
+    } finally {
+      qrScanInFlight = false;
+    }
+  }, 350);
+
+  return true;
 }
 
 async function copyText(text) {
@@ -1064,6 +1709,410 @@ function setStateChip(el, text, ok) {
   el.classList.add(ok ? 'state-chip-ok' : 'state-chip-warn');
 }
 
+function setPreflightPill(el, ok) {
+  if (!el) return;
+  el.textContent = ok ? 'PASS' : 'FAIL';
+  el.classList.remove('preflight-pill-ok', 'preflight-pill-warn');
+  el.classList.add(ok ? 'preflight-pill-ok' : 'preflight-pill-warn');
+}
+
+function getPreflightState() {
+  const secureContext = !!window.isSecureContext;
+  const hasDirectoryPicker = typeof window.showDirectoryPicker === 'function';
+  const hasWebRTC = typeof RTCPeerConnection === 'function';
+  const hasClipboard = !!(navigator.clipboard && typeof navigator.clipboard.writeText === 'function');
+  const folderSaveCapable = secureContext && hasDirectoryPicker;
+
+  let summary = '';
+  let fix = '';
+
+  if (!hasWebRTC) {
+    summary = 'Blocked: WebRTC unavailable';
+    fix = 'WebRTC is required. Use a modern browser with WebRTC enabled.';
+  } else if (!folderSaveCapable) {
+    summary = 'Transfer ok (discard only)';
+    if (!secureContext) {
+      fix = 'Folder-save needs HTTPS secure context. Run `npm run dev:secure` or use HTTPS deployment.';
+    } else {
+      fix = 'Folder-save API unavailable in this browser. Use Chrome/Edge or keep using Ready (Discard).';
+    }
+  } else if (!hasClipboard) {
+    summary = 'Core ok (clipboard limited)';
+    fix = 'Clipboard API unavailable. Copy actions may require manual selection.';
+  } else {
+    summary = 'All core capabilities available';
+    fix = 'No action needed.';
+  }
+
+  return {
+    secureContext,
+    hasDirectoryPicker,
+    folderSaveCapable,
+    hasWebRTC,
+    hasClipboard,
+    summary,
+    fix,
+    overallOk: hasWebRTC,
+    folderSaveHint: folderSaveCapable
+      ? ''
+      : (!secureContext
+        ? 'Folder-save requires HTTPS secure context'
+        : 'Folder-save API unavailable in this browser'),
+  };
+}
+
+function renderPreflight() {
+  const pf = getPreflightState();
+
+  setPreflightPill(preflightSecureStateEl, pf.secureContext);
+  setPreflightPill(preflightFolderStateEl, pf.folderSaveCapable);
+  setPreflightPill(preflightWebrtcStateEl, pf.hasWebRTC);
+  setPreflightPill(preflightClipboardStateEl, pf.hasClipboard);
+
+  if (preflightSummaryEl) {
+    preflightSummaryEl.textContent = pf.summary;
+    preflightSummaryEl.classList.remove('preflight-summary-ok', 'preflight-summary-warn');
+    preflightSummaryEl.classList.add(pf.overallOk ? 'preflight-summary-ok' : 'preflight-summary-warn');
+  }
+  if (preflightFixEl) preflightFixEl.textContent = pf.fix;
+
+  if (pickReceiveFolderBtn) {
+    pickReceiveFolderBtn.disabled = !pf.folderSaveCapable;
+    pickReceiveFolderBtn.title = pf.folderSaveCapable ? '' : (pf.folderSaveHint || 'Folder-save unavailable');
+  }
+
+  if (E2E_STATE) {
+    E2E_STATE.preflightSecureContext = pf.secureContext;
+    E2E_STATE.preflightDirectoryPicker = pf.hasDirectoryPicker;
+    E2E_STATE.preflightFolderSaveCapable = pf.folderSaveCapable;
+    E2E_STATE.preflightWebRTC = pf.hasWebRTC;
+    E2E_STATE.preflightClipboard = pf.hasClipboard;
+    E2E_STATE.preflightSummary = pf.summary;
+    E2E_STATE.preflightFix = pf.fix;
+    E2E_STATE.preflightOverall = pf.overallOk;
+  }
+}
+
+function setFlowStepState(el, { done = false, active = false } = {}) {
+  if (!el) return;
+  el.classList.toggle('flow-step-done', !!done);
+  el.classList.toggle('flow-step-active', !done && !!active);
+}
+
+function renderFlowGuide(gate) {
+  const g = gate || getSendGateState();
+  const stepEls = [
+    flowStepRoomEl,
+    flowStepP2PEl,
+    flowStepLocalReadyEl,
+    flowStepPeerReadyEl,
+    flowStepSendEl,
+  ];
+
+  const stepDone = [
+    !!activeRoomId,
+    !!activeRoomId && !!transportOpen,
+    !!activeRoomId && !!transportOpen && !!peerReady,
+    !!activeRoomId
+      && !!transportOpen
+      && !!peerReady
+      && !!peerCapabilities
+      && !!capabilitiesCompatible
+      && !!(g && g.modeOk)
+      && !!(g && g.passOk),
+    !!(g && g.enabled),
+  ];
+
+  let activeIndex = stepDone.findIndex((v) => !v);
+  if (activeIndex < 0) activeIndex = stepDone.length - 1;
+  const allDone = stepDone.every(Boolean);
+
+  for (let i = 0; i < stepEls.length; i++) {
+    setFlowStepState(stepEls[i], { done: stepDone[i], active: i === activeIndex });
+  }
+
+  const stepNames = [
+    'Create or join a room',
+    'Establish P2P channel',
+    'Peer signals ready',
+    'Protocol + crypto verified',
+    'Choose file and send',
+  ];
+
+  if (flowCurrentEl) {
+    flowCurrentEl.textContent = allDone
+      ? 'Step 5/5: Ready to send'
+      : `Step ${activeIndex + 1}/5: ${stepNames[activeIndex]}`;
+  }
+
+  let nextText = 'Next: create or join a room.';
+  if (!stepDone[0]) {
+    nextText = 'Next: create or join a room.';
+  } else if (!stepDone[1]) {
+    nextText = 'Next: wait for P2P connection.';
+  } else if (!stepDone[2]) {
+    nextText = 'Next: wait for peer ready signal.';
+  } else if (!stepDone[3]) {
+    const reason = g && typeof g.reason === 'string' ? g.reason.trim() : '';
+    nextText = reason ? `Next: ${reason}.` : 'Next: wait for protocol and crypto verification.';
+  } else if (!stepDone[4]) {
+    nextText = 'Next: choose at least one file to enable Send.';
+  } else {
+    nextText = 'All transfer gates are green. Press Send.';
+  }
+
+  if (flowNextEl) flowNextEl.textContent = nextText;
+
+  if (E2E_STATE) {
+    E2E_STATE.flowStep = allDone ? 5 : (activeIndex + 1);
+    E2E_STATE.flowReady = !!stepDone[4];
+  }
+}
+
+function renderQuickSummary(gate) {
+  const g = gate || getSendGateState();
+
+  let text = 'Create or join a room to start.';
+  if (activeRoomId && !transportOpen) {
+    text = 'Waiting for P2P connection.';
+  } else if (activeRoomId && transportOpen && !peerReady) {
+    text = 'Waiting for peer ready signal.';
+  } else if (activeRoomId && transportOpen && peerReady && (!peerCapabilities || !capabilitiesCompatible)) {
+    text = compatibilityReason && compatibilityReason !== 'Protocol negotiation pending'
+      ? compatibilityReason
+      : 'Waiting for protocol negotiation.';
+  } else if (activeRoomId && transportOpen && peerReady && g && !g.modeOk) {
+    text = g.reason || 'Crypto mode mismatch.';
+  } else if (activeRoomId && transportOpen && peerReady && g && !g.passOk) {
+    text = g.reason || 'Verifying passphrase.';
+  } else if (activeRoomId && transportOpen && peerReady && g && g.fileCount < 1) {
+    text = 'Choose one or more files to enable Send.';
+  } else if (g && g.enabled) {
+    text = 'Ready to send.';
+  }
+
+  if (transferQuickSummaryEl) {
+    transferQuickSummaryEl.textContent = text;
+    const ok = text === 'Ready to send.';
+    transferQuickSummaryEl.classList.toggle('quick-summary-ok', ok);
+    transferQuickSummaryEl.classList.toggle('quick-summary-warn', !ok);
+  }
+
+  if (E2E_STATE) {
+    E2E_STATE.quickSummary = text;
+    E2E_STATE.transferAdvancedOpen = !!(transferAdvancedDetailsEl && transferAdvancedDetailsEl.open);
+  }
+}
+
+function renderLaunchpad(gate) {
+  const g = gate || getSendGateState();
+  const signalingOpen = !!(ws && ws.readyState === WebSocket.OPEN);
+
+  let state = 'Idle';
+  let hint = 'Start by hosting a secure session or join an existing invite package.';
+  let ok = false;
+
+  if (activeRoomId && !transportOpen) {
+    state = signalingOpen ? 'Room Live' : 'Reconnecting';
+    hint = signalingOpen
+      ? 'Share your invite package. Waiting for peer and P2P negotiation.'
+      : 'Room context retained. Waiting for signaling reconnect.';
+  } else if (activeRoomId && transportOpen && !peerReady) {
+    state = 'Peer Needed';
+    hint = 'P2P is up. Ask the peer to set receive mode and signal ready.';
+  } else if (activeRoomId && transportOpen && peerReady && (!peerCapabilities || !capabilitiesCompatible)) {
+    state = 'Verifying';
+    hint = compatibilityReason && compatibilityReason !== 'Protocol negotiation pending'
+      ? compatibilityReason
+      : 'Protocol and crypto negotiation in progress.';
+  } else if (g && g.enabled) {
+    state = 'Go';
+    hint = 'All transfer gates are green. Choose files and send.';
+    ok = true;
+  } else if (activeRoomId && transportOpen && peerReady) {
+    state = 'Setup';
+    hint = g && g.reason ? g.reason : 'Finish setup to enable sending.';
+  }
+
+  if (launchpadStateEl) {
+    launchpadStateEl.textContent = state;
+    launchpadStateEl.classList.toggle('launchpad-state-ok', !!ok);
+    launchpadStateEl.classList.toggle('launchpad-state-warn', !ok);
+  }
+  if (launchpadHintEl) launchpadHintEl.textContent = hint;
+
+  const inSession = !!(activeRoomId || transportOpen || signalingOpen);
+  if (launchpadHostBtn) launchpadHostBtn.disabled = inSession || !!createRoomBtn.disabled;
+  if (launchpadJoinBtn) launchpadJoinBtn.disabled = inSession || !!joinRoomBtn.disabled;
+  if (applyInvitePackageBtn) applyInvitePackageBtn.disabled = inSession;
+  if (applyJoinInvitePackageBtn) applyJoinInvitePackageBtn.disabled = inSession || !!joinRoomBtn.disabled;
+
+  const inviteReady = !!buildInvitePackageText();
+  if (copyInvitePackageBtn) copyInvitePackageBtn.disabled = !inviteReady;
+  if (showInviteQrBtn) showInviteQrBtn.disabled = !inviteReady;
+  if (scanQrImageBtn) scanQrImageBtn.disabled = inSession || !QR_SCAN_SUPPORTED;
+  const cameraScanSupported = (
+    QR_SCAN_SUPPORTED
+    && !!(navigator.mediaDevices && typeof navigator.mediaDevices.getUserMedia === 'function')
+  );
+  if (startQrCameraBtn) startQrCameraBtn.disabled = inSession || !cameraScanSupported || !!qrCameraStream;
+  if (stopQrCameraBtn && !qrCameraStream) stopQrCameraBtn.disabled = true;
+
+  if (E2E_STATE) {
+    E2E_STATE.launchpadState = state;
+    E2E_STATE.launchpadHint = hint;
+    E2E_STATE.invitePackageReady = inviteReady;
+  }
+}
+
+function getLocalOnboardingRole() {
+  if (!activeRoomId) return 'none';
+  if (isLocalRoomOwner()) return 'owner';
+  if (localRoomRole === 'peer' || localRoomRole === 'owner') return 'peer';
+  return 'pending';
+}
+
+function renderRoleOnboardingHint(gate) {
+  const g = gate || getSendGateState();
+  const role = getLocalOnboardingRole();
+
+  let text = 'Role hint: create a room to become owner, or join as peer.';
+  if (role === 'owner' && !transportOpen) {
+    text = 'Owner hint: share the join link/key and wait for peer connection.';
+  } else if (role === 'peer' && !transportOpen) {
+    text = 'Peer hint: joined room, waiting for owner offer.';
+  } else if (role === 'owner' && transportOpen && !peerReady) {
+    text = 'Owner hint: ask peer to click Ready (Discard) or Pick Receive Folder.';
+  } else if (role === 'peer' && transportOpen && !peerReady) {
+    text = 'Peer hint: set your receive mode, then wait for owner send.';
+  } else if ((role === 'owner' || role === 'peer') && transportOpen && peerReady && (!peerCapabilities || !capabilitiesCompatible)) {
+    const base = role === 'owner'
+      ? 'Owner hint: protocol/crypto gate must pass before sending.'
+      : 'Peer hint: protocol/crypto verification in progress.';
+    text = compatibilityReason && compatibilityReason !== 'Protocol negotiation pending'
+      ? `${base} ${compatibilityReason}`
+      : base;
+  } else if (role === 'owner' && g && g.enabled) {
+    text = 'Owner hint: ready to send. You can rotate key or close room.';
+  } else if (role === 'peer' && g && g.enabled) {
+    text = 'Peer hint: ready to send.';
+  } else if (role === 'owner' && g && g.fileCount < 1) {
+    text = 'Owner hint: choose files to send.';
+  } else if (role === 'peer' && g && g.fileCount < 1) {
+    text = 'Peer hint: choose files to send.';
+  } else if (role === 'pending') {
+    text = 'Role hint: waiting for room authority sync.';
+  }
+
+  if (roleOnboardingHintEl) {
+    roleOnboardingHintEl.textContent = text;
+    const ok = text.toLowerCase().includes('ready to send');
+    roleOnboardingHintEl.classList.toggle('onboarding-hint-ok', ok);
+    roleOnboardingHintEl.classList.toggle('onboarding-hint-warn', !ok);
+  }
+
+  if (E2E_STATE) {
+    E2E_STATE.onboardingHint = text;
+    E2E_STATE.onboardingRole = role;
+  }
+}
+
+function renderRoomAuthority() {
+  const inRoom = !!activeRoomId;
+  const owner = isLocalRoomOwner();
+  const role = inRoom
+    ? (owner ? 'owner' : (localRoomRole === 'owner' || localRoomRole === 'peer' ? localRoomRole : 'pending'))
+    : 'none';
+  const ownerText = roomOwnerPeerId ? shortPeerId(roomOwnerPeerId) : (inRoom ? 'pending' : 'none');
+  const localText = localPeerId ? shortPeerId(localPeerId) : (inRoom ? 'pending' : 'none');
+
+  if (roomAuthorityEl) {
+    roomAuthorityEl.textContent = `Authority: role=${role} | owner=${ownerText} | peer=${localText}`;
+  }
+
+  const canControl = !!(inRoom && owner && ws && ws.readyState === WebSocket.OPEN);
+  if (rotateRoomKeyBtn) rotateRoomKeyBtn.disabled = !canControl;
+  if (closeRoomBtn) closeRoomBtn.disabled = !canControl;
+
+  if (stateOwnerEl) {
+    if (!inRoom) {
+      setStateChip(stateOwnerEl, 'role: none', false);
+    } else if (owner) {
+      setStateChip(stateOwnerEl, 'role: owner', true);
+    } else if (role === 'peer') {
+      setStateChip(stateOwnerEl, 'role: peer', true);
+    } else {
+      setStateChip(stateOwnerEl, 'role: pending', false);
+    }
+  }
+}
+
+function updateAuthorityStateForE2E() {
+  if (!E2E_STATE) return;
+  E2E_STATE.peerId = localPeerId || null;
+  E2E_STATE.roomOwnerPeerId = roomOwnerPeerId || null;
+  if (activeRoomId) {
+    E2E_STATE.localRole = isLocalRoomOwner() ? 'owner' : (localRoomRole === 'owner' || localRoomRole === 'peer' ? localRoomRole : 'peer');
+  } else {
+    E2E_STATE.localRole = 'none';
+  }
+}
+
+function applyRoomAuthorityFromMessage(msg) {
+  if (!msg || typeof msg !== 'object') return false;
+
+  let changed = false;
+  const t = typeof msg.type === 'string' ? msg.type : '';
+  const canSetLocalPeerId = t === 'room-created' || t === 'room-joined';
+
+  if (canSetLocalPeerId) {
+    const nextPeerId = sanitizePeerId(msg.peerId);
+    if (nextPeerId && nextPeerId !== localPeerId) {
+      localPeerId = nextPeerId;
+      changed = true;
+    }
+  }
+
+  if (Object.prototype.hasOwnProperty.call(msg, 'roomOwnerPeerId')) {
+    const nextOwner = sanitizePeerId(msg.roomOwnerPeerId);
+    const normalizedOwner = nextOwner || null;
+    if (normalizedOwner !== roomOwnerPeerId) {
+      roomOwnerPeerId = normalizedOwner;
+      changed = true;
+    }
+  }
+
+  if (canSetLocalPeerId && typeof msg.role === 'string') {
+    const normalizedRole = msg.role === 'owner' ? 'owner' : (msg.role === 'peer' ? 'peer' : null);
+    if (normalizedRole && normalizedRole !== localRoomRole) {
+      localRoomRole = normalizedRole;
+      changed = true;
+    }
+  }
+
+  if (activeRoomId) {
+    const inferredRole = isLocalRoomOwner() ? 'owner' : 'peer';
+    if (inferredRole !== localRoomRole) {
+      localRoomRole = inferredRole;
+      changed = true;
+    }
+  }
+
+  if (changed) {
+    updateAuthorityStateForE2E();
+    renderRoomAuthority();
+  }
+  return changed;
+}
+
+function resetRoomAuthority() {
+  localPeerId = null;
+  roomOwnerPeerId = null;
+  localRoomRole = 'none';
+  updateAuthorityStateForE2E();
+  renderRoomAuthority();
+}
+
 function renderStateStrip(gate) {
   const g = gate || getSendGateState();
   const signalingOpen = !!(ws && ws.readyState === WebSocket.OPEN);
@@ -1084,15 +2133,19 @@ function renderStateStrip(gate) {
   const modeMatch = localMode === peerCryptoMode;
   if (!modeMatch) {
     setStateChip(stateCryptoEl, 'crypto: mismatch', false);
-    return;
-  }
-
-  if (localMode === 'passphrase') {
+  } else if (localMode === 'passphrase') {
     setStateChip(stateCryptoEl, passphraseVerified ? 'crypto: verified' : 'crypto: verifying', !!passphraseVerified);
-    return;
+  } else {
+    setStateChip(stateCryptoEl, 'crypto: plain', true);
   }
 
-  setStateChip(stateCryptoEl, 'crypto: plain', true);
+  renderRoomAuthority();
+  renderFlowGuide(g);
+  renderQuickSummary(g);
+  renderLaunchpad(g);
+  renderRoleOnboardingHint(g);
+  renderPreflight();
+  syncReceiveDestinationUI();
 }
 
 function updateSendButton() {
@@ -1140,8 +2193,109 @@ function renderPeerState() {
   renderStateStrip();
 }
 
-function setReceiveFolderLabel(text) {
-  receiveFolderLabel.textContent = text || '';
+function getReceiveFolderName() {
+  if (!receiveDirHandle || typeof receiveDirHandle !== 'object') return '';
+  const raw = typeof receiveDirHandle.name === 'string' ? receiveDirHandle.name.trim() : '';
+  if (!raw) return 'selected-folder';
+  return sanitizeFileName(raw) || raw || 'selected-folder';
+}
+
+function canPromptOpenReceiveFolder() {
+  return !!(
+    receiveDirHandle
+    && typeof window.showDirectoryPicker === 'function'
+    && window.isSecureContext
+  );
+}
+
+function getReceiveDestinationState() {
+  const folderName = getReceiveFolderName();
+  const mode = folderName ? 'saved' : 'discard';
+  const ready = !!localReady;
+
+  if (mode === 'saved') {
+    const shortLabel = ready ? `Save: ${folderName} (ready)` : `Save: ${folderName}`;
+    const fullLabel = ready
+      ? `save to folder "${folderName}" (ready)`
+      : `save to folder "${folderName}" (not ready)`;
+    const copyLabel = `Save destination: ${folderName}`;
+    return { mode, ready, folderName, shortLabel, fullLabel, copyLabel };
+  }
+
+  return {
+    mode: 'discard',
+    ready,
+    folderName: '',
+    shortLabel: ready ? 'Discard mode (ready)' : 'Discard mode',
+    fullLabel: ready ? 'discard mode (ready)' : 'discard mode (not ready)',
+    copyLabel: 'Discard mode',
+  };
+}
+
+function buildReceiveDestinationPath(fileName = '') {
+  const state = getReceiveDestinationState();
+  const safeFileName = typeof fileName === 'string' ? fileName.trim() : '';
+  if (state.mode === 'saved') {
+    if (!safeFileName) return state.folderName || 'selected-folder';
+    return `${state.folderName || 'selected-folder'}/${safeFileName}`;
+  }
+  if (!safeFileName) return 'discard mode';
+  return `discarded (${safeFileName})`;
+}
+
+function syncReceiveDestinationUI() {
+  const state = getReceiveDestinationState();
+
+  if (receiveFolderLabel) {
+    receiveFolderLabel.textContent = state.shortLabel;
+  }
+
+  if (receiveDestinationStateEl) {
+    receiveDestinationStateEl.textContent = `Destination: ${state.fullLabel}`;
+    receiveDestinationStateEl.classList.toggle('receive-destination-ready', state.mode === 'saved');
+    receiveDestinationStateEl.classList.toggle('receive-destination-discard', state.mode === 'discard');
+  }
+
+  if (copyReceiveDestinationBtn) {
+    copyReceiveDestinationBtn.disabled = false;
+  }
+
+  const canOpen = canPromptOpenReceiveFolder();
+  if (openReceiveFolderBtn) {
+    openReceiveFolderBtn.disabled = !canOpen;
+    openReceiveFolderBtn.title = canOpen
+      ? 'Opens the folder picker at current receive destination when supported'
+      : 'Open folder is unavailable in this browser/session';
+  }
+
+  if (E2E_STATE) {
+    E2E_STATE.receiveDestinationMode = state.mode;
+    E2E_STATE.receiveDestinationLabel = state.fullLabel;
+    E2E_STATE.receiveDestinationPath = state.mode === 'saved' ? (state.folderName || 'selected-folder') : 'discard mode';
+    E2E_STATE.canOpenReceiveFolder = canOpen;
+  }
+}
+
+function getReceiveDestinationCopyText(fileName = '') {
+  const state = getReceiveDestinationState();
+  const safeFileName = typeof fileName === 'string' ? fileName.trim() : '';
+  if (safeFileName) {
+    if (state.mode === 'saved') return `Saved destination: ${buildReceiveDestinationPath(safeFileName)}`;
+    return `Discarded transfer: ${safeFileName}`;
+  }
+  return state.copyLabel;
+}
+
+async function openReceiveFolderAtCurrentDestination() {
+  if (!canPromptOpenReceiveFolder()) return false;
+  try {
+    const options = { mode: 'readwrite' };
+    if (receiveDirHandle) options.startIn = receiveDirHandle;
+    await window.showDirectoryPicker(options);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function addTransferRow({ direction, title }) {
@@ -1206,6 +2360,11 @@ function addTransferRow({ direction, title }) {
 
   row.appendChild(progress);
 
+  const outcome = document.createElement('div');
+  outcome.className = 'transfer-outcome';
+  outcome.hidden = true;
+  row.appendChild(outcome);
+
   transfersEl.appendChild(row);
 
   return {
@@ -1229,6 +2388,22 @@ function addTransferRow({ direction, title }) {
       cancelBtn.textContent = label;
       cancelBtn.hidden = !onCancel;
       cancelBtn.disabled = !onCancel;
+    },
+    setOutcome: (text, { ok = false, warn = false } = {}) => {
+      const t = typeof text === 'string' ? text.trim() : '';
+      outcome.classList.remove('transfer-outcome-ok', 'transfer-outcome-warn');
+      if (!t) {
+        outcome.textContent = '';
+        outcome.hidden = true;
+        return;
+      }
+      outcome.textContent = t;
+      outcome.hidden = false;
+      if (warn) {
+        outcome.classList.add('transfer-outcome-warn');
+      } else if (ok) {
+        outcome.classList.add('transfer-outcome-ok');
+      }
     },
     destroy: () => { try { row.remove(); } catch {} },
   };
@@ -1545,6 +2720,13 @@ async function attemptSignalingReconnect() {
 
   try {
     const roomId = activeRoomId;
+    const roomJoinKey = sanitizeRoomJoinKey(
+      activeRoomJoinKey || (roomJoinKeyInput ? roomJoinKeyInput.value : '')
+    );
+    if (!roomJoinKey) {
+      addActivity('warn', 'Signaling reconnect blocked: missing room auth key');
+      return false;
+    }
     const initiator = !!isInitiator;
 
     const socket = new WebSocket(SIGNALING_URL);
@@ -1560,7 +2742,7 @@ async function attemptSignalingReconnect() {
         }
 
         try {
-          socket.send(JSON.stringify({ type: 'join-room', roomId }));
+          socket.send(JSON.stringify({ type: 'join-room', roomId, roomJoinKey }));
         } catch {
           try { socket.close(); } catch {}
           resolve(false);
@@ -1581,6 +2763,12 @@ async function attemptSignalingReconnect() {
 
         if (msg.type === 'room-joined' || msg.type === 'room-created') {
           settled = true;
+          if (typeof msg.roomJoinKey === 'string') {
+            activeRoomJoinKey = sanitizeRoomJoinKey(msg.roomJoinKey) || roomJoinKey;
+            if (roomJoinKeyInput && activeRoomJoinKey) roomJoinKeyInput.value = activeRoomJoinKey;
+            updateJoinLink();
+          }
+          applyRoomAuthorityFromMessage(msg);
           ws = socket;
           if (E2E_STATE) {
             E2E_STATE.signalingConnected = true;
@@ -1610,6 +2798,7 @@ async function attemptSignalingReconnect() {
         }
 
         if (msg.type === 'peer-joined' && initiator) {
+          applyRoomAuthorityFromMessage(msg);
           // Only negotiate a new connection if we don't already have one.
           if (!transport) {
             await startConnection();
@@ -1625,6 +2814,7 @@ async function attemptSignalingReconnect() {
         }
 
         if (msg.type === 'peer-left') {
+          applyRoomAuthorityFromMessage(msg);
           if (transportOpen) {
             setStatus('Peer left signaling (P2P active)');
             return;
@@ -1633,22 +2823,62 @@ async function attemptSignalingReconnect() {
           return;
         }
 
+        if (msg.type === 'room-key-rotated') {
+          if (typeof msg.roomJoinKey === 'string') {
+            const nextJoinKey = sanitizeRoomJoinKey(msg.roomJoinKey);
+            if (nextJoinKey) {
+              activeRoomJoinKey = nextJoinKey;
+              if (roomJoinKeyInput) roomJoinKeyInput.value = nextJoinKey;
+              updateJoinLink();
+            }
+          }
+          applyRoomAuthorityFromMessage(msg);
+          if (E2E_STATE) E2E_STATE.roomKeyRotatedCount = (E2E_STATE.roomKeyRotatedCount || 0) + 1;
+          const rotatedBy = sanitizePeerId(msg.rotatedByPeerId);
+          if (rotatedBy && localPeerId && rotatedBy === localPeerId) {
+            setStatus('Room auth key rotated');
+          } else {
+            setStatus('Room auth key rotated by owner');
+          }
+          return;
+        }
+
+        if (msg.type === 'room-owner-changed') {
+          applyRoomAuthorityFromMessage(msg);
+          if (E2E_STATE) E2E_STATE.roomOwnerChangedCount = (E2E_STATE.roomOwnerChangedCount || 0) + 1;
+          setStatus(isLocalRoomOwner() ? 'You are now room owner' : 'Room owner changed');
+          return;
+        }
+
+        if (msg.type === 'room-closed') {
+          if (E2E_STATE) E2E_STATE.roomClosedCount = (E2E_STATE.roomClosedCount || 0) + 1;
+          cleanup();
+          setStatus('Room closed by owner');
+          return;
+        }
+
         if (msg.type === 'error') {
           const message = typeof msg.message === 'string' ? msg.message : 'Signaling error';
+          const joinUnavailable = (
+            message === 'Join unavailable'
+            || message === 'Room not found'
+            || message === 'Room full'
+          );
 
-          // During reconnect, "room not found" can happen if the signaling server restarted.
+          // During reconnect, join can fail if signaling restarted or if the room has
+          // reached peer capacity. For initiators, attempt recreate once as a repair path.
           if (!settled) {
-            if (message === 'Room not found') {
-              if (initiator && !triedCreate) {
-                triedCreate = true;
-                addActivity('conn', 'Reconnect room not found; attempting room recreate');
-                try {
-                  socket.send(JSON.stringify({ type: 'create-room', roomId }));
-                  return;
-                } catch {}
-              }
+            if (joinUnavailable && initiator && !triedCreate) {
+              triedCreate = true;
+              addActivity('conn', 'Reconnect join unavailable; attempting room recreate');
+              try {
+                socket.send(JSON.stringify({ type: 'create-room', roomId, roomJoinKey }));
+                return;
+              } catch {}
+            }
 
-              // Joiners never create rooms. Retry later.
+            if (joinUnavailable) {
+              addActivity('warn', 'Signaling reconnect join unavailable');
               try { socket.close(); } catch {}
               resolve(false);
               return;
@@ -1657,16 +2887,9 @@ async function attemptSignalingReconnect() {
             if (initiator && message === 'Room already exists') {
               // Race: if the peer recreated the room, try join.
               try {
-                socket.send(JSON.stringify({ type: 'join-room', roomId }));
+                socket.send(JSON.stringify({ type: 'join-room', roomId, roomJoinKey }));
                 return;
               } catch {}
-            }
-
-            if (message === 'Room full') {
-              addActivity('warn', 'Signaling reconnect failed: room full');
-              try { socket.close(); } catch {}
-              resolve(false);
-              return;
             }
           }
 
@@ -1709,17 +2932,19 @@ async function attemptSignalingReconnect() {
   }
 }
 
-function connectSignaling(roomId, initiator) {
+function connectSignaling(roomId, initiator, roomJoinKey) {
   return new Promise((resolve, reject) => {
     const socket = new WebSocket(SIGNALING_URL);
     ws = socket;
     isInitiator = !!initiator;
     let settled = false;
+    const normalizedRoomJoinKey = sanitizeRoomJoinKey(roomJoinKey);
 
     socket.onopen = () => {
       socket.send(JSON.stringify({
         type: initiator ? 'create-room' : 'join-room',
         roomId,
+        roomJoinKey: normalizedRoomJoinKey,
       }));
     };
 
@@ -1731,6 +2956,10 @@ function connectSignaling(roomId, initiator) {
       if (msg.type === 'room-created' || msg.type === 'room-joined') {
         settled = true;
         activeRoomId = roomId;
+        activeRoomJoinKey = sanitizeRoomJoinKey(msg.roomJoinKey) || normalizedRoomJoinKey;
+        if (roomJoinKeyInput && activeRoomJoinKey) roomJoinKeyInput.value = activeRoomJoinKey;
+        applyRoomAuthorityFromMessage(msg);
+        updateJoinLink();
         signalingReconnectAttempts = 0;
         if (E2E_STATE) E2E_STATE.signalingConnected = true;
         sendLocalCapabilities('signaling connected');
@@ -1739,6 +2968,7 @@ function connectSignaling(roomId, initiator) {
       }
 
       if (msg.type === 'peer-joined' && initiator) {
+        applyRoomAuthorityFromMessage(msg);
         // Only negotiate a new connection if we don't already have one.
         if (!transport) {
           await startConnection();
@@ -1754,6 +2984,7 @@ function connectSignaling(roomId, initiator) {
       }
 
       if (msg.type === 'peer-left') {
+        applyRoomAuthorityFromMessage(msg);
         if (transportOpen) {
           // Signaling presence is not authoritative once P2P is established.
           // Transport close is the source of truth.
@@ -1762,6 +2993,41 @@ function connectSignaling(roomId, initiator) {
         }
 
         cleanup();
+        return;
+      }
+
+      if (msg.type === 'room-key-rotated') {
+        if (typeof msg.roomJoinKey === 'string') {
+          const nextJoinKey = sanitizeRoomJoinKey(msg.roomJoinKey);
+          if (nextJoinKey) {
+            activeRoomJoinKey = nextJoinKey;
+            if (roomJoinKeyInput) roomJoinKeyInput.value = nextJoinKey;
+            updateJoinLink();
+          }
+        }
+        applyRoomAuthorityFromMessage(msg);
+        if (E2E_STATE) E2E_STATE.roomKeyRotatedCount = (E2E_STATE.roomKeyRotatedCount || 0) + 1;
+        const rotatedBy = sanitizePeerId(msg.rotatedByPeerId);
+        if (rotatedBy && localPeerId && rotatedBy === localPeerId) {
+          setStatus('Room auth key rotated');
+        } else {
+          setStatus('Room auth key rotated by owner');
+        }
+        return;
+      }
+
+      if (msg.type === 'room-owner-changed') {
+        applyRoomAuthorityFromMessage(msg);
+        if (E2E_STATE) E2E_STATE.roomOwnerChangedCount = (E2E_STATE.roomOwnerChangedCount || 0) + 1;
+        setStatus(isLocalRoomOwner() ? 'You are now room owner' : 'Room owner changed');
+        return;
+      }
+
+      if (msg.type === 'room-closed') {
+        if (E2E_STATE) E2E_STATE.roomClosedCount = (E2E_STATE.roomClosedCount || 0) + 1;
+        cleanup();
+        setStatus('Room closed by owner');
+        return;
       }
 
       if (msg.type === 'error') {
@@ -2416,6 +3682,10 @@ async function handleIncomingSession(session) {
     title: id,
   });
   row.setStatus('receiving');
+  row.setOutcome(`destination: ${buildReceiveDestinationPath()}`, {
+    warn: getReceiveDestinationState().mode === 'discard',
+    ok: getReceiveDestinationState().mode === 'saved',
+  });
   addActivity('transfer', `Inbound start: ${id.slice(0, 8)}`);
 
   if (!capabilitiesCompatible) {
@@ -2457,6 +3727,7 @@ async function handleIncomingSession(session) {
 
   const DEFAULT_NAME = `ephera-${id}.bin`;
   let saveName = DEFAULT_NAME;
+  let outputName = saveName;
 
   let metaEvent = null;
   let metaApplied = false;
@@ -2548,7 +3819,7 @@ async function handleIncomingSession(session) {
     // If META arrived while deriving, apply it now.
     await maybeApplyMeta();
 
-    let outputName = saveName || DEFAULT_NAME;
+    outputName = saveName || DEFAULT_NAME;
 
     if (receiveDirHandle && typeof receiveDirHandle.getFileHandle === 'function') {
       let fileName = sanitizeFileName(saveName || DEFAULT_NAME) || DEFAULT_NAME;
@@ -2590,9 +3861,11 @@ async function handleIncomingSession(session) {
       writable = await fileHandle.createWritable();
       row.setTitle(fileName);
       row.setStatus(aesKey ? `decrypting + saving: ${fileName}` : `saving: ${fileName}`);
+      row.setOutcome(`destination: ${buildReceiveDestinationPath(fileName)}`, { ok: true });
     } else {
       discard = true;
       row.setStatus(aesKey ? 'decrypting + discarding (no receive folder)' : 'discarding (no receive folder)');
+      row.setOutcome(`destination: ${buildReceiveDestinationPath(outputName)}`, { warn: true });
     }
 
     const modeLabel = discard
@@ -2656,16 +3929,22 @@ async function handleIncomingSession(session) {
 
     if (cancelled) {
       row.setStatus('cancelled');
+      row.setOutcome('inbound cancelled before completion', { warn: true });
       addActivity('warn', `Inbound cancelled: ${id.slice(0, 8)}`);
       return;
     }
+
+    const outcomeText = discard
+      ? `discarded -> ${outputName}`
+      : `saved -> ${buildReceiveDestinationPath(outputName)}`;
 
     if (aesKey) {
       row.setStatus(discard ? 'received (decrypted, discarded)' : 'received (decrypted, saved)');
     } else {
       row.setStatus(discard ? 'received (discarded)' : 'received (saved)');
     }
-    addActivity('transfer', `Inbound complete: ${outputName} (${formatBytes(bytes)}) [${discard ? 'discarded' : 'saved'}]`);
+    row.setOutcome(outcomeText, { ok: !discard, warn: discard });
+    addActivity('transfer', `Inbound complete: ${outputName} (${formatBytes(bytes)}) [${outcomeText}]`);
     if (expectedBytes && expectedBytes > 0) row.setProgress(100);
     row.setSpeed('');
     sendReceipt(session.transferId, {
@@ -2676,8 +3955,10 @@ async function handleIncomingSession(session) {
     }).catch(() => {});
     if (IS_E2E && E2E_STATE) E2E_STATE.recvDoneCount = (E2E_STATE.recvDoneCount || 0) + 1;
     if (E2E_STATE) E2E_STATE.recvDone = true;
+    if (E2E_STATE) E2E_STATE.lastInboundOutcome = outcomeText;
   } catch (err) {
     row.setStatus(cancelled ? 'cancelled' : 'aborted');
+    row.setOutcome(cancelled ? 'inbound cancelled' : 'inbound aborted', { warn: true });
     try {
       if (writable) await writable.abort();
     } catch {}
@@ -2688,6 +3969,7 @@ async function handleIncomingSession(session) {
     if (!cancelled) signalAbortOnce();
     if (!cancelled && IS_E2E && E2E_STATE) E2E_STATE.recvAbortCount = (E2E_STATE.recvAbortCount || 0) + 1;
     if (!cancelled && E2E_STATE) E2E_STATE.error = err && err.message ? err.message : 'receive failed';
+    if (E2E_STATE && !cancelled) E2E_STATE.lastInboundOutcome = 'inbound aborted';
     addActivity('warn', `Inbound ${cancelled ? 'cancelled' : 'aborted'}: ${id.slice(0, 8)} (${err && err.message ? err.message : 'receive failed'})`);
   } finally {
     try { reader.releaseLock(); } catch {}
@@ -2710,6 +3992,8 @@ function cleanup() {
   localReady = false;
   isInitiator = false;
   activeRoomId = null;
+  activeRoomJoinKey = null;
+  resetRoomAuthority();
   clearSignalingReconnect();
   if (E2E_STATE) E2E_STATE.signalingConnected = false;
   if (E2E_STATE) E2E_STATE.transportOpen = false;
@@ -2773,10 +4057,14 @@ function cleanup() {
   if (sendWeightValue) sendWeightValue.textContent = '1';
   if (transfersEl) transfersEl.textContent = '';
   updateSendButton();
-  setReceiveFolderLabel('No folder selected');
+  syncReceiveDestinationUI();
   setPeerState('');
   setCryptoState('');
   if (passphraseInput) passphraseInput.value = '';
+  if (roomJoinKeyInput) roomJoinKeyInput.value = '';
+  if (invitePackageInput) invitePackageInput.value = '';
+  resetInvitePackageState();
+  resetQrPairingUi();
   if (sharePassphraseBtn) sharePassphraseBtn.disabled = true;
   if (includePassphraseLinkInput) includePassphraseLinkInput.checked = false;
   if (includeIceLinkInput) includeIceLinkInput.checked = false;
@@ -2784,6 +4072,8 @@ function cleanup() {
   if (iceServersJsonInput) iceServersJsonInput.value = '';
   setIceState('');
   setStatus('');
+  if (E2E_STATE) E2E_STATE.lastInboundOutcome = '';
+  if (E2E_STATE) E2E_STATE.invitePackageParseState = '';
 
   // Ensure join link no longer contains any prior secret-bearing params.
   updateJoinLink();
@@ -2901,6 +4191,60 @@ if (downloadActivityJsonBtn) {
 
 fileInput.onchange = updateSendButton;
 
+if (rotateRoomKeyBtn) {
+  rotateRoomKeyBtn.onclick = () => {
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+      setStatus('Signaling not connected');
+      return;
+    }
+    if (!activeRoomId) {
+      setStatus('Not in a room');
+      return;
+    }
+    if (!isLocalRoomOwner()) {
+      setStatus('Owner privileges required');
+      return;
+    }
+
+    const nextCandidate = sanitizeRoomJoinKey(roomJoinKeyInput ? roomJoinKeyInput.value : '');
+    const payload = { type: 'rotate-room-join-key' };
+    if (nextCandidate && nextCandidate !== activeRoomJoinKey) {
+      payload.roomJoinKey = nextCandidate;
+    }
+
+    try {
+      ws.send(JSON.stringify(payload));
+      setStatus('Requested room auth key rotation');
+    } catch {
+      setStatus('Failed to rotate room auth key');
+    }
+  };
+}
+
+if (closeRoomBtn) {
+  closeRoomBtn.onclick = () => {
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+      setStatus('Signaling not connected');
+      return;
+    }
+    if (!activeRoomId) {
+      setStatus('Not in a room');
+      return;
+    }
+    if (!isLocalRoomOwner()) {
+      setStatus('Owner privileges required');
+      return;
+    }
+
+    try {
+      ws.send(JSON.stringify({ type: 'close-room' }));
+      setStatus('Requested room close');
+    } catch {
+      setStatus('Failed to close room');
+    }
+  };
+}
+
 createRoomBtn.onclick = async () => {
   try { await RUNTIME_CONFIG_READY; } catch {}
 
@@ -2908,8 +4252,15 @@ createRoomBtn.onclick = async () => {
   if (!roomId) {
     roomId = generateRoomId();
     roomIdInput.value = roomId;
-    updateJoinLink();
   }
+
+  let roomJoinKey = sanitizeRoomJoinKey(roomJoinKeyInput ? roomJoinKeyInput.value : '');
+  if (!roomJoinKey && roomJoinKeyInput) {
+    roomJoinKey = generateRoomJoinKey();
+    roomJoinKeyInput.value = roomJoinKey;
+  }
+  activeRoomJoinKey = roomJoinKey || null;
+  updateJoinLink();
 
   let autoGenerated = false;
   if (!getLocalPassphrase() && passphraseInput) {
@@ -2919,12 +4270,12 @@ createRoomBtn.onclick = async () => {
   }
 
   try {
-    await connectSignaling(roomId, true);
+    await connectSignaling(roomId, true, roomJoinKey);
     createRoomBtn.disabled = true;
     joinRoomBtn.disabled = true;
     disconnectBtn.disabled = false;
     setStatus(autoGenerated
-      ? 'Waiting for peer (passphrase generated; share it)'
+      ? 'Waiting for peer (passphrase + room key generated; share link)'
       : 'Waiting for peer (signaling room created)');
     if (E2E_STATE) E2E_STATE.signaling = 'room-created';
   } catch (err) {
@@ -2938,9 +4289,15 @@ joinRoomBtn.onclick = async () => {
 
   const roomId = roomIdInput.value.trim();
   if (!roomId) return;
+  const roomJoinKey = sanitizeRoomJoinKey(roomJoinKeyInput ? roomJoinKeyInput.value : '');
+  if (!roomJoinKey) {
+    setStatus('Room auth key required to join');
+    return;
+  }
+  activeRoomJoinKey = roomJoinKey;
 
   try {
-    await connectSignaling(roomId, false);
+    await connectSignaling(roomId, false, roomJoinKey);
     createRoomBtn.disabled = true;
     joinRoomBtn.disabled = true;
     disconnectBtn.disabled = false;
@@ -2952,6 +4309,7 @@ joinRoomBtn.onclick = async () => {
       localReady = true;
       sendReadySignal();
       renderPeerState();
+      syncReceiveDestinationUI();
     }
   } catch (err) {
     setStatus(err.message);
@@ -2975,10 +4333,193 @@ if (roomIdInput) {
   };
 }
 
+if (roomJoinKeyInput) {
+  roomJoinKeyInput.oninput = () => {
+    updateJoinLink();
+  };
+}
+
+if (invitePackageInput) {
+  invitePackageInput.oninput = () => {
+    setInvitePackageState('Invite package loaded. Apply to continue.', true);
+    if (E2E_STATE) E2E_STATE.invitePackageParseState = 'pending';
+  };
+}
+
 if (generateRoomIdBtn && roomIdInput) {
   generateRoomIdBtn.onclick = () => {
     roomIdInput.value = generateRoomId();
     updateJoinLink();
+  };
+}
+
+if (generateRoomJoinKeyBtn && roomJoinKeyInput) {
+  generateRoomJoinKeyBtn.onclick = () => {
+    roomJoinKeyInput.value = generateRoomJoinKey();
+    updateJoinLink();
+  };
+}
+
+if (launchpadHostBtn) {
+  launchpadHostBtn.onclick = () => {
+    if (createRoomBtn.disabled || activeRoomId || transportOpen || (ws && ws.readyState === WebSocket.OPEN)) {
+      setStatus('Already connected. Disconnect first to host a new session.');
+      return;
+    }
+
+    if (roomIdInput && !roomIdInput.value.trim()) {
+      roomIdInput.value = generateRoomId();
+    }
+    const roomKey = sanitizeRoomJoinKey(roomJoinKeyInput ? roomJoinKeyInput.value : '');
+    if (!roomKey && roomJoinKeyInput) {
+      roomJoinKeyInput.value = generateRoomJoinKey();
+    }
+    updateJoinLink();
+    createRoomBtn.click();
+  };
+}
+
+if (launchpadJoinBtn) {
+  launchpadJoinBtn.onclick = () => {
+    if (joinRoomBtn.disabled || activeRoomId || transportOpen || (ws && ws.readyState === WebSocket.OPEN)) {
+      setStatus('Already connected. Disconnect first to join another session.');
+      return;
+    }
+
+    const roomId = roomIdInput ? roomIdInput.value.trim() : '';
+    if (!roomId) {
+      setStatus('Enter Room ID from invite package');
+      try { if (roomIdInput) roomIdInput.focus(); } catch {}
+      return;
+    }
+
+    const roomKey = sanitizeRoomJoinKey(roomJoinKeyInput ? roomJoinKeyInput.value : '');
+    if (!roomKey) {
+      setStatus('Enter Room Auth Key from invite package');
+      try { if (roomJoinKeyInput) roomJoinKeyInput.focus(); } catch {}
+      return;
+    }
+
+    joinRoomBtn.click();
+  };
+}
+
+if (copyInvitePackageBtn) {
+  copyInvitePackageBtn.onclick = async () => {
+    const text = buildInvitePackageText();
+    if (!text) {
+      setStatus('Create a room first to generate invite package');
+      return;
+    }
+    try {
+      const ok = await copyText(text);
+      setStatus(ok ? 'Invite package copied' : 'Copy failed');
+    } catch {
+      setStatus('Copy failed');
+    }
+  };
+}
+
+if (pasteInvitePackageBtn) {
+  pasteInvitePackageBtn.onclick = async () => {
+    if (!(navigator.clipboard && typeof navigator.clipboard.readText === 'function')) {
+      setStatus('Clipboard read unavailable. Paste package manually.');
+      return;
+    }
+    try {
+      const text = await navigator.clipboard.readText();
+      if (!text || !text.trim()) {
+        setStatus('Clipboard is empty');
+        return;
+      }
+      if (invitePackageInput) invitePackageInput.value = text;
+      setInvitePackageState('Invite package pasted. Apply to continue.', true);
+      setStatus('Invite package pasted');
+    } catch {
+      setStatus('Clipboard read blocked. Paste package manually.');
+    }
+  };
+}
+
+if (applyInvitePackageBtn) {
+  applyInvitePackageBtn.onclick = () => {
+    const raw = invitePackageInput ? String(invitePackageInput.value || '') : '';
+    applyInvitePackage(raw, { join: false });
+  };
+}
+
+if (applyJoinInvitePackageBtn) {
+  applyJoinInvitePackageBtn.onclick = () => {
+    const raw = invitePackageInput ? String(invitePackageInput.value || '') : '';
+    applyInvitePackage(raw, { join: true });
+  };
+}
+
+if (showInviteQrBtn) {
+  showInviteQrBtn.onclick = () => {
+    const payload = getInviteQrPayload();
+    if (!payload) {
+      setStatus('Create a room first to generate invite QR');
+      setQrPairingState('Invite QR unavailable until room + key are set.', false);
+      return;
+    }
+    const ok = renderInviteQr(payload);
+    if (ok) {
+      setStatus('Invite QR ready');
+      return;
+    }
+    setStatus('Failed to render invite QR');
+  };
+}
+
+if (clearInviteQrBtn) {
+  clearInviteQrBtn.onclick = () => {
+    clearInviteQr();
+    setQrPairingState('Invite QR cleared.', null);
+    setStatus('Invite QR cleared');
+  };
+}
+
+if (scanQrImageBtn) {
+  scanQrImageBtn.onclick = () => {
+    if (!scanQrImageInput) {
+      setQrPairingState('QR image picker unavailable.', false);
+      return;
+    }
+    if (!QR_SCAN_SUPPORTED) {
+      setQrPairingState('QR image scan unavailable in this browser.', false);
+      return;
+    }
+    try { scanQrImageInput.click(); } catch {}
+  };
+}
+
+if (scanQrImageInput) {
+  scanQrImageInput.onchange = async () => {
+    const file = scanQrImageInput.files && scanQrImageInput.files[0]
+      ? scanQrImageInput.files[0]
+      : null;
+    try {
+      const ok = await scanQrFromImageFile(file);
+      if (ok) setStatus('QR image scanned');
+      else setStatus('QR image scan failed');
+    } finally {
+      try { scanQrImageInput.value = ''; } catch {}
+    }
+  };
+}
+
+if (startQrCameraBtn) {
+  startQrCameraBtn.onclick = async () => {
+    const ok = await startQrCameraScan();
+    setStatus(ok ? 'Camera scan started' : 'Camera scan unavailable');
+  };
+}
+
+if (stopQrCameraBtn) {
+  stopQrCameraBtn.onclick = () => {
+    stopQrCamera();
+    setStatus('Camera scan stopped');
   };
 }
 
@@ -3209,12 +4750,11 @@ if (clearPassphraseBtn && passphraseInput) {
 
 if (pickReceiveFolderBtn) {
   pickReceiveFolderBtn.onclick = async () => {
-    if (typeof window.showDirectoryPicker !== 'function') {
-      if (!window.isSecureContext) {
-        setStatus('Folder saving requires a secure context (https). Use Ready (Discard) or run dev:secure.');
-      } else {
-        setStatus('This browser does not support streaming receive folders. Use Ready (Discard) to receive without saving.');
-      }
+    // Re-check runtime capabilities at click time (important for tests/polyfills).
+    renderPreflight();
+    const pf = getPreflightState();
+    if (!pf.folderSaveCapable) {
+      setStatus(pf.fix || 'Folder-save unavailable in this environment. Use Ready (Discard).');
       return;
     }
 
@@ -3226,7 +4766,7 @@ if (pickReceiveFolderBtn) {
       }
       receiveDirHandle = dir;
       localReady = true;
-      setReceiveFolderLabel('Receive folder set');
+      syncReceiveDestinationUI();
       sendReadySignal();
       // Locally we are "ready"; peer readiness is separate.
       setStatus('Ready to receive');
@@ -3241,11 +4781,43 @@ if (readyDiscardBtn) {
   readyDiscardBtn.onclick = () => {
     receiveDirHandle = null;
     localReady = true;
-    setReceiveFolderLabel('Ready: discard mode');
+    syncReceiveDestinationUI();
     sendReadySignal();
     setStatus('Ready to receive (discarding)');
   };
 }
+
+if (copyReceiveDestinationBtn) {
+  copyReceiveDestinationBtn.onclick = async () => {
+    const text = getReceiveDestinationCopyText();
+    try {
+      const ok = await copyText(text);
+      setStatus(ok ? 'Receive destination copied' : 'Copy failed');
+    } catch {
+      setStatus('Copy failed');
+    }
+  };
+}
+
+if (openReceiveFolderBtn) {
+  openReceiveFolderBtn.onclick = async () => {
+    const ok = await openReceiveFolderAtCurrentDestination();
+    if (ok) {
+      setStatus('Opened folder picker at receive destination');
+      return;
+    }
+    setStatus('Open folder unavailable');
+  };
+}
+
+if (transferAdvancedDetailsEl) {
+  transferAdvancedDetailsEl.ontoggle = () => {
+    renderStateStrip();
+  };
+}
+
+resetInvitePackageState();
+resetQrPairingUi();
 
 // Initialize send gating + status strip before any user interaction.
 updateSendButton();
@@ -3257,7 +4829,14 @@ if (IS_E2E) {
   const roomId = PARAMS.get('roomId');
   if (roomId) roomIdInput.value = roomId;
 
-  const passphrase = PARAMS.get('passphrase');
+  const roomJoinKey = sanitizeRoomJoinKey(getSecretParam('roomJoinKey', 'joinKey'));
+  if (roomJoinKey && roomJoinKeyInput) {
+    roomJoinKeyInput.value = roomJoinKey;
+    activeRoomJoinKey = roomJoinKey;
+    stripRoomJoinKeyFromUrl();
+  }
+
+  const passphrase = getSecretParam('passphrase');
   if (passphrase && passphraseInput) {
     passphraseInput.value = passphrase;
     onPassphraseChanged();
@@ -3290,6 +4869,9 @@ if (IS_E2E) {
   if (E2E_STATE) {
     // Expose a minimal API for automation only.
     E2E_STATE.restartIce = () => triggerIceRestart('e2e');
+    E2E_STATE.refreshPreflight = () => {
+      try { renderStateStrip(); } catch {}
+    };
     E2E_STATE.getBufferedAmount = () => {
       try {
         const ch = transport && transport.channel ? transport.channel : null;
@@ -3305,6 +4887,22 @@ if (IS_E2E) {
     E2E_STATE.disconnect = () => {
       try { disconnectBtn.click(); } catch {}
     };
+    E2E_STATE.renderInviteQr = () => {
+      try {
+        const payload = getInviteQrPayload();
+        if (!payload) return false;
+        return renderInviteQr(payload);
+      } catch {
+        return false;
+      }
+    };
+    E2E_STATE.applyQrRaw = (raw) => {
+      try {
+        return applyScannedQrRaw(String(raw || ''), 'e2e');
+      } catch {
+        return false;
+      }
+    };
   }
 
   if (E2E_ROLE === 'create') {
@@ -3319,7 +4917,14 @@ if (!IS_E2E) {
   const roomId = PARAMS.get('roomId');
   if (roomId && roomIdInput) roomIdInput.value = roomId;
 
-  const passphrase = PARAMS.get('passphrase');
+  const roomJoinKey = sanitizeRoomJoinKey(getSecretParam('roomJoinKey', 'joinKey'));
+  if (roomJoinKey && roomJoinKeyInput) {
+    roomJoinKeyInput.value = roomJoinKey;
+    activeRoomJoinKey = roomJoinKey;
+    stripRoomJoinKeyFromUrl();
+  }
+
+  const passphrase = getSecretParam('passphrase');
   if (passphrase && passphraseInput) {
     passphraseInput.value = passphrase;
     onPassphraseChanged();
