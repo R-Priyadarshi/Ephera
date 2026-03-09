@@ -9,8 +9,17 @@
 <body>
   <main class="app">
     <header class="header">
-      <h1 class="title">Ephera</h1>
+      <div class="header-top">
+        <h1 class="title">Ephera</h1>
+        <span class="header-badge">Ephemeral Transport Engine</span>
+      </div>
       <p class="subtitle">Zero-memory peer-to-peer transport. No storage. No logs.</p>
+      <div class="header-chips" aria-label="Core guarantees">
+        <span class="header-chip">Direct P2P DataChannel</span>
+        <span class="header-chip">Server used only for signaling</span>
+        <span class="header-chip">No transfer history retention</span>
+        <span class="header-chip">Receiver controls local save</span>
+      </div>
     </header>
 
     <section class="panel" id="room-controls">
@@ -61,33 +70,38 @@
         </details>
         <p class="hint">Invite package includes room ID, room auth key, join link, and passphrase snapshot (if set).</p>
       </div>
-      <div class="row">
-        <input type="text" id="room-id" placeholder="Room ID" autocomplete="off" spellcheck="false">
-        <button id="generate-room-id" type="button">Generate</button>
-        <button id="create-room">Create</button>
-        <button id="join-room">Join</button>
-        <button id="disconnect" disabled>Disconnect</button>
-      </div>
-      <div class="row">
-        <input type="text" id="room-join-key" placeholder="Room Auth Key" autocomplete="off" spellcheck="false">
-        <button id="generate-room-join-key" type="button">Generate Key</button>
-      </div>
-      <p class="hint">Required for joins. Generated in-memory; share via join link or out-of-band.</p>
-      <div class="row">
-        <button id="rotate-room-key" type="button" disabled>Rotate Room Key</button>
-        <button id="close-room" type="button" disabled>Close Room</button>
-        <span id="room-authority" class="hint">Authority: role=none</span>
-      </div>
-      <div class="row">
-        <input type="text" id="join-link" placeholder="Join link" readonly>
-        <button id="copy-join-link" type="button" disabled>Copy Link</button>
-        <button id="share-join-link" type="button" disabled hidden>Share</button>
-      </div>
-      <div class="row">
-        <label class="hint">
-          <input type="checkbox" id="include-ice-link">
-          Include ICE/TURN config in join link (may leak via web server logs)
-        </label>
+      <div class="card connection-manual">
+        <div class="panel-head panel-head-inline">
+          <h3>Manual Session Controls</h3>
+          <span id="room-authority" class="hint">Authority: role=none</span>
+        </div>
+        <div class="row">
+          <input type="text" id="room-id" placeholder="Room ID" autocomplete="off" spellcheck="false">
+          <button id="generate-room-id" type="button">Generate</button>
+          <button id="create-room">Create</button>
+          <button id="join-room">Join</button>
+          <button id="disconnect" disabled>Disconnect</button>
+        </div>
+        <div class="row">
+          <input type="text" id="room-join-key" placeholder="Room Auth Key" autocomplete="off" spellcheck="false">
+          <button id="generate-room-join-key" type="button">Generate Key</button>
+        </div>
+        <p class="hint">Required for joins. Generated in-memory; share via join link or out-of-band.</p>
+        <div class="row">
+          <button id="rotate-room-key" type="button" disabled>Rotate Room Key</button>
+          <button id="close-room" type="button" disabled>Close Room</button>
+        </div>
+        <div class="row">
+          <input type="text" id="join-link" placeholder="Join link" readonly>
+          <button id="copy-join-link" type="button" disabled>Copy Link</button>
+          <button id="share-join-link" type="button" disabled hidden>Share</button>
+        </div>
+        <div class="row">
+          <label class="hint">
+            <input type="checkbox" id="include-ice-link">
+            Include ICE/TURN config in join link (may leak via web server logs)
+          </label>
+        </div>
       </div>
       <details class="details">
         <summary class="hint">Advanced network (ICE/TURN)</summary>
@@ -115,53 +129,61 @@
         <pre id="diagnostics" class="diag"></pre>
         <p class="hint">Shows local connection stats. Nothing is sent anywhere.</p>
       </details>
-      <p id="status" class="status"></p>
-      <div class="state-strip" id="state-strip">
-        <span id="state-signaling" class="state-chip">signaling: offline</span>
-        <span id="state-p2p" class="state-chip">p2p: down</span>
-        <span id="state-ready" class="state-chip">peer: not ready</span>
-        <span id="state-crypto" class="state-chip">crypto: plain</span>
-        <span id="state-owner" class="state-chip">role: none</span>
+      <div class="card runtime-overview">
+        <div class="panel-head panel-head-inline">
+          <h3>Runtime State</h3>
+          <span class="hint">Live, local view</span>
+        </div>
+        <p id="status" class="status"></p>
+        <div class="state-strip" id="state-strip">
+          <span id="state-signaling" class="state-chip">signaling: offline</span>
+          <span id="state-p2p" class="state-chip">p2p: down</span>
+          <span id="state-ready" class="state-chip">peer: not ready</span>
+          <span id="state-crypto" class="state-chip">crypto: plain</span>
+          <span id="state-owner" class="state-chip">role: none</span>
+        </div>
       </div>
-      <div class="preflight card" id="preflight-panel">
-        <div class="preflight-head">
-          <h3>Environment Preflight</h3>
-          <span id="preflight-summary" class="preflight-summary">Checking...</span>
+      <div class="connection-grid">
+        <div class="preflight card" id="preflight-panel">
+          <div class="preflight-head">
+            <h3>Environment Preflight</h3>
+            <span id="preflight-summary" class="preflight-summary">Checking...</span>
+          </div>
+          <div class="preflight-list">
+            <div class="preflight-row">
+              <span class="hint">Secure context (HTTPS)</span>
+              <span id="preflight-secure-state" class="preflight-pill">check</span>
+            </div>
+            <div class="preflight-row">
+              <span class="hint">Folder picker API</span>
+              <span id="preflight-folder-state" class="preflight-pill">check</span>
+            </div>
+            <div class="preflight-row">
+              <span class="hint">WebRTC support</span>
+              <span id="preflight-webrtc-state" class="preflight-pill">check</span>
+            </div>
+            <div class="preflight-row">
+              <span class="hint">Clipboard API</span>
+              <span id="preflight-clipboard-state" class="preflight-pill">check</span>
+            </div>
+          </div>
+          <p id="preflight-fix" class="hint preflight-fix">Checking runtime capabilities...</p>
         </div>
-        <div class="preflight-list">
-          <div class="preflight-row">
-            <span class="hint">Secure context (HTTPS)</span>
-            <span id="preflight-secure-state" class="preflight-pill">check</span>
+        <div class="flow-guide card" id="flow-guide">
+          <div class="flow-guide-head">
+            <h3>Transfer Flow</h3>
+            <p id="flow-current" class="flow-current">Step 1/5: Create or join a room</p>
           </div>
-          <div class="preflight-row">
-            <span class="hint">Folder picker API</span>
-            <span id="preflight-folder-state" class="preflight-pill">check</span>
-          </div>
-          <div class="preflight-row">
-            <span class="hint">WebRTC support</span>
-            <span id="preflight-webrtc-state" class="preflight-pill">check</span>
-          </div>
-          <div class="preflight-row">
-            <span class="hint">Clipboard API</span>
-            <span id="preflight-clipboard-state" class="preflight-pill">check</span>
-          </div>
+          <ol class="flow-list">
+            <li id="flow-step-room" class="flow-step">Create or join room</li>
+            <li id="flow-step-p2p" class="flow-step">Establish P2P channel</li>
+            <li id="flow-step-local-ready" class="flow-step">Peer signals ready</li>
+            <li id="flow-step-peer-ready" class="flow-step">Protocol + crypto verified</li>
+            <li id="flow-step-send" class="flow-step">Choose file and send</li>
+          </ol>
+          <p id="flow-next" class="hint">Next: create or join a room.</p>
+          <p id="role-onboarding-hint" class="hint onboarding-hint">Role hint: create a room to become owner, or join as peer.</p>
         </div>
-        <p id="preflight-fix" class="hint preflight-fix">Checking runtime capabilities...</p>
-      </div>
-      <div class="flow-guide card" id="flow-guide">
-        <div class="flow-guide-head">
-          <h3>Transfer Flow</h3>
-          <p id="flow-current" class="flow-current">Step 1/5: Create or join a room</p>
-        </div>
-        <ol class="flow-list">
-          <li id="flow-step-room" class="flow-step">Create or join room</li>
-          <li id="flow-step-p2p" class="flow-step">Establish P2P channel</li>
-          <li id="flow-step-local-ready" class="flow-step">Peer signals ready</li>
-          <li id="flow-step-peer-ready" class="flow-step">Protocol + crypto verified</li>
-          <li id="flow-step-send" class="flow-step">Choose file and send</li>
-        </ol>
-        <p id="flow-next" class="hint">Next: create or join a room.</p>
-        <p id="role-onboarding-hint" class="hint onboarding-hint">Role hint: create a room to become owner, or join as peer.</p>
       </div>
     </section>
 
@@ -175,6 +197,14 @@
           <span id="transfer-quick-summary" class="quick-summary">Create or join a room to start.</span>
         </div>
         <p class="hint">Primary path: wait for peer ready, choose files, press Send. Expand advanced controls only when needed.</p>
+      </div>
+      <div class="card transfer-contract">
+        <h3>Receive Behavior</h3>
+        <ul class="transfer-contract-list">
+          <li><strong>Pick Receive Folder</strong> means files are saved to that folder on this device.</li>
+          <li><strong>Ready (Discard)</strong> means files are received and verified in memory, then discarded.</li>
+          <li>Ephera does not keep transfer history; local saved files are outside Ephera trust boundary.</li>
+        </ul>
       </div>
 
       <div class="grid">
@@ -192,6 +222,7 @@
               <button id="open-receive-folder" type="button" disabled>Open Folder</button>
             </div>
           </div>
+          <p class="hint">Receive mode is peer-local: sender cannot force save path.</p>
           <p id="peer-state" class="status"></p>
           <p class="hint">Pick a folder to save received files, or signal ready in discard mode to receive without saving.</p>
         </div>
@@ -274,6 +305,7 @@
 
     <footer class="footer">
       <p class="hint">Ephera is transport-only. Any local saving is a user action, outside the trust boundary.</p>
+      <p class="hint">No cloud storage fallback is performed by this app.</p>
     </footer>
   </main>
 
