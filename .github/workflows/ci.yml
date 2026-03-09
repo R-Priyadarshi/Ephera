@@ -122,8 +122,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
-      SIGNALING_STRESS_SUMMARY_PATH: ${{ runner.temp }}/signaling-stress-summary.json
-      SIGNALING_FUZZ_SUMMARY_PATH: ${{ runner.temp }}/signaling-fuzz-summary.json
       SIGNALING_FUZZ_SEED: ${{ github.run_id }}
     steps:
       - name: Checkout
@@ -137,6 +135,11 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Resolve nightly summary paths
+        run: |
+          echo "SIGNALING_STRESS_SUMMARY_PATH=$RUNNER_TEMP/signaling-stress-summary.json" >> "$GITHUB_ENV"
+          echo "SIGNALING_FUZZ_SUMMARY_PATH=$RUNNER_TEMP/signaling-fuzz-summary.json" >> "$GITHUB_ENV"
 
       - name: Run heavy signaling stress profile
         run: npm run test:server:stress-heavy
