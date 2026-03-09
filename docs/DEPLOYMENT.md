@@ -17,6 +17,30 @@ Why TLS matters:
 - Folder-based streaming receive (`showDirectoryPicker`) requires a **secure context**.
 - A secure context usually means `https://...` (or `http://localhost` only).
 
+## Quick Public Staging (No Custom Domain)
+
+You can deploy Ephera to a public `https://` URL without buying a domain first.
+
+This repo includes a Render blueprint:
+
+- `render.yaml`
+
+Render steps:
+
+1. Create a new Render Web Service from this GitHub repo.
+2. Use the blueprint settings from `render.yaml` (`npm ci`, `npm start`, health check `/readyz`).
+3. Wait for Render to issue a public URL like `https://<service>.onrender.com`.
+4. Verify health endpoints:
+   - `GET /healthz` should return `200`.
+   - `GET /readyz` should return `200`.
+5. Run the GitHub Actions `staging-smoke` workflow with that public URL.
+
+Notes:
+
+- Keep `staging_signal_url` empty unless signaling is on a separate host.
+- `localhost` and private LAN addresses (`192.168.x.x`) cannot be reached by GitHub-hosted runners.
+- For production NAT traversal, configure TURN env vars (`TURN_URLS_JSON`, `TURN_AUTH_SECRET`, `TURN_TTL_SECONDS`) before release.
+
 ## Ephera App Server
 
 Run the combined static + signaling server:

@@ -1,100 +1,52 @@
-# Ephera Release Readiness (Local)
+# Ephera Release Readiness
 
-Date: 2026-02-20
-Scope: local release-finalization checkpoint (no remote push)
+Date: 2026-03-09  
+Scope: backend production-readiness checkpoint
 
 ## Summary
 
-Release status: READY (local)
+Release status: IN PROGRESS (not production-complete)
 
-- Engine invariants and freeze docs are present.
-- Automated gates pass end-to-end.
-- Manual QA reported as passed by operator.
-- CI required-check workflow is defined in-repo (`.github/workflows/ci.yml`).
+- Engine invariants/freeze docs are present through Stage 20.
+- Local automated gates are available and passing.
+- GitHub CI required checks are active and green.
+- Manual deploy-targeted gate exists (`staging-smoke`).
 
-## Automated Validation
+## What Is Completed
 
-Latest full gate run:
+- Core transport/signaling architecture and test suites.
+- CI workflow (`.github/workflows/ci.yml`) including required-check aggregation.
+- Deploy-target WebRTC smoke gate (`.github/workflows/staging-smoke.yml`).
+- Deployment guidance for reverse proxy + TURN runtime config.
 
-- Command: `npm run gates`
-- Result: PASS
-- Date: 2026-02-20
-- Includes:
-  - `npm run scan` (zero-memory scan)
-  - `npm test` (client + signaling + app-server tests)
-  - `npm run e2e:perf` (includes 100MB transfer perf gate)
-  - `npm run e2e:soak` (idle stability + repeated connect/disconnect cycles)
-  - Stage 9 reserved-domain regression (`client/test/handshake-domain.test.js`)
-  - Relay runtime required gate path available (`npm run e2e:relay:required` / `npm run gates:relay-local`)
+## Remaining Production Blockers
 
-Latest production smoke run (`npm start` path):
+- Public HTTPS staging deployment must be live.
+- `staging-smoke` must pass against the deployed URL.
+- Production TURN path must be validated in deployed environment.
+- Final manual QA sign-off on deployed UX (create/join/send/cancel/folder-save).
 
-- Date: 2026-02-20
-- Server boot: PASS (`HTTP_OK`)
-- Security headers: PASS (`HTTP_HEADERS_OK`)
-- Same-origin signaling over WS: PASS (`WS_SIGNALING_OK`)
-- Health/readiness/runtime endpoints: PASS (`HEALTH_READY_RUNTIME_OK`)
+## Command Gates (Local)
 
-Notable E2E checks covered:
+- Full local gate:
+  - `npm run gates`
+- Server-only:
+  - `npm run test:server`
+- Fast E2E:
+  - `npm run e2e:fast`
+- Deploy-target smoke:
+  - `STAGING_BASE_URL='https://<public-url>' npm run e2e:staging-smoke`
 
-- passphrase mismatch gate (send remains disabled)
-- signaling restart and crash resilience
-- same-origin app server flow (`npm start` path)
-- secure runtime flow (`dev-secure.js`, HTTPS/WSS, self-signed)
-- join-link auto-join
-- folder-save path (polyfilled picker + saved receipt + byte integrity)
-- sender-close/receiver-cancel abort semantics
-- session collectability/GC checks
-- reserved transferId domain isolation (Stage 9)
-- app-server liveness/readiness/runtime-config endpoints
-- relay-runtime-config scenario covered via dedicated required relay gate path (`npm run e2e:relay:required`)
+## Deploy-Target Gate (GitHub Actions)
 
-Latest relay-required local gate:
+- Workflow: `staging-smoke`
+- Inputs:
+  - `staging_base_url` (required, public HTTPS URL)
+  - `staging_signal_url` (optional, only if signaling host is separate)
 
-- Command: `npm run gates:relay-local`
-- Result: PASS
-- Date: 2026-02-20
-- Includes:
-  - local coturn startup via compose profile
-  - required relay runtime E2E (`npm run e2e:relay:required`)
-  - compose teardown after test completion
+## Current Recommendation
 
-## Manual QA
-
-Operator status: PASS (reported)
-
-Manual checklist intent:
-
-- create/join transfer flow
-- ready/discard flow
-- passphrase match/mismatch behavior
-- cancel/abort behavior
-- folder-save behavior in browser that supports directory picker
-
-## Known Notes
-
-- Browser support caveat: some Brave environments may not expose
-  `showDirectoryPicker`, forcing discard-only mode.
-  Use Chrome/Edge (or enable relevant Brave flag) for real folder-save UX checks.
-- Relay E2E preferred auth mode is dynamic secret:
-  `E2E_TURN_URL`, `E2E_TURN_AUTH_SECRET` (optional `E2E_TURN_TTL_SECONDS`).
-- Static TURN auth remains supported for compatibility:
-  `E2E_TURN_USERNAME`/`E2E_TURN_USER`, `E2E_TURN_CREDENTIAL`/`E2E_TURN_PASS`.
-
-## Governance
-
-Freeze and governance docs:
-
-- `docs/INVARIANTS.md`
-- `docs/GATES.md`
-- `docs/ARCHITECTURE_FREEZE_STAGE_9.0.md`
-- earlier stage freeze docs remain present
-- CI required-check workflow:
-  - `.github/workflows/ci.yml`
-
-## Release Action
-
-This checkpoint is local-only by request.
-
-- Local commit: allowed
-- Push to GitHub: deferred until explicit approval
+1. Bring up public staging (for example via Render blueprint `render.yaml`).
+2. Run `staging-smoke` against that URL.
+3. Close remaining manual QA items.
+4. Then declare backend production-complete and move to frontend productization final pass.

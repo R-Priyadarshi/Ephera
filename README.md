@@ -97,6 +97,11 @@ App-server security default:
 
 See `docs/DEPLOYMENT.md` for reverse proxy examples (and how to disable access logs).
 
+Quick public staging option (no custom domain required):
+
+- Use Render blueprint in `render.yaml` to deploy to `https://<service>.onrender.com`
+- Then run GitHub Actions `staging-smoke` against that URL
+
 Docker (HTTP, recommended behind TLS reverse proxy):
 
 ```bash

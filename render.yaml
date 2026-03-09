@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: ephera
+    runtime: node
+    plan: free
+    buildCommand: npm ci
+    startCommand: npm start
+    autoDeploy: true
+    healthCheckPath: /readyz
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      - key: HOST
+        value: 0.0.0.0
+      - key: ENFORCE_SAME_ORIGIN
+        value: "1"
