@@ -8,6 +8,22 @@
 </head>
 <body>
   <main class="app">
+    <header class="product-bar" aria-label="Ephera product bar">
+      <div class="product-brand">
+        <span class="product-brand-mark" aria-hidden="true">E</span>
+        <div class="product-brand-copy">
+          <p class="product-brand-eyebrow">Zero-memory live transport</p>
+          <strong class="product-brand-title">Ephera</strong>
+        </div>
+      </div>
+      <div class="product-bar-actions">
+        <a class="product-bar-link" href="#landing-principles">Trust Model</a>
+        <a class="product-bar-link" href="#room-controls">Launch</a>
+        <span class="product-bar-chip">Direct P2P</span>
+        <span class="product-bar-chip product-bar-chip-live">No retention</span>
+      </div>
+    </header>
+
     <section class="landing-hero" id="landing">
       <div class="landing-hero-grid">
         <div class="landing-copy">
@@ -182,7 +198,7 @@
       </article>
     </section>
 
-    <section class="workspace-command-deck" aria-label="Live session overview">
+    <section class="workspace-command-deck" id="workspace-command-deck" aria-label="Live session overview">
       <article class="command-card command-card-runtime">
         <p class="command-card-eyebrow">Session Runtime</p>
         <div class="command-card-head">
