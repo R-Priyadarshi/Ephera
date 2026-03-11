@@ -747,6 +747,9 @@ async function run() {
       let perfState = null;
       let stopPerf = null;
       let perfPromise = null;
+      const shortWaitMs = REMOTE_MODE ? 20_000 : 10_000;
+      const mediumWaitMs = REMOTE_MODE ? 30_000 : 20_000;
+      const receiptWaitMs = REMOTE_MODE ? 25_000 : 15_000;
 
       try {
         console.log(`--- E2E (${label}): launching pages ---`);
@@ -754,14 +757,14 @@ async function run() {
         await sender.waitForFunction(
           () => window.__epheraE2E && window.__epheraE2E.signaling === 'room-created',
           null,
-          { timeout: 10_000 }
+          { timeout: shortWaitMs }
         );
 
         await receiver.goto(receiverUrl, { waitUntil: 'domcontentloaded' });
         await receiver.waitForFunction(
           () => window.__epheraE2E && window.__epheraE2E.signaling === 'room-joined',
           null,
-          { timeout: 10_000 }
+          { timeout: shortWaitMs }
         );
 
         if (expectRelayPolicy) {
@@ -770,23 +773,23 @@ async function run() {
             sender.waitForFunction(() => {
               const c = document.getElementById('ice-relay-only');
               return !!(c && c.checked === true);
-            }, null, { timeout: 10_000 }),
+            }, null, { timeout: shortWaitMs }),
             receiver.waitForFunction(() => {
               const c = document.getElementById('ice-relay-only');
               return !!(c && c.checked === true);
-            }, null, { timeout: 10_000 }),
+            }, null, { timeout: shortWaitMs }),
           ]);
         }
 
         console.log(`--- E2E (${label}): waiting for WebRTC transport open ---`);
         await Promise.all([
-          sender.waitForFunction(() => window.__epheraE2E && window.__epheraE2E.transportOpen === true, null, { timeout: 20_000 }),
-          receiver.waitForFunction(() => window.__epheraE2E && window.__epheraE2E.transportOpen === true, null, { timeout: 20_000 }),
+          sender.waitForFunction(() => window.__epheraE2E && window.__epheraE2E.transportOpen === true, null, { timeout: mediumWaitMs }),
+          receiver.waitForFunction(() => window.__epheraE2E && window.__epheraE2E.transportOpen === true, null, { timeout: mediumWaitMs }),
         ]);
         console.log(`--- E2E (${label}): checking preflight contract ---`);
         await Promise.all([
-          sender.waitForFunction(() => window.__epheraE2E && window.__epheraE2E.preflightWebRTC === true, null, { timeout: 10_000 }),
-          receiver.waitForFunction(() => window.__epheraE2E && window.__epheraE2E.preflightWebRTC === true, null, { timeout: 10_000 }),
+          sender.waitForFunction(() => window.__epheraE2E && window.__epheraE2E.preflightWebRTC === true, null, { timeout: shortWaitMs }),
+          receiver.waitForFunction(() => window.__epheraE2E && window.__epheraE2E.preflightWebRTC === true, null, { timeout: shortWaitMs }),
         ]);
         const [senderPreflight, receiverPreflight] = await Promise.all([
           sender.evaluate(() => {
@@ -841,23 +844,23 @@ async function run() {
           sender.waitForFunction(() => {
             const d = document.getElementById('transfer-advanced');
             return !!(d && d.open === false);
-          }, null, { timeout: 10_000 }),
+          }, null, { timeout: shortWaitMs }),
           receiver.waitForFunction(() => {
             const d = document.getElementById('transfer-advanced');
             return !!(d && d.open === false);
-          }, null, { timeout: 10_000 }),
+          }, null, { timeout: shortWaitMs }),
         ]);
         console.log(`--- E2E (${label}): checking role-aware onboarding hints ---`);
         await Promise.all([
           sender.waitForFunction(
             () => window.__epheraE2E && window.__epheraE2E.onboardingRole === 'owner' && String(window.__epheraE2E.onboardingHint || '').toLowerCase().includes('owner hint'),
             null,
-            { timeout: 10_000 }
+            { timeout: shortWaitMs }
           ),
           receiver.waitForFunction(
             () => window.__epheraE2E && window.__epheraE2E.onboardingRole === 'peer' && String(window.__epheraE2E.onboardingHint || '').toLowerCase().includes('peer hint'),
             null,
-            { timeout: 10_000 }
+            { timeout: shortWaitMs }
           ),
         ]);
         console.log(`--- E2E (${label}): checking receive destination default ---`);
@@ -870,12 +873,12 @@ async function run() {
             return modeOk && label.includes('discard mode');
           },
           null,
-          { timeout: 10_000 }
+          { timeout: shortWaitMs }
         );
 
         if (!skipPeerReadyWait) {
           console.log(`--- E2E (${label}): waiting for peer ready ---`);
-          await sender.waitForFunction(() => window.__epheraE2E && window.__epheraE2E.peerReady === true, null, { timeout: 10_000 });
+          await sender.waitForFunction(() => window.__epheraE2E && window.__epheraE2E.peerReady === true, null, { timeout: shortWaitMs });
         }
 
         if (!passphrase && expectAutoPassphrase) {
@@ -894,7 +897,7 @@ async function run() {
           await sender.waitForFunction(
             () => (document.getElementById('crypto-state') || {}).textContent.includes('peer=passphrase'),
             null,
-            { timeout: 10_000 }
+            { timeout: shortWaitMs }
           );
         }
 
@@ -912,7 +915,7 @@ async function run() {
         await sender.waitForFunction(
           () => window.__epheraE2E && window.__epheraE2E.restartCount >= 1 && window.__epheraE2E.restartInFlight === false,
           null,
-          { timeout: 20_000 }
+          { timeout: mediumWaitMs }
         );
 
         if (restartSignaling) {
@@ -927,12 +930,12 @@ async function run() {
             sender.waitForFunction(
               () => window.__epheraE2E && window.__epheraE2E.signalingConnected === false,
               null,
-              { timeout: 10_000 }
+              { timeout: shortWaitMs }
             ),
             receiver.waitForFunction(
               () => window.__epheraE2E && window.__epheraE2E.signalingConnected === false,
               null,
-              { timeout: 10_000 }
+              { timeout: shortWaitMs }
             ),
           ]);
 
@@ -942,12 +945,12 @@ async function run() {
             sender.waitForFunction(
               () => window.__epheraE2E && window.__epheraE2E.signalingConnected === true,
               null,
-              { timeout: 20_000 }
+              { timeout: mediumWaitMs }
             ),
             receiver.waitForFunction(
               () => window.__epheraE2E && window.__epheraE2E.signalingConnected === true,
               null,
-              { timeout: 20_000 }
+              { timeout: mediumWaitMs }
             ),
           ]);
 
@@ -956,7 +959,7 @@ async function run() {
           await sender.waitForFunction(
             () => window.__epheraE2E && window.__epheraE2E.restartCount >= 2 && window.__epheraE2E.restartInFlight === false,
             null,
-            { timeout: 20_000 }
+            { timeout: mediumWaitMs }
           );
         }
 
@@ -976,7 +979,7 @@ async function run() {
           await sender.waitForFunction(
             () => window.__epheraE2E && window.__epheraE2E.flowStep === 5 && window.__epheraE2E.flowReady === false,
             null,
-            { timeout: 10_000 }
+            { timeout: shortWaitMs }
           );
         }
 
@@ -1009,7 +1012,7 @@ async function run() {
               return String(txt).toLowerCase().includes(String(n || ''));
             },
             needle,
-            { timeout: 10_000 }
+            { timeout: shortWaitMs }
           );
         }
         if (expectSelectionSummaryExcludes) {
@@ -1020,7 +1023,7 @@ async function run() {
               return !String(txt).toLowerCase().includes(String(n || ''));
             },
             needle,
-            { timeout: 10_000 }
+            { timeout: shortWaitMs }
           );
         }
 
@@ -1033,12 +1036,12 @@ async function run() {
           await sender.waitForFunction(
             () => window.__epheraE2E && String(window.__epheraE2E.quickSummary || '').toLowerCase().includes('ready to send'),
             null,
-            { timeout: 10_000 }
+            { timeout: shortWaitMs }
           );
           await sender.waitForFunction(
             () => window.__epheraE2E && String(window.__epheraE2E.onboardingHint || '').toLowerCase().includes('ready to send'),
             null,
-            { timeout: 10_000 }
+            { timeout: shortWaitMs }
           );
         }
 
@@ -1056,7 +1059,7 @@ async function run() {
                 return String(txt).toLowerCase().includes(String(n || ''));
               },
               needle,
-              { timeout: 5_000 }
+              { timeout: shortWaitMs }
             );
             const reason = await sender.evaluate(() => (document.getElementById('send-gate-reason') || {}).textContent || '');
             if (!String(reason).toLowerCase().includes(needle)) {
@@ -1067,8 +1070,8 @@ async function run() {
           return;
         }
 
-        await sender.waitForFunction(() => !document.getElementById('send-file').disabled, null, { timeout: 10_000 });
-        console.log(`--- E2E (${label}): send enabled ---`);
+          await sender.waitForFunction(() => !document.getElementById('send-file').disabled, null, { timeout: shortWaitMs });
+          console.log(`--- E2E (${label}): send enabled ---`);
 
         if (perf && perf.enabled) {
           // Force GC so baselines are comparable.
@@ -1146,7 +1149,7 @@ async function run() {
             await sender.waitForFunction(
               () => window.__epheraE2E && window.__epheraE2E.sentBytes > 0 && window.__epheraE2E.sentDoneCount === 0,
               null,
-              { timeout: 5_000 }
+              { timeout: shortWaitMs }
             );
           } catch {}
 
@@ -1294,7 +1297,7 @@ async function run() {
           await sender.waitForFunction(
             (n) => window.__epheraE2E && window.__epheraE2E.deliveredCount >= n,
             expectedCount,
-            { timeout: 15_000 }
+            { timeout: receiptWaitMs }
           );
 
           const s = await sender.evaluate(() => window.__epheraE2E);
