@@ -18,12 +18,14 @@
       </div>
       <div class="product-bar-actions">
         <a class="product-bar-link" href="#landing-principles">Trust Model</a>
-        <a class="product-bar-link" href="#room-controls">Launch</a>
+        <button class="product-bar-link product-bar-button" id="open-dashboard" type="button" data-open-dashboard>Launch Dashboard</button>
+        <button class="product-bar-link product-bar-button" id="return-landing" type="button" data-return-landing hidden>Back to Landing</button>
         <span class="product-bar-chip">Direct P2P</span>
         <span class="product-bar-chip product-bar-chip-live">No retention</span>
       </div>
     </header>
 
+    <section class="landing-shell" id="landing-shell">
     <section class="landing-hero" id="landing">
       <div class="landing-hero-grid">
         <div class="landing-copy">
@@ -33,7 +35,7 @@
             Ephera is not cloud storage. It is a live transport engine that streams encrypted payloads directly between peers and does not preserve transfer history.
           </p>
           <div class="landing-actions">
-            <a class="landing-button landing-button-primary" href="#room-controls">Launch Secure Session</a>
+            <button class="landing-button landing-button-primary" id="hero-open-dashboard" type="button" data-open-dashboard>Launch Dashboard</button>
             <a class="landing-button landing-button-secondary" href="#landing-principles">Explore Trust Model</a>
           </div>
           <div class="landing-metrics" aria-label="Core operating signals">
@@ -116,7 +118,9 @@
         </li>
       </ol>
     </section>
+    </section>
 
+    <section class="dashboard-shell" id="dashboard-shell">
     <header class="header workspace-header">
       <div class="header-top">
         <h2 class="title" id="workspace-title">Engine Console</h2>
@@ -647,6 +651,7 @@
       <p class="hint">Ephera is transport-only. Any local saving is a user action, outside the trust boundary.</p>
       <p class="hint">No cloud storage fallback is performed by this app.</p>
     </footer>
+    </section>
   </main>
 
   <script src="vendor/qrcode-generator.js"></script>

@@ -123,6 +123,28 @@ html {
     radial-gradient(560px 280px at 78% 28%, rgba(173, 79, 44, 0.08), transparent 74%);
 }
 
+.landing-shell,
+.dashboard-shell {
+  display: grid;
+  gap: 18px;
+}
+
+.app-shell-landing .landing-shell {
+  display: grid;
+}
+
+.app-shell-landing .dashboard-shell {
+  display: none;
+}
+
+.app-shell-dashboard .landing-shell {
+  display: none;
+}
+
+.app-shell-dashboard .dashboard-shell {
+  display: grid;
+}
+
 .product-bar {
   position: sticky;
   top: 16px;
@@ -215,6 +237,12 @@ html {
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
+}
+
+.product-bar-button {
+  appearance: none;
+  cursor: pointer;
+  font-family: inherit;
 }
 
 .product-bar-link {
@@ -1208,7 +1236,7 @@ html {
   display: none;
 }
 
-.app-mode-onboarding {
+.app-shell-landing.app-mode-onboarding {
   display: grid;
   grid-template-columns: minmax(430px, 0.84fr) minmax(600px, 1.16fr);
   grid-template-areas:
@@ -1222,18 +1250,18 @@ html {
   min-height: 100vh;
 }
 
-.app-mode-onboarding .product-bar {
+.app-shell-landing.app-mode-onboarding .product-bar {
   grid-area: bar;
 }
 
-.app-mode-onboarding .landing-hero {
+.app-shell-landing.app-mode-onboarding .landing-hero {
   grid-area: hero;
   position: sticky;
   top: 92px;
   min-height: calc(100vh - 138px);
 }
 
-.app-mode-onboarding .landing-principles {
+.app-shell-landing.app-mode-onboarding .landing-principles {
   grid-area: trust;
   margin: 0;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1241,7 +1269,7 @@ html {
   align-self: end;
 }
 
-.app-mode-onboarding .landing-principle {
+.app-shell-landing.app-mode-onboarding .landing-principle {
   min-height: 136px;
   background:
     linear-gradient(145deg, rgba(255, 255, 255, 0.82), rgba(245, 250, 252, 0.52)),
@@ -1250,11 +1278,11 @@ html {
   -webkit-backdrop-filter: blur(16px);
 }
 
-.app-mode-onboarding .landing-flow {
+.app-shell-landing.app-mode-onboarding .landing-flow {
   display: none;
 }
 
-.app-mode-onboarding .workspace-header {
+.app-shell-landing.app-mode-onboarding .workspace-header {
   grid-area: header;
   margin: 0;
   min-height: 0;
@@ -1265,17 +1293,17 @@ html {
   box-shadow: 0 28px 64px rgba(17, 30, 44, 0.14);
 }
 
-.app-mode-onboarding .workspace-header .title {
+.app-shell-landing.app-mode-onboarding .workspace-header .title {
   font-size: clamp(2.8rem, 4vw, 4.25rem);
 }
 
-.app-mode-onboarding .workspace-header .subtitle {
+.app-shell-landing.app-mode-onboarding .workspace-header .subtitle {
   max-width: 58ch;
   font-size: 1.02rem;
   color: rgba(17, 33, 46, 0.74);
 }
 
-.app-mode-onboarding .workspace-header .header-chips {
+.app-shell-landing.app-mode-onboarding .workspace-header .header-chips {
   margin-top: 16px;
 }
 
@@ -1307,7 +1335,7 @@ html {
   gap: 0;
 }
 
-.app-mode-onboarding .footer {
+.app-shell-landing.app-mode-onboarding .footer {
   grid-area: footer;
   margin-top: 0;
   padding-top: 0;
@@ -3071,7 +3099,7 @@ button:disabled {
 }
 
 @media (max-width: 1100px) {
-  .app-mode-onboarding {
+  .app-shell-landing.app-mode-onboarding {
     grid-template-columns: 1fr;
     grid-template-areas:
       "bar"
@@ -3083,13 +3111,13 @@ button:disabled {
     min-height: auto;
   }
 
-  .app-mode-onboarding .landing-hero,
-  .app-mode-onboarding .landing-principles {
+  .app-shell-landing.app-mode-onboarding .landing-hero,
+  .app-shell-landing.app-mode-onboarding .landing-principles {
     position: static;
     min-height: 0;
   }
 
-  .app-mode-onboarding .landing-flow {
+  .app-shell-landing.app-mode-onboarding .landing-flow {
     display: block;
   }
 
@@ -3149,7 +3177,7 @@ button:disabled {
     grid-template-columns: 1fr 1fr;
   }
 
-  .app-mode-onboarding .workspace-header .title {
+  .app-shell-landing.app-mode-onboarding .workspace-header .title {
     font-size: clamp(2.15rem, 10vw, 3rem);
   }
 

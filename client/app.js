@@ -343,7 +343,11 @@ const ICE_POLICY = (() => {
 /* ---------- DOM ---------- */
 
 const appRootEl = document.querySelector('.app');
+const landingShellEl = document.getElementById('landing-shell');
+const dashboardShellEl = document.getElementById('dashboard-shell');
 const landingSectionEls = Array.from(document.querySelectorAll('.landing-hero, .landing-principles, .landing-flow'));
+const openDashboardEls = Array.from(document.querySelectorAll('[data-open-dashboard]'));
+const returnLandingEls = Array.from(document.querySelectorAll('[data-return-landing]'));
 const workspaceHeaderEl = document.querySelector('.workspace-header');
 const workspaceTitleEl = document.getElementById('workspace-title');
 const workspaceBadgeEl = document.getElementById('workspace-badge');
@@ -363,6 +367,18 @@ const phaseNodeOnboardingEl = document.getElementById('phase-node-onboarding');
 const phaseNodeSessionEl = document.getElementById('phase-node-session');
 const phaseNodeChannelEl = document.getElementById('phase-node-channel');
 const phaseNodeCockpitEl = document.getElementById('phase-node-cockpit');
+
+const defaultDashboardView = (() => {
+  if (PARAMS.get('dashboard') === '1') return true;
+  if (PARAMS.get('view') === 'dashboard') return true;
+  if (PARAMS.get('autojoin') === '1') return true;
+  if (String(PARAMS.get('roomId') || '').trim()) return true;
+  try {
+    return !!(navigator && navigator.webdriver);
+  } catch {
+    return false;
+  }
+})();
 
 const roomIdInput = document.getElementById('room-id');
 const generateRoomIdBtn = document.getElementById('generate-room-id');
@@ -2753,6 +2769,55 @@ function applyRoomAuthorityFromMessage(msg) {
   return changed;
 }
 
+let dashboardRequested = defaultDashboardView;
+
+function scrollViewportToTop() {
+  try {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  } catch {
+    try { window.scrollTo(0, 0); } catch {}
+  }
+}
+
+function renderShellView({ inRoom = false, channelLive = false, signalingOpen = false } = {}) {
+  const dashboardVisible = !!(dashboardRequested || inRoom || channelLive || signalingOpen);
+  const landingVisible = !dashboardVisible;
+  const canReturnToLanding = !!(dashboardVisible && !inRoom && !channelLive && !signalingOpen);
+
+  if (appRootEl) {
+    appRootEl.classList.toggle('app-shell-landing', landingVisible);
+    appRootEl.classList.toggle('app-shell-dashboard', dashboardVisible);
+  }
+  if (landingShellEl) landingShellEl.hidden = !landingVisible;
+  if (dashboardShellEl) dashboardShellEl.hidden = !dashboardVisible;
+
+  for (let i = 0; i < returnLandingEls.length; i++) {
+    returnLandingEls[i].hidden = !canReturnToLanding;
+  }
+
+  if (E2E_STATE) {
+    E2E_STATE.shellView = dashboardVisible ? 'dashboard' : 'landing';
+  }
+
+  return dashboardVisible;
+}
+
+function requestDashboardView() {
+  dashboardRequested = true;
+  renderProductMode(getSendGateState());
+  scrollViewportToTop();
+}
+
+function requestLandingView() {
+  const signalingOpen = !!(ws && ws.readyState === WebSocket.OPEN);
+  const inRoom = !!activeRoomId;
+  const channelLive = !!(inRoom && transportOpen);
+  if (inRoom || channelLive || signalingOpen) return;
+  dashboardRequested = false;
+  renderProductMode(getSendGateState());
+  scrollViewportToTop();
+}
+
 function renderProductMode(gate) {
   const g = gate || getSendGateState();
   const signalingOpen = !!(ws && ws.readyState === WebSocket.OPEN);
@@ -2772,7 +2837,8 @@ function renderProductMode(gate) {
   let title = 'Session Onboarding';
   let badge = 'Zero-Retention Launch';
   let subtitle = 'Establish the session boundary first. Host a room or hydrate one from an invite package before the transfer cockpit appears.';
-  let showLanding = !inRoom && !channelLive && !signalingOpen;
+  const showDashboard = renderShellView({ inRoom, channelLive, signalingOpen });
+  let showLanding = !showDashboard;
   let showSide = !!inRoom;
   let showTransfer = channelLive;
   let showNav = channelLive;
@@ -5558,6 +5624,20 @@ if (downloadActivityJsonBtn) {
     const ok = downloadTextFile(filename, `${text}\n`, 'application/json;charset=utf-8');
     setStatus(ok ? `Downloaded ${visible.length} activity line(s) as JSON` : 'Download failed');
   };
+}
+
+for (let i = 0; i < openDashboardEls.length; i++) {
+  openDashboardEls[i].addEventListener('click', (event) => {
+    event.preventDefault();
+    requestDashboardView();
+  });
+}
+
+for (let i = 0; i < returnLandingEls.length; i++) {
+  returnLandingEls[i].addEventListener('click', (event) => {
+    event.preventDefault();
+    requestLandingView();
+  });
 }
 
 function handleFileSelectionChange() {
