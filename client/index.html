@@ -122,119 +122,14 @@
       <a class="console-nav-link" data-console-link href="#activity-timeline">Activity</a>
     </nav>
 
-    <section class="panel" id="room-controls">
-      <div class="panel-head">
-        <h2>Connection</h2>
-      </div>
-      <div class="launchpad card" id="launchpad">
-        <div class="launchpad-head">
-          <h3>Launchpad</h3>
-          <span id="launchpad-state" class="launchpad-state">Idle</span>
+    <section class="workspace-command-deck" aria-label="Live session overview">
+      <article class="command-card command-card-runtime">
+        <p class="command-card-eyebrow">Session Runtime</p>
+        <div class="command-card-head">
+          <h3 class="command-card-title">Live state strip</h3>
+          <span class="command-card-badge">Local only</span>
         </div>
-        <p id="launchpad-hint" class="hint">Start by hosting a secure session or join an existing invite package.</p>
-        <div class="row launchpad-actions">
-          <button id="launchpad-host" type="button">Host Secure Session</button>
-          <button id="launchpad-join" type="button">Join Existing Session</button>
-          <button id="copy-invite-package" type="button" disabled>Copy Invite Package</button>
-        </div>
-        <div class="row">
-          <textarea
-            id="invite-package-input"
-            rows="3"
-            placeholder="Paste invite package text or join link"
-            spellcheck="false"
-          ></textarea>
-        </div>
-        <div class="row launchpad-actions invite-package-actions">
-          <button id="paste-invite-package" type="button">Paste Package</button>
-          <button id="apply-invite-package" type="button">Apply Package</button>
-          <button id="apply-join-invite-package" type="button">Apply + Join</button>
-        </div>
-        <p id="invite-package-state" class="hint">Accepts full invite package text, JSON payload, or join link.</p>
-        <details class="details qr-pairing" id="qr-pairing-panel">
-          <summary class="hint">QR Pairing</summary>
-          <div class="row">
-            <button id="show-invite-qr" type="button">Show Invite QR</button>
-            <button id="clear-invite-qr" type="button" disabled>Clear QR</button>
-            <button id="scan-qr-image" type="button">Scan QR Image</button>
-            <input id="scan-qr-image-input" type="file" accept="image/*" hidden>
-          </div>
-          <div class="row">
-            <button id="start-qr-camera" type="button">Start Camera Scan</button>
-            <button id="stop-qr-camera" type="button" disabled>Stop Camera</button>
-          </div>
-          <canvas id="invite-qr-canvas" class="invite-qr-canvas" hidden></canvas>
-          <video id="qr-camera-preview" class="qr-camera-preview" hidden playsinline muted></video>
-          <p id="qr-pairing-state" class="hint">QR pairing idle.</p>
-          <p class="hint">QR contains invite secrets. Scan only on trusted devices.</p>
-        </details>
-        <p class="hint">Invite package includes room ID, room auth key, join link, and passphrase snapshot (if set).</p>
-      </div>
-      <div class="card connection-manual">
-        <div class="panel-head panel-head-inline">
-          <h3>Manual Session Controls</h3>
-          <span id="room-authority" class="hint">Authority: role=none</span>
-        </div>
-        <div class="row">
-          <input type="text" id="room-id" placeholder="Room ID" autocomplete="off" spellcheck="false">
-          <button id="generate-room-id" type="button">Generate</button>
-          <button id="create-room">Create</button>
-          <button id="join-room">Join</button>
-          <button id="disconnect" disabled>Disconnect</button>
-        </div>
-        <div class="row">
-          <input type="text" id="room-join-key" placeholder="Room Auth Key" autocomplete="off" spellcheck="false">
-          <button id="generate-room-join-key" type="button">Generate Key</button>
-        </div>
-        <p class="hint">Required for joins. Generated in-memory; share via join link or out-of-band.</p>
-        <div class="row">
-          <button id="rotate-room-key" type="button" disabled>Rotate Room Key</button>
-          <button id="close-room" type="button" disabled>Close Room</button>
-        </div>
-        <div class="row">
-          <input type="text" id="join-link" placeholder="Join link" readonly>
-          <button id="copy-join-link" type="button" disabled>Copy Link</button>
-          <button id="share-join-link" type="button" disabled hidden>Share</button>
-        </div>
-        <div class="row">
-          <label class="hint">
-            <input type="checkbox" id="include-ice-link">
-            Include ICE/TURN config in join link (may leak via web server logs)
-          </label>
-        </div>
-      </div>
-      <details class="details">
-        <summary class="hint">Advanced network (ICE/TURN)</summary>
-        <div class="row">
-          <textarea id="ice-servers-json" rows="4" placeholder='ICE servers JSON (optional). Example: [{"urls":"stun:stun.l.google.com:19302"}]' spellcheck="false"></textarea>
-        </div>
-        <div class="row">
-          <label class="hint">
-            <input type="checkbox" id="ice-relay-only">
-            Force TURN relay only (may fail without TURN)
-          </label>
-        </div>
-        <p id="ice-state" class="hint"></p>
-        <p class="hint">If you use TURN credentials, avoid URLs unless necessary. Prefer sharing secrets out-of-band.</p>
-      </details>
-      <details class="details">
-        <summary class="hint">Diagnostics (local only)</summary>
-        <div class="row">
-          <label class="hint">
-            <input type="checkbox" id="enable-diagnostics">
-            Enable
-          </label>
-          <button id="copy-diagnostics" type="button" disabled>Copy</button>
-        </div>
-        <pre id="diagnostics" class="diag"></pre>
-        <p class="hint">Shows local connection stats. Nothing is sent anywhere.</p>
-      </details>
-      <div class="card runtime-overview">
-        <div class="panel-head panel-head-inline">
-          <h3>Runtime State</h3>
-          <span class="hint">Live, local view</span>
-        </div>
-        <p id="status" class="status"></p>
+        <p id="status" class="status command-card-status"></p>
         <div class="state-strip" id="state-strip">
           <span id="state-signaling" class="state-chip">signaling: offline</span>
           <span id="state-p2p" class="state-chip">p2p: down</span>
@@ -242,9 +137,333 @@
           <span id="state-crypto" class="state-chip">crypto: plain</span>
           <span id="state-owner" class="state-chip">role: none</span>
         </div>
+        <p class="hint command-card-copy">This strip reflects signaling, transport, peer readiness, crypto mode, and room authority in real time.</p>
+      </article>
+
+      <article class="command-card command-card-flow">
+        <p class="command-card-eyebrow">Transfer Posture</p>
+        <div class="command-card-head">
+          <h3 class="command-card-title">Operational gate</h3>
+          <span id="transfer-quick-summary" class="quick-summary command-pill">Create or join a room to start.</span>
+        </div>
+        <p id="flow-current" class="flow-current command-card-copy">Step 1/5: Create or join a room</p>
+        <p class="hint command-card-copy">Ephera exposes send controls early, but only opens the transport gate once room, P2P, peer-ready, and crypto verification are all satisfied.</p>
+      </article>
+
+      <article class="command-card command-card-authority">
+        <p class="command-card-eyebrow">Authority Model</p>
+        <div class="command-card-head">
+          <h3 class="command-card-title">Room ownership</h3>
+          <span id="room-authority" class="hint authority-pill">Authority: role=none</span>
+        </div>
+        <p id="role-onboarding-hint" class="hint onboarding-hint">Role hint: create a room to become owner, or join as peer.</p>
+        <p class="hint command-card-copy">Owners mint invite packages and rotate room credentials. Peers authenticate joins with the room auth key and never gain server-side payload access.</p>
+      </article>
+    </section>
+
+    <div class="workspace-layout">
+      <div class="workspace-column workspace-column-main">
+        <section class="panel" id="room-controls">
+          <div class="panel-head section-heading">
+            <div>
+              <h2>Connection</h2>
+              <p class="section-copy">Bring the room online, package the invite, and hold the session boundary before any payload is staged.</p>
+            </div>
+          </div>
+          <div class="connection-layout">
+            <div class="connection-primary">
+              <div class="launchpad card" id="launchpad">
+                <div class="launchpad-head">
+                  <h3>Launchpad</h3>
+                  <span id="launchpad-state" class="launchpad-state">Idle</span>
+                </div>
+                <p id="launchpad-hint" class="hint">Start by hosting a secure session or join an existing invite package.</p>
+                <div class="row launchpad-actions">
+                  <button id="launchpad-host" type="button">Host Secure Session</button>
+                  <button id="launchpad-join" type="button">Join Existing Session</button>
+                  <button id="copy-invite-package" type="button" disabled>Copy Invite Package</button>
+                </div>
+                <div class="row">
+                  <textarea
+                    id="invite-package-input"
+                    rows="3"
+                    placeholder="Paste invite package text or join link"
+                    spellcheck="false"
+                  ></textarea>
+                </div>
+                <div class="row launchpad-actions invite-package-actions">
+                  <button id="paste-invite-package" type="button">Paste Package</button>
+                  <button id="apply-invite-package" type="button">Apply Package</button>
+                  <button id="apply-join-invite-package" type="button">Apply + Join</button>
+                </div>
+                <p id="invite-package-state" class="hint">Accepts full invite package text, JSON payload, or join link.</p>
+                <details class="details qr-pairing" id="qr-pairing-panel">
+                  <summary class="hint">QR Pairing</summary>
+                  <div class="row">
+                    <button id="show-invite-qr" type="button">Show Invite QR</button>
+                    <button id="clear-invite-qr" type="button" disabled>Clear QR</button>
+                    <button id="scan-qr-image" type="button">Scan QR Image</button>
+                    <input id="scan-qr-image-input" type="file" accept="image/*" hidden>
+                  </div>
+                  <div class="row">
+                    <button id="start-qr-camera" type="button">Start Camera Scan</button>
+                    <button id="stop-qr-camera" type="button" disabled>Stop Camera</button>
+                  </div>
+                  <canvas id="invite-qr-canvas" class="invite-qr-canvas" hidden></canvas>
+                  <video id="qr-camera-preview" class="qr-camera-preview" hidden playsinline muted></video>
+                  <p id="qr-pairing-state" class="hint">QR pairing idle.</p>
+                  <p class="hint">QR contains invite secrets. Scan only on trusted devices.</p>
+                </details>
+                <p class="hint">Invite package includes room ID, room auth key, join link, and passphrase snapshot (if set).</p>
+              </div>
+
+              <div class="card connection-manual">
+                <div class="panel-head panel-head-inline">
+                  <h3>Manual Session Controls</h3>
+                </div>
+                <div class="row">
+                  <input type="text" id="room-id" placeholder="Room ID" autocomplete="off" spellcheck="false">
+                  <button id="generate-room-id" type="button">Generate</button>
+                  <button id="create-room">Create</button>
+                  <button id="join-room">Join</button>
+                  <button id="disconnect" disabled>Disconnect</button>
+                </div>
+                <div class="row">
+                  <input type="text" id="room-join-key" placeholder="Room Auth Key" autocomplete="off" spellcheck="false">
+                  <button id="generate-room-join-key" type="button">Generate Key</button>
+                </div>
+                <p class="hint">Required for joins. Generated in-memory; share via join link or out-of-band.</p>
+                <div class="row">
+                  <button id="rotate-room-key" type="button" disabled>Rotate Room Key</button>
+                  <button id="close-room" type="button" disabled>Close Room</button>
+                </div>
+                <div class="row">
+                  <input type="text" id="join-link" placeholder="Join link" readonly>
+                  <button id="copy-join-link" type="button" disabled>Copy Link</button>
+                  <button id="share-join-link" type="button" disabled hidden>Share</button>
+                </div>
+                <div class="row">
+                  <label class="hint">
+                    <input type="checkbox" id="include-ice-link">
+                    Include ICE/TURN config in join link (may leak via web server logs)
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <div class="connection-secondary">
+              <details class="details card connection-detail-card">
+                <summary class="hint">Advanced network (ICE/TURN)</summary>
+                <div class="row">
+                  <textarea id="ice-servers-json" rows="4" placeholder='ICE servers JSON (optional). Example: [{"urls":"stun:stun.l.google.com:19302"}]' spellcheck="false"></textarea>
+                </div>
+                <div class="row">
+                  <label class="hint">
+                    <input type="checkbox" id="ice-relay-only">
+                    Force TURN relay only (may fail without TURN)
+                  </label>
+                </div>
+                <p id="ice-state" class="hint"></p>
+                <p class="hint">If you use TURN credentials, avoid URLs unless necessary. Prefer sharing secrets out-of-band.</p>
+              </details>
+
+              <details class="details card connection-detail-card">
+                <summary class="hint">Diagnostics (local only)</summary>
+                <div class="row">
+                  <label class="hint">
+                    <input type="checkbox" id="enable-diagnostics">
+                    Enable
+                  </label>
+                  <button id="copy-diagnostics" type="button" disabled>Copy</button>
+                </div>
+                <pre id="diagnostics" class="diag"></pre>
+                <p class="hint">Shows local connection stats. Nothing is sent anywhere.</p>
+              </details>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel transfer-shell transfer-shell-locked" id="transfer-controls">
+          <div class="panel-head section-heading">
+            <div>
+              <h2>Transfer Bay</h2>
+              <p class="section-copy">Stage outbound payloads early, arm the receive policy locally, and let the transport gate decide when sending becomes legal.</p>
+            </div>
+          </div>
+          <div class="card transfer-lock-banner" id="transfer-lock-banner">
+            <div class="transfer-lock-head">
+              <h3>Transport gate</h3>
+              <span class="transfer-lock-state" id="transfer-lock-state">Locked</span>
+            </div>
+            <p id="transfer-lock-text" class="transfer-lock-text">Create or join a room to unlock direct transfer controls.</p>
+            <div class="transfer-lock-chips">
+              <span class="transfer-lock-chip">1. Room</span>
+              <span class="transfer-lock-chip">2. P2P channel</span>
+              <span class="transfer-lock-chip">3. Peer ready</span>
+              <span class="transfer-lock-chip">4. Send files</span>
+            </div>
+          </div>
+
+          <div class="grid transfer-grid">
+            <div class="card transfer-action transfer-action-receive" id="receive-card">
+              <div class="transfer-action-head">
+                <div>
+                  <h3>Receive</h3>
+                  <p id="receive-action-copy" class="transfer-action-copy">Choose how this device should handle incoming payloads before the peer starts streaming.</p>
+                </div>
+                <span id="receive-action-state" class="transfer-action-state">Standby</span>
+              </div>
+              <div class="transfer-action-stage">
+                <div class="transfer-action-visual transfer-action-visual-receive" aria-hidden="true">
+                  <span class="transfer-action-core transfer-action-core-a"></span>
+                  <span class="transfer-action-core transfer-action-core-b"></span>
+                  <span class="transfer-action-beam transfer-action-beam-receive"></span>
+                </div>
+                <div class="transfer-action-stage-copy">
+                  <strong id="receive-stage-title" class="transfer-stage-title">Choose local receive policy</strong>
+                  <p id="receive-stage-text" class="transfer-stage-text">Pick a folder to save received files, or switch to discard mode to verify and drop payloads in memory.</p>
+                </div>
+              </div>
+              <div class="row">
+                <button id="pick-receive-folder">Pick Receive Folder</button>
+                <button id="ready-discard" type="button">Ready (Discard)</button>
+                <span id="receive-folder-label" class="hint">No folder selected</span>
+              </div>
+              <div class="receive-destination" id="receive-destination-panel">
+                <p id="receive-destination-state" class="receive-destination-state">Destination: discard mode (not ready)</p>
+                <div class="row">
+                  <button id="copy-receive-destination" type="button">Copy Destination</button>
+                  <button id="open-receive-folder" type="button" disabled>Open Folder</button>
+                </div>
+              </div>
+              <p class="hint">Receive mode is peer-local: sender cannot force save path.</p>
+              <p id="peer-state" class="status"></p>
+              <p class="hint">Pick a folder to save received files, or signal ready in discard mode to receive without saving.</p>
+            </div>
+
+            <div class="card transfer-action transfer-action-send" id="send-card">
+              <div class="transfer-action-head">
+                <div>
+                  <h3>Send Files</h3>
+                  <p id="send-action-copy" class="transfer-action-copy">Sender controls stay visible, but the transport gate remains closed until the live session is fully negotiated.</p>
+                </div>
+                <span id="send-action-state" class="transfer-action-state">Locked</span>
+              </div>
+              <div class="transfer-action-stage">
+                <div class="transfer-action-visual transfer-action-visual-send" aria-hidden="true">
+                  <span class="transfer-action-core transfer-action-core-send"></span>
+                  <span class="transfer-action-orbit transfer-action-orbit-a"></span>
+                  <span class="transfer-action-orbit transfer-action-orbit-b"></span>
+                  <span class="transfer-action-beam transfer-action-beam-send"></span>
+                </div>
+                <div class="transfer-action-stage-copy">
+                  <strong id="send-stage-title" class="transfer-stage-title">Waiting for live room</strong>
+                  <p id="send-stage-text" class="transfer-stage-text">Create or join a room first. Ephera only unlocks transfer after the direct channel and peer-ready signal are present.</p>
+                </div>
+              </div>
+              <div class="send-progress" aria-label="Send unlock progression">
+                <span id="send-chip-room" class="send-progress-chip">room</span>
+                <span id="send-chip-p2p" class="send-progress-chip">p2p</span>
+                <span id="send-chip-peer" class="send-progress-chip">peer ready</span>
+                <span id="send-chip-crypto" class="send-progress-chip">crypto</span>
+              </div>
+              <div
+                id="send-dropzone"
+                class="send-dropzone"
+                tabindex="0"
+                role="button"
+                aria-describedby="send-dropzone-hint"
+              >
+                <strong id="send-dropzone-title" class="send-dropzone-title">Drop files or folders here</strong>
+                <p id="send-dropzone-hint" class="send-dropzone-hint">
+                  Stage payloads directly in the transfer bay. You can drop before the room fully unlocks; Send still stays gated until the session is ready.
+                </p>
+              </div>
+              <div class="row">
+                <input type="file" id="file-input" multiple>
+                <input type="file" id="folder-input" webkitdirectory multiple hidden>
+                <button id="pick-send-folder" type="button">Choose Folder</button>
+                <button id="send-file" disabled>Send</button>
+              </div>
+              <p id="send-selection-summary" class="hint send-selection-summary">No payload selected.</p>
+              <p id="send-gate-reason" class="hint send-gate-reason"></p>
+              <p class="hint">Send is enabled only when the peer signals “ready”. Selected payloads are sent as concurrent transfers.</p>
+            </div>
+          </div>
+
+          <div class="transfer-support-grid">
+            <div class="card transfer-contract">
+              <h3>Receive Behavior</h3>
+              <ul class="transfer-contract-list">
+                <li><strong>Pick Receive Folder</strong> means files are saved to that folder on this device.</li>
+                <li><strong>Ready (Discard)</strong> means files are received and verified in memory, then discarded.</li>
+                <li>Ephera does not keep transfer history; local saved files are outside Ephera trust boundary.</li>
+                <li><strong>Sender path today</strong> supports file batches and folder-file batches. File hierarchy is preserved when relative paths are available; empty directories are not transferred.</li>
+              </ul>
+            </div>
+
+            <details class="details transfer-advanced card" id="transfer-advanced">
+              <summary class="hint">Advanced transfer controls</summary>
+              <div class="transfer-advanced-grid">
+                <div class="card">
+                  <h3>Scheduler</h3>
+                  <div class="row">
+                    <label for="send-weight" class="hint">Priority</label>
+                    <input type="range" id="send-weight" min="1" max="10" value="1">
+                    <span id="send-weight-value" class="hint">1</span>
+                  </div>
+                  <p class="hint">Higher priority gets more early send turns when transfers run concurrently.</p>
+                </div>
+
+                <div class="card">
+                  <h3>Secure Mode (Recommended)</h3>
+                  <div class="row">
+                    <input type="password" id="passphrase" placeholder="Passphrase (recommended)" autocomplete="off" spellcheck="false">
+                    <button id="generate-passphrase" type="button">Generate</button>
+                    <button id="copy-passphrase" type="button">Copy</button>
+                    <button id="share-passphrase" type="button" hidden>Share</button>
+                    <button id="clear-passphrase" type="button">Clear</button>
+                  </div>
+                  <div class="row">
+                    <label class="hint">
+                      <input type="checkbox" id="include-passphrase-link">
+                      Include passphrase in join link (may leak via web server logs)
+                    </label>
+                  </div>
+                  <p id="crypto-state" class="status"></p>
+                  <p class="hint">If set, each payload chunk is encrypted with AES-256-GCM using a key derived from this passphrase. Ephera does not store it.</p>
+                </div>
+              </div>
+            </details>
+          </div>
+
+          <div class="card transfer-stream-card">
+            <div class="panel-head panel-head-inline">
+              <h3>Live Transfers</h3>
+              <span class="hint">Session-local stream view</span>
+            </div>
+            <p class="hint">This list shows active and recently completed transfers for the current page session only.</p>
+            <div id="transfers" class="transfers"></div>
+          </div>
+        </section>
       </div>
-      <div class="connection-grid">
-        <div class="preflight card" id="preflight-panel">
+
+      <aside class="workspace-column workspace-column-side">
+        <section class="panel side-panel" id="flow-guide">
+          <div class="flow-guide-head">
+            <h3>Transfer Flow</h3>
+          </div>
+          <ol class="flow-list">
+            <li id="flow-step-room" class="flow-step">Create or join room</li>
+            <li id="flow-step-p2p" class="flow-step">Establish P2P channel</li>
+            <li id="flow-step-local-ready" class="flow-step">Peer signals ready</li>
+            <li id="flow-step-peer-ready" class="flow-step">Protocol + crypto verified</li>
+            <li id="flow-step-send" class="flow-step">Choose payload and send</li>
+          </ol>
+          <p id="flow-next" class="hint">Next: create or join a room.</p>
+        </section>
+
+        <section class="panel side-panel preflight" id="preflight-panel">
           <div class="preflight-head">
             <h3>Environment Preflight</h3>
             <span id="preflight-summary" class="preflight-summary">Checking...</span>
@@ -268,178 +487,9 @@
             </div>
           </div>
           <p id="preflight-fix" class="hint preflight-fix">Checking runtime capabilities...</p>
-        </div>
-        <div class="flow-guide card" id="flow-guide">
-          <div class="flow-guide-head">
-            <h3>Transfer Flow</h3>
-            <p id="flow-current" class="flow-current">Step 1/5: Create or join a room</p>
-          </div>
-          <ol class="flow-list">
-            <li id="flow-step-room" class="flow-step">Create or join room</li>
-            <li id="flow-step-p2p" class="flow-step">Establish P2P channel</li>
-            <li id="flow-step-local-ready" class="flow-step">Peer signals ready</li>
-            <li id="flow-step-peer-ready" class="flow-step">Protocol + crypto verified</li>
-            <li id="flow-step-send" class="flow-step">Choose payload and send</li>
-          </ol>
-          <p id="flow-next" class="hint">Next: create or join a room.</p>
-          <p id="role-onboarding-hint" class="hint onboarding-hint">Role hint: create a room to become owner, or join as peer.</p>
-        </div>
-      </div>
-    </section>
+        </section>
 
-    <section class="panel transfer-shell transfer-shell-locked" id="transfer-controls">
-      <div class="panel-head">
-        <h2>Transfer</h2>
-      </div>
-      <div class="card transfer-lock-banner" id="transfer-lock-banner">
-        <div class="transfer-lock-head">
-          <h3>Transfer Bay</h3>
-          <span class="transfer-lock-state" id="transfer-lock-state">Locked</span>
-        </div>
-        <p id="transfer-lock-text" class="transfer-lock-text">Create or join a room to unlock direct transfer controls.</p>
-        <div class="transfer-lock-chips">
-          <span class="transfer-lock-chip">1. Room</span>
-          <span class="transfer-lock-chip">2. P2P channel</span>
-          <span class="transfer-lock-chip">3. Peer ready</span>
-          <span class="transfer-lock-chip">4. Send files</span>
-        </div>
-      </div>
-      <div class="card quick-transfer">
-        <div class="panel-head panel-head-inline">
-          <h3>Quick Mode</h3>
-          <span id="transfer-quick-summary" class="quick-summary">Create or join a room to start.</span>
-        </div>
-        <p class="hint">Primary path: wait for peer ready, choose payloads, press Send. Expand advanced controls only when needed.</p>
-      </div>
-      <div class="card transfer-contract">
-        <h3>Receive Behavior</h3>
-        <ul class="transfer-contract-list">
-          <li><strong>Pick Receive Folder</strong> means files are saved to that folder on this device.</li>
-          <li><strong>Ready (Discard)</strong> means files are received and verified in memory, then discarded.</li>
-          <li>Ephera does not keep transfer history; local saved files are outside Ephera trust boundary.</li>
-          <li><strong>Sender path today</strong> supports file batches and folder-file batches. File hierarchy is preserved when relative paths are available; empty directories are not transferred.</li>
-        </ul>
-      </div>
-
-      <div class="grid transfer-grid">
-        <div class="card transfer-action transfer-action-receive" id="receive-card">
-          <div class="transfer-action-head">
-            <div>
-              <h3>Receive</h3>
-              <p id="receive-action-copy" class="transfer-action-copy">Choose how this device should handle incoming payloads before the peer starts streaming.</p>
-            </div>
-            <span id="receive-action-state" class="transfer-action-state">Standby</span>
-          </div>
-          <div class="transfer-action-stage">
-            <div class="transfer-action-visual transfer-action-visual-receive" aria-hidden="true">
-              <span class="transfer-action-core transfer-action-core-a"></span>
-              <span class="transfer-action-core transfer-action-core-b"></span>
-              <span class="transfer-action-beam transfer-action-beam-receive"></span>
-            </div>
-            <div class="transfer-action-stage-copy">
-              <strong id="receive-stage-title" class="transfer-stage-title">Choose local receive policy</strong>
-              <p id="receive-stage-text" class="transfer-stage-text">Pick a folder to save received files, or switch to discard mode to verify and drop payloads in memory.</p>
-            </div>
-          </div>
-          <div class="row">
-            <button id="pick-receive-folder">Pick Receive Folder</button>
-            <button id="ready-discard" type="button">Ready (Discard)</button>
-            <span id="receive-folder-label" class="hint">No folder selected</span>
-          </div>
-          <div class="receive-destination" id="receive-destination-panel">
-            <p id="receive-destination-state" class="receive-destination-state">Destination: discard mode (not ready)</p>
-            <div class="row">
-              <button id="copy-receive-destination" type="button">Copy Destination</button>
-              <button id="open-receive-folder" type="button" disabled>Open Folder</button>
-            </div>
-          </div>
-          <p class="hint">Receive mode is peer-local: sender cannot force save path.</p>
-          <p id="peer-state" class="status"></p>
-          <p class="hint">Pick a folder to save received files, or signal ready in discard mode to receive without saving.</p>
-        </div>
-
-        <div class="card transfer-action transfer-action-send" id="send-card">
-          <div class="transfer-action-head">
-            <div>
-              <h3>Send Files</h3>
-              <p id="send-action-copy" class="transfer-action-copy">Sender controls stay visible, but the transport gate remains closed until the live session is fully negotiated.</p>
-            </div>
-            <span id="send-action-state" class="transfer-action-state">Locked</span>
-          </div>
-          <div class="transfer-action-stage">
-            <div class="transfer-action-visual transfer-action-visual-send" aria-hidden="true">
-              <span class="transfer-action-core transfer-action-core-send"></span>
-              <span class="transfer-action-orbit transfer-action-orbit-a"></span>
-              <span class="transfer-action-orbit transfer-action-orbit-b"></span>
-              <span class="transfer-action-beam transfer-action-beam-send"></span>
-            </div>
-            <div class="transfer-action-stage-copy">
-              <strong id="send-stage-title" class="transfer-stage-title">Waiting for live room</strong>
-              <p id="send-stage-text" class="transfer-stage-text">Create or join a room first. Ephera only unlocks transfer after the direct channel and peer-ready signal are present.</p>
-            </div>
-          </div>
-          <div class="send-progress" aria-label="Send unlock progression">
-            <span id="send-chip-room" class="send-progress-chip">room</span>
-            <span id="send-chip-p2p" class="send-progress-chip">p2p</span>
-            <span id="send-chip-peer" class="send-progress-chip">peer ready</span>
-            <span id="send-chip-crypto" class="send-progress-chip">crypto</span>
-          </div>
-          <div
-            id="send-dropzone"
-            class="send-dropzone"
-            tabindex="0"
-            role="button"
-            aria-describedby="send-dropzone-hint"
-          >
-            <strong id="send-dropzone-title" class="send-dropzone-title">Drop files or folders here</strong>
-            <p id="send-dropzone-hint" class="send-dropzone-hint">
-              Stage payloads directly in the transfer bay. You can drop before the room fully unlocks; Send still stays gated until the session is ready.
-            </p>
-          </div>
-          <div class="row">
-            <input type="file" id="file-input" multiple>
-            <input type="file" id="folder-input" webkitdirectory multiple hidden>
-            <button id="pick-send-folder" type="button">Choose Folder</button>
-            <button id="send-file" disabled>Send</button>
-          </div>
-          <p id="send-selection-summary" class="hint send-selection-summary">No payload selected.</p>
-          <p id="send-gate-reason" class="hint send-gate-reason"></p>
-          <p class="hint">Send is enabled only when the peer signals “ready”. Selected payloads are sent as concurrent transfers.</p>
-        </div>
-      </div>
-
-      <details class="details transfer-advanced" id="transfer-advanced">
-        <summary class="hint">Advanced transfer controls</summary>
-        <div class="card">
-          <h3>Scheduler</h3>
-          <div class="row">
-            <label for="send-weight" class="hint">Priority</label>
-            <input type="range" id="send-weight" min="1" max="10" value="1">
-            <span id="send-weight-value" class="hint">1</span>
-          </div>
-          <p class="hint">Higher priority gets more early send turns when transfers run concurrently.</p>
-        </div>
-
-        <div class="card">
-          <h3>Secure Mode (Recommended)</h3>
-          <div class="row">
-            <input type="password" id="passphrase" placeholder="Passphrase (recommended)" autocomplete="off" spellcheck="false">
-            <button id="generate-passphrase" type="button">Generate</button>
-            <button id="copy-passphrase" type="button">Copy</button>
-            <button id="share-passphrase" type="button" hidden>Share</button>
-            <button id="clear-passphrase" type="button">Clear</button>
-          </div>
-          <div class="row">
-            <label class="hint">
-              <input type="checkbox" id="include-passphrase-link">
-              Include passphrase in join link (may leak via web server logs)
-            </label>
-          </div>
-          <p id="crypto-state" class="status"></p>
-          <p class="hint">If set, each payload chunk is encrypted with AES-256-GCM using a key derived from this passphrase. Ephera does not store it.</p>
-        </div>
-
-        <div class="card">
+        <section class="panel side-panel">
           <div class="panel-head panel-head-inline">
             <h3>Transfer Ledger</h3>
             <button id="clear-transfer-ledger" type="button">Clear</button>
@@ -451,9 +501,9 @@
             <span id="transfer-ledger-attention-count" class="ledger-summary-chip">attention 0</span>
           </div>
           <div id="transfer-ledger-list" class="transfer-ledger"></div>
-        </div>
+        </section>
 
-        <div class="card">
+        <section class="panel side-panel">
           <div class="panel-head panel-head-inline">
             <h3>Activity Timeline</h3>
             <button id="clear-activity" type="button">Clear</button>
@@ -478,14 +528,9 @@
             </div>
           </div>
           <div id="activity-timeline" class="activity"></div>
-        </div>
-      </details>
-
-      <div class="card">
-        <h3>Transfers</h3>
-        <div id="transfers" class="transfers"></div>
-      </div>
-    </section>
+        </section>
+      </aside>
+    </div>
 
     <footer class="footer">
       <p class="hint">Ephera is transport-only. Any local saving is a user action, outside the trust boundary.</p>

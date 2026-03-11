@@ -93,7 +93,7 @@ html {
 .app {
   position: relative;
   z-index: 1;
-  max-width: 1160px;
+  max-width: 1280px;
   margin: 0 auto;
   padding: 34px 20px 48px;
   animation: app-enter 560ms ease-out both;
@@ -569,6 +569,173 @@ html {
   background: rgba(21, 111, 131, 0.1);
 }
 
+.workspace-command-deck {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0 0 16px;
+}
+
+.command-card {
+  position: relative;
+  overflow: hidden;
+  padding: 18px;
+  border-radius: 24px;
+  border: 1px solid rgba(27, 27, 36, 0.14);
+  box-shadow: 0 18px 42px rgba(17, 30, 44, 0.1);
+}
+
+.command-card::after {
+  content: "";
+  position: absolute;
+  inset: auto -72px -84px auto;
+  width: 210px;
+  height: 210px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.14), transparent 68%);
+  pointer-events: none;
+}
+
+.command-card-runtime {
+  background:
+    radial-gradient(circle at 8% 0%, rgba(126, 215, 232, 0.18), transparent 42%),
+    linear-gradient(155deg, rgba(13, 49, 66, 0.96), rgba(19, 74, 98, 0.9));
+  color: rgba(245, 251, 255, 0.94);
+}
+
+.command-card-flow {
+  background:
+    radial-gradient(circle at 100% 0%, rgba(173, 79, 44, 0.18), transparent 40%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.94), rgba(251, 245, 237, 0.88));
+}
+
+.command-card-authority {
+  background:
+    radial-gradient(circle at 100% 0%, rgba(21, 111, 131, 0.14), transparent 42%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.94), rgba(246, 239, 229, 0.92));
+}
+
+.command-card-eyebrow {
+  margin: 0 0 8px;
+  font-size: 0.69rem;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  opacity: 0.8;
+}
+
+.command-card-runtime .command-card-eyebrow {
+  color: rgba(196, 232, 243, 0.8);
+}
+
+.command-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.command-card-title {
+  margin: 0;
+  font-size: 1.08rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.command-card-badge,
+.command-pill,
+.authority-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(27, 27, 36, 0.14);
+  background: rgba(255, 255, 255, 0.1);
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.command-card-runtime .command-card-badge {
+  border-color: rgba(171, 214, 230, 0.22);
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(223, 242, 250, 0.86);
+}
+
+.command-pill {
+  background: rgba(17, 79, 105, 0.08);
+  color: rgba(27, 27, 36, 0.76);
+}
+
+.quick-summary-ok.command-pill {
+  border-color: rgba(21, 111, 131, 0.28);
+  background: rgba(21, 111, 131, 0.12);
+}
+
+.quick-summary-warn.command-pill {
+  border-color: rgba(173, 79, 44, 0.28);
+  background: rgba(173, 79, 44, 0.12);
+}
+
+.authority-pill {
+  border-color: rgba(21, 111, 131, 0.2);
+  background: rgba(21, 111, 131, 0.08);
+  color: rgba(12, 88, 102, 0.92);
+}
+
+.command-card-status {
+  margin-top: 14px;
+  color: rgba(236, 247, 252, 0.84);
+}
+
+.command-card-copy {
+  margin: 12px 0 0;
+}
+
+.command-card-runtime .command-card-copy,
+.command-card-runtime .status,
+.command-card-runtime .hint,
+.command-card-runtime .flow-current {
+  color: rgba(218, 235, 242, 0.78);
+}
+
+.command-card-runtime .state-chip {
+  border-color: rgba(171, 214, 230, 0.22);
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(232, 247, 253, 0.9);
+}
+
+.command-card-runtime .state-chip-ok {
+  border-color: rgba(126, 215, 232, 0.32);
+  background: rgba(126, 215, 232, 0.14);
+  color: rgba(232, 247, 253, 0.98);
+}
+
+.command-card-runtime .state-chip-warn {
+  border-color: rgba(255, 210, 185, 0.3);
+  background: rgba(173, 79, 44, 0.18);
+  color: rgba(255, 233, 221, 0.96);
+}
+
+.workspace-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.42fr) minmax(320px, 0.9fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.workspace-column {
+  display: grid;
+  gap: 16px;
+}
+
+.workspace-column .panel {
+  margin: 0;
+}
+
 .header-top {
   display: flex;
   align-items: center;
@@ -645,8 +812,28 @@ html {
   animation: panel-reveal 380ms ease-out both;
 }
 
+.section-heading {
+  align-items: flex-start;
+}
+
+.section-heading h2 {
+  margin: 0;
+}
+
+.section-copy {
+  margin: 8px 0 0;
+  max-width: 64ch;
+  color: rgba(27, 27, 36, 0.76);
+  font-size: 0.94rem;
+  line-height: 1.55;
+}
+
 .transfer-shell {
   position: relative;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(173, 79, 44, 0.11), transparent 32%),
+    linear-gradient(160deg, rgba(255, 255, 255, 0.93), rgba(255, 249, 243, 0.84)),
+    var(--panel);
 }
 
 .transfer-shell-locked .transfers {
@@ -719,8 +906,21 @@ html {
   background: rgba(21, 111, 131, 0.12);
 }
 
+.transfer-lock-banner-ready {
+  border-color: rgba(21, 111, 131, 0.3);
+  box-shadow: 0 16px 34px rgba(17, 30, 44, 0.08);
+}
+
 .transfer-grid {
   align-items: stretch;
+}
+
+.transfer-support-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+  gap: 12px;
+  margin-top: 12px;
+  align-items: start;
 }
 
 .transfer-action {
@@ -1026,7 +1226,7 @@ html {
   background:
     linear-gradient(145deg, rgba(21, 111, 131, 0.12), rgba(255, 255, 255, 0.9)),
     var(--panel-strong);
-  box-shadow: 0 10px 28px rgba(17, 30, 44, 0.09);
+  box-shadow: 0 16px 34px rgba(17, 30, 44, 0.1);
 }
 
 .transfer-action-ready .transfer-action-state {
@@ -1134,6 +1334,30 @@ h3 {
 .connection-manual,
 .runtime-overview {
   margin-bottom: 12px;
+}
+
+.connection-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(260px, 0.78fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.connection-primary,
+.connection-secondary {
+  display: grid;
+  gap: 12px;
+}
+
+.connection-secondary {
+  align-content: start;
+}
+
+.connection-detail-card {
+  margin-top: 0;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.92), rgba(248, 242, 232, 0.88)),
+    var(--panel-strong);
 }
 
 #invite-package-state,
@@ -1308,7 +1532,10 @@ button:disabled {
 }
 
 .transfer-contract {
-  margin-bottom: 12px;
+  margin-bottom: 0;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.92), rgba(248, 242, 232, 0.88)),
+    var(--panel-strong);
 }
 
 .transfer-contract-list {
@@ -1503,6 +1730,32 @@ button:disabled {
   margin-top: 10px;
 }
 
+.transfer-advanced {
+  margin: 0;
+  background:
+    linear-gradient(145deg, rgba(17, 79, 105, 0.08), rgba(255, 255, 255, 0.94)),
+    var(--panel-strong);
+}
+
+.transfer-advanced > summary {
+  list-style: none;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: rgba(12, 88, 102, 0.92);
+}
+
+.transfer-advanced > summary::-webkit-details-marker {
+  display: none;
+}
+
+.transfer-advanced-grid {
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
+}
+
 .details > summary {
   cursor: pointer;
   user-select: none;
@@ -1512,21 +1765,8 @@ button:disabled {
   margin-bottom: 12px;
 }
 
-.transfer-advanced {
-  margin: 10px 0 14px;
-}
-
-.transfer-advanced > summary {
-  padding: 8px 2px;
-  color: var(--ink-soft);
-}
-
 .transfer-advanced[open] > summary {
   color: rgba(12, 88, 102, 0.95);
-}
-
-.transfer-advanced > .card {
-  margin-top: 10px;
 }
 
 .onboarding-hint,
@@ -1572,11 +1812,21 @@ button:disabled {
   margin-top: 10px;
 }
 
+.transfer-stream-card {
+  margin-top: 12px;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.94), rgba(244, 237, 227, 0.86)),
+    var(--panel-strong);
+}
+
 .transfer-ledger {
   display: flex;
   flex-direction: column;
   gap: 10px;
   margin-top: 10px;
+  max-height: 360px;
+  overflow: auto;
+  padding-right: 2px;
 }
 
 .transfer-ledger-empty {
@@ -1771,6 +2021,10 @@ button:disabled {
   padding-right: 2px;
 }
 
+.side-panel {
+  padding: 16px;
+}
+
 .activity-controls {
   display: flex;
   flex-direction: column;
@@ -1940,6 +2194,20 @@ button:disabled {
   padding: 10px 2px;
 }
 
+@media (max-width: 1100px) {
+  .workspace-command-deck {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .workspace-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .workspace-column-side {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
 @media (max-width: 860px) {
   .app {
     padding: 24px 14px 36px;
@@ -1965,6 +2233,13 @@ button:disabled {
     grid-template-columns: 1fr 1fr;
   }
 
+  .workspace-command-deck,
+  .workspace-column-side,
+  .connection-layout,
+  .transfer-support-grid {
+    grid-template-columns: 1fr;
+  }
+
   .console-nav {
     border-radius: 18px;
     top: 8px;
@@ -1981,6 +2256,10 @@ button:disabled {
   .header-badge {
     width: 100%;
     text-align: center;
+  }
+
+  .command-card {
+    padding: 16px;
   }
 
   .transfer-action-stage {
@@ -2004,6 +2283,10 @@ button:disabled {
 @media (max-width: 560px) {
   .landing-principles {
     grid-template-columns: 1fr;
+  }
+
+  .workspace-command-deck {
+    gap: 10px;
   }
 
   .console-nav {
@@ -2034,6 +2317,12 @@ button:disabled {
     align-items: flex-start;
   }
 
+  .command-card-head,
+  .panel-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
   .transfer-action-state {
     align-self: flex-start;
   }
@@ -2058,7 +2347,8 @@ button:disabled {
   .launchpad-actions button,
   .invite-package-actions button,
   .activity-controls .row button,
-  .receive-destination .row button {
+  .receive-destination .row button,
+  .connection-detail-card .row button {
     width: auto;
   }
 
