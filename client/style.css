@@ -99,6 +99,30 @@ html {
   animation: app-enter 560ms ease-out both;
 }
 
+.app::before,
+.app::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: -1;
+}
+
+.app::before {
+  background:
+    linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.06) 48%, transparent 100%),
+    linear-gradient(transparent 0%, rgba(255, 255, 255, 0.03) 48%, transparent 100%);
+  background-size: 180px 180px;
+  opacity: 0.26;
+  mask-image: radial-gradient(circle at center, black 25%, transparent 85%);
+}
+
+.app::after {
+  background:
+    radial-gradient(700px 320px at 22% 16%, rgba(21, 111, 131, 0.08), transparent 72%),
+    radial-gradient(560px 280px at 78% 28%, rgba(173, 79, 44, 0.08), transparent 74%);
+}
+
 .landing-hero,
 .landing-principles,
 .landing-flow {
@@ -531,6 +555,30 @@ html {
     box-shadow 220ms ease,
     border-color 220ms ease,
     background 220ms ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.workspace-header::before {
+  content: "";
+  position: absolute;
+  left: 22px;
+  right: 22px;
+  top: 0;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(21, 111, 131, 0), rgba(21, 111, 131, 0.36), rgba(173, 79, 44, 0.28), rgba(173, 79, 44, 0));
+}
+
+.workspace-header::after {
+  content: "";
+  position: absolute;
+  width: 240px;
+  height: 240px;
+  right: -92px;
+  top: -126px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(21, 111, 131, 0.12), transparent 72%);
+  pointer-events: none;
 }
 
 .workspace-header-negotiation {
@@ -564,6 +612,10 @@ html {
   background: rgba(255, 252, 247, 0.74);
   box-shadow: 0 10px 26px rgba(17, 30, 44, 0.08);
   backdrop-filter: blur(12px);
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease,
+    background 180ms ease;
 }
 
 .console-nav-link {
@@ -596,6 +648,7 @@ html {
   grid-template-columns: minmax(0, 1.24fr) minmax(0, 1fr);
   gap: 14px;
   margin: 0 0 16px;
+  align-items: stretch;
 }
 
 .spotlight-card {
@@ -608,6 +661,22 @@ html {
   background:
     linear-gradient(152deg, rgba(255, 255, 255, 0.93), rgba(250, 244, 235, 0.82)),
     var(--panel);
+  transition:
+    transform 220ms ease,
+    box-shadow 220ms ease,
+    border-color 220ms ease,
+    background 220ms ease;
+}
+
+.spotlight-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(130deg, rgba(255, 255, 255, 0.22), transparent 42%),
+    radial-gradient(circle at 18% 22%, rgba(255, 255, 255, 0.42), transparent 22%);
+  opacity: 0.9;
+  pointer-events: none;
 }
 
 .spotlight-card::after {
@@ -619,6 +688,11 @@ html {
   border-radius: 50%;
   background: radial-gradient(circle, rgba(21, 111, 131, 0.1), transparent 72%);
   pointer-events: none;
+}
+
+.spotlight-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 24px 56px rgba(17, 30, 44, 0.13);
 }
 
 .spotlight-card-phase {
@@ -709,6 +783,7 @@ html {
     border-color 140ms ease,
     background 140ms ease,
     box-shadow 140ms ease;
+  isolation: isolate;
 }
 
 .phase-node-index {
@@ -730,6 +805,15 @@ html {
   border-color: rgba(21, 111, 131, 0.28);
   background: rgba(21, 111, 131, 0.12);
   box-shadow: 0 12px 28px rgba(17, 30, 44, 0.08);
+}
+
+.phase-node-active::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(120deg, rgba(255, 255, 255, 0.16), transparent 60%);
+  pointer-events: none;
 }
 
 .phase-node-active .phase-node-index,
@@ -805,6 +889,25 @@ html {
   border-radius: 24px;
   border: 1px solid rgba(27, 27, 36, 0.14);
   box-shadow: 0 18px 42px rgba(17, 30, 44, 0.1);
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease,
+    border-color 180ms ease;
+}
+
+.command-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 22px 48px rgba(17, 30, 44, 0.13);
+}
+
+.command-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(125deg, rgba(255, 255, 255, 0.16), transparent 36%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent 22%);
+  pointer-events: none;
 }
 
 .command-card::after {
@@ -948,6 +1051,18 @@ html {
   gap: 16px;
   align-items: start;
   transition: grid-template-columns 220ms ease;
+  position: relative;
+}
+
+.workspace-layout::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: calc(320px + 8px);
+  width: 1px;
+  background: linear-gradient(180deg, rgba(21, 111, 131, 0), rgba(21, 111, 131, 0.12), rgba(173, 79, 44, 0.12), rgba(173, 79, 44, 0));
+  pointer-events: none;
 }
 
 .workspace-column {
@@ -967,6 +1082,10 @@ html {
   grid-template-columns: minmax(0, 1fr);
   max-width: 960px;
   margin: 0 auto;
+}
+
+.app-mode-onboarding .workspace-layout::before {
+  display: none;
 }
 
 .app-mode-onboarding #room-controls {
@@ -1001,6 +1120,17 @@ html {
 
 .app-mode-cockpit .workspace-spotlight {
   grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+}
+
+.app-mode-cockpit .console-nav {
+  background: rgba(244, 252, 255, 0.82);
+  box-shadow: 0 14px 32px rgba(17, 30, 44, 0.11);
+}
+
+.app-mode-cockpit .workspace-column-side .panel {
+  background:
+    linear-gradient(160deg, rgba(251, 254, 255, 0.94), rgba(248, 242, 233, 0.8)),
+    var(--panel);
 }
 
 .header-top {
@@ -1077,6 +1207,16 @@ html {
   margin: 16px 0;
   backdrop-filter: blur(8px);
   animation: panel-reveal 380ms ease-out both;
+  position: relative;
+  overflow: hidden;
+}
+
+.panel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(130deg, rgba(255, 255, 255, 0.14), transparent 38%);
+  pointer-events: none;
 }
 
 .section-heading {
@@ -1101,6 +1241,19 @@ html {
     radial-gradient(circle at 100% 0%, rgba(173, 79, 44, 0.11), transparent 32%),
     linear-gradient(160deg, rgba(255, 255, 255, 0.93), rgba(255, 249, 243, 0.84)),
     var(--panel);
+  isolation: isolate;
+}
+
+.transfer-shell::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg, transparent 0%, rgba(21, 111, 131, 0.04) 48%, transparent 100%);
+  background-size: 160px 160px;
+  opacity: 0.34;
+  pointer-events: none;
+  mask-image: linear-gradient(180deg, black 0%, black 74%, transparent 100%);
 }
 
 .transfer-shell-locked .transfers {
@@ -1113,6 +1266,7 @@ html {
   background:
     linear-gradient(145deg, rgba(173, 79, 44, 0.08), rgba(255, 255, 255, 0.88)),
     var(--panel-strong);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3);
 }
 
 .transfer-lock-head {
@@ -1201,6 +1355,7 @@ html {
     border-color 180ms ease,
     box-shadow 180ms ease,
     background 180ms ease;
+  min-height: 100%;
 }
 
 .transfer-action::after {
@@ -1214,6 +1369,11 @@ html {
   background: radial-gradient(circle, rgba(21, 111, 131, 0.12), transparent 72%);
   pointer-events: none;
   opacity: 0.72;
+}
+
+.transfer-action:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 20px 46px rgba(17, 30, 44, 0.12);
 }
 
 .transfer-action-receive::after {
@@ -1264,6 +1424,7 @@ html {
   border: 1px solid rgba(27, 27, 36, 0.12);
   background:
     linear-gradient(145deg, rgba(255, 255, 255, 0.82), rgba(248, 242, 233, 0.82));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.34);
 }
 
 .transfer-action-visual {
@@ -1408,12 +1569,25 @@ html {
     background 160ms ease,
     box-shadow 160ms ease,
     transform 160ms ease;
+  position: relative;
+  overflow: hidden;
 }
 
 .send-dropzone:hover {
   transform: translateY(-1px);
   border-color: rgba(21, 111, 131, 0.28);
   box-shadow: 0 8px 18px rgba(17, 30, 44, 0.08);
+}
+
+.send-dropzone::after {
+  content: "";
+  position: absolute;
+  inset: auto -40px -52px auto;
+  width: 150px;
+  height: 150px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(21, 111, 131, 0.12), transparent 72%);
+  pointer-events: none;
 }
 
 .send-dropzone:focus-visible {
@@ -1591,6 +1765,7 @@ h3 {
   background:
     linear-gradient(152deg, rgba(21, 111, 131, 0.13), rgba(21, 111, 131, 0.04)),
     var(--panel-strong);
+  box-shadow: 0 20px 48px rgba(17, 30, 44, 0.1);
 }
 
 .launchpad-head {
@@ -1620,6 +1795,17 @@ h3 {
     linear-gradient(145deg, rgba(255, 255, 255, 0.88), rgba(249, 243, 234, 0.82)),
     rgba(255, 255, 255, 0.74);
   padding: 14px;
+  transition:
+    transform 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.launchpad-mode:hover,
+.invite-workbench:hover {
+  transform: translateY(-2px);
+  border-color: rgba(21, 111, 131, 0.2);
+  box-shadow: 0 16px 34px rgba(17, 30, 44, 0.09);
 }
 
 .launchpad-mode-host {
@@ -1991,6 +2177,9 @@ button:disabled {
 .preflight {
   margin-top: 12px;
   padding: 12px;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.92), rgba(247, 241, 232, 0.82)),
+    var(--panel-strong);
 }
 
 .preflight-head,
@@ -2059,6 +2248,9 @@ button:disabled {
 .flow-guide {
   margin-top: 12px;
   padding: 12px;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.92), rgba(247, 241, 232, 0.84)),
+    var(--panel-strong);
 }
 
 .flow-list {
@@ -2231,6 +2423,10 @@ button:disabled {
   background:
     linear-gradient(145deg, rgba(255, 255, 255, 0.94), rgba(244, 237, 227, 0.86)),
     var(--panel-strong);
+}
+
+.workspace-column-side .panel {
+  box-shadow: 0 16px 36px rgba(17, 30, 44, 0.09);
 }
 
 .transfer-ledger {
@@ -2443,6 +2639,7 @@ button:disabled {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  padding: 10px 0 2px;
 }
 
 .activity-kinds {
@@ -2605,16 +2802,22 @@ button:disabled {
 
 .footer {
   margin-top: 18px;
-  padding: 10px 2px;
+  padding: 10px 4px 0;
+  border-top: 1px solid rgba(27, 27, 36, 0.08);
 }
 
 @media (max-width: 1100px) {
+  .workspace-spotlight,
   .workspace-command-deck {
     grid-template-columns: 1fr 1fr;
   }
 
   .workspace-layout {
     grid-template-columns: 1fr;
+  }
+
+  .workspace-layout::before {
+    display: none;
   }
 
   .workspace-column-side {
@@ -2647,6 +2850,7 @@ button:disabled {
     grid-template-columns: 1fr 1fr;
   }
 
+  .workspace-spotlight,
   .workspace-command-deck,
   .workspace-column-side,
   .launchpad-mode-grid,
@@ -2702,6 +2906,10 @@ button:disabled {
 @media (max-width: 560px) {
   .landing-principles {
     grid-template-columns: 1fr;
+  }
+
+  .workspace-spotlight {
+    gap: 10px;
   }
 
   .workspace-command-deck {
