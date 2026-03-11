@@ -526,6 +526,28 @@ html {
 
 .workspace-header {
   margin-top: 0;
+  transition:
+    transform 220ms ease,
+    box-shadow 220ms ease,
+    border-color 220ms ease,
+    background 220ms ease;
+}
+
+.workspace-header-negotiation {
+  border-color: rgba(173, 79, 44, 0.2);
+  background:
+    radial-gradient(circle at 100% 0%, rgba(173, 79, 44, 0.12), transparent 32%),
+    linear-gradient(128deg, rgba(255, 255, 255, 0.8), rgba(255, 248, 242, 0.6)),
+    var(--bg-veil);
+}
+
+.workspace-header-live {
+  border-color: rgba(21, 111, 131, 0.2);
+  background:
+    radial-gradient(circle at 0 0, rgba(21, 111, 131, 0.14), transparent 36%),
+    linear-gradient(128deg, rgba(248, 253, 255, 0.88), rgba(255, 250, 244, 0.6)),
+    var(--bg-veil);
+  box-shadow: 0 22px 52px rgba(17, 30, 44, 0.11);
 }
 
 .console-nav {
@@ -725,6 +747,7 @@ html {
   grid-template-columns: minmax(0, 1.42fr) minmax(320px, 0.9fr);
   gap: 16px;
   align-items: start;
+  transition: grid-template-columns 220ms ease;
 }
 
 .workspace-column {
@@ -734,6 +757,40 @@ html {
 
 .workspace-column .panel {
   margin: 0;
+}
+
+.app-mode-onboarding .workspace-command-deck {
+  display: none;
+}
+
+.app-mode-onboarding .workspace-layout {
+  grid-template-columns: minmax(0, 1fr);
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.app-mode-onboarding #room-controls {
+  box-shadow: 0 24px 58px rgba(17, 30, 44, 0.12);
+}
+
+.app-mode-session .workspace-layout {
+  grid-template-columns: minmax(0, 1.14fr) minmax(300px, 0.82fr);
+}
+
+.app-mode-session .workspace-command-deck,
+.app-mode-channel .workspace-command-deck,
+.app-mode-cockpit .workspace-command-deck {
+  margin-bottom: 18px;
+}
+
+.app-mode-channel .workspace-header,
+.app-mode-cockpit .workspace-header {
+  margin-bottom: 16px;
+}
+
+.app-mode-channel #transfer-controls,
+.app-mode-cockpit #transfer-controls {
+  animation: panel-reveal 260ms ease-out both;
 }
 
 .header-top {

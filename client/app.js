@@ -342,6 +342,15 @@ const ICE_POLICY = (() => {
 
 /* ---------- DOM ---------- */
 
+const appRootEl = document.querySelector('.app');
+const landingSectionEls = Array.from(document.querySelectorAll('.landing-hero, .landing-principles, .landing-flow'));
+const workspaceHeaderEl = document.querySelector('.workspace-header');
+const workspaceTitleEl = document.getElementById('workspace-title');
+const workspaceBadgeEl = document.getElementById('workspace-badge');
+const workspaceSubtitleEl = document.getElementById('workspace-subtitle');
+const consoleNavEl = document.querySelector('.console-nav');
+const workspaceSideColumnEl = document.querySelector('.workspace-column-side');
+
 const roomIdInput = document.getElementById('room-id');
 const generateRoomIdBtn = document.getElementById('generate-room-id');
 const roomJoinKeyInput = document.getElementById('room-join-key');
@@ -2458,7 +2467,6 @@ function renderTransferActionDeck(gate) {
 function renderTransferBay(gate) {
   const g = gate || getSendGateState();
   const folderUploadCapable = detectSenderFolderUploadCapable();
-  if (transferSection) transferSection.hidden = false;
 
   let state = 'Locked';
   let text = 'Create or join a room to unlock direct transfer controls.';
@@ -2732,6 +2740,91 @@ function applyRoomAuthorityFromMessage(msg) {
   return changed;
 }
 
+function renderProductMode(gate) {
+  const g = gate || getSendGateState();
+  const signalingOpen = !!(ws && ws.readyState === WebSocket.OPEN);
+  const inRoom = !!activeRoomId;
+  const channelLive = !!(inRoom && transportOpen);
+  const cockpitReady = !!(
+    channelLive
+    && peerReady
+    && peerCapabilities
+    && capabilitiesCompatible
+    && g
+    && g.modeOk
+    && g.passOk
+  );
+
+  let mode = 'onboarding';
+  let title = 'Session Onboarding';
+  let badge = 'Zero-Retention Launch';
+  let subtitle = 'Establish the session boundary first. Host a room or hydrate one from an invite package before the transfer cockpit appears.';
+  let showLanding = !inRoom && !channelLive && !signalingOpen;
+  let showSide = !!inRoom;
+  let showTransfer = channelLive;
+  let showNav = channelLive;
+
+  if (inRoom && !transportOpen) {
+    mode = 'session';
+    title = 'Session Negotiation';
+    badge = signalingOpen ? 'Awaiting Direct Channel' : 'Reconnecting Signaling';
+    subtitle = signalingOpen
+      ? 'The room boundary is live. Share the invite package or join link and wait for the direct peer channel to come up.'
+      : 'Room context is retained locally. Waiting for signaling to recover before peer-to-peer negotiation resumes.';
+    showLanding = false;
+    showSide = true;
+  } else if (channelLive && !cockpitReady) {
+    mode = 'channel';
+    title = 'Direct Channel Negotiation';
+    badge = 'P2P Online';
+    subtitle = 'The peer-to-peer channel is live. Finish receive readiness and crypto verification to unlock the transfer cockpit completely.';
+    showLanding = false;
+    showSide = true;
+    showTransfer = true;
+    showNav = true;
+  } else if (cockpitReady) {
+    mode = 'cockpit';
+    title = 'Transfer Cockpit';
+    badge = g && g.fileCount > 0 ? 'Ready To Send' : 'Channel Verified';
+    subtitle = g && g.fileCount > 0
+      ? 'Direct transport is online. Stage outbound payloads, monitor the ledger, and operate the session without introducing retention.'
+      : 'Direct transport is online and verified. Choose files or a folder to arm the send path and begin streaming.';
+    showLanding = false;
+    showSide = true;
+    showTransfer = true;
+    showNav = true;
+  }
+
+  if (appRootEl) {
+    appRootEl.classList.remove('app-mode-onboarding', 'app-mode-session', 'app-mode-channel', 'app-mode-cockpit');
+    appRootEl.classList.add(`app-mode-${mode}`);
+  }
+
+  if (workspaceHeaderEl) {
+    workspaceHeaderEl.classList.toggle('workspace-header-live', mode === 'cockpit');
+    workspaceHeaderEl.classList.toggle('workspace-header-negotiation', mode === 'session' || mode === 'channel');
+  }
+  if (workspaceTitleEl) workspaceTitleEl.textContent = title;
+  if (workspaceBadgeEl) workspaceBadgeEl.textContent = badge;
+  if (workspaceSubtitleEl) workspaceSubtitleEl.textContent = subtitle;
+
+  if (landingSectionEls && landingSectionEls.length > 0) {
+    for (let i = 0; i < landingSectionEls.length; i++) {
+      landingSectionEls[i].hidden = !showLanding;
+    }
+  }
+
+  if (consoleNavEl) consoleNavEl.hidden = !showNav;
+  if (workspaceSideColumnEl) workspaceSideColumnEl.hidden = !showSide;
+  if (transferSection) transferSection.hidden = !showTransfer;
+
+  if (E2E_STATE) {
+    E2E_STATE.productMode = mode;
+    E2E_STATE.workspaceTitle = title;
+    E2E_STATE.workspaceBadge = badge;
+  }
+}
+
 function resetRoomAuthority() {
   localPeerId = null;
   roomOwnerPeerId = null;
@@ -2766,6 +2859,7 @@ function renderStateStrip(gate) {
     setStateChip(stateCryptoEl, 'crypto: plain', true);
   }
 
+  renderProductMode(g);
   renderRoomAuthority();
   renderFlowGuide(g);
   renderQuickSummary(g);
