@@ -55,6 +55,48 @@ function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
+function parseBool(raw, fallback = false) {
+  if (raw === undefined || raw === null || raw === '') return fallback;
+  const value = String(raw).trim().toLowerCase();
+  if (value === '1' || value === 'true' || value === 'yes' || value === 'on') return true;
+  if (value === '0' || value === 'false' || value === 'no' || value === 'off') return false;
+  return fallback;
+}
+
+function normalizeHttpBaseUrl(raw) {
+  const value = String(raw || '').trim();
+  if (!value) return '';
+  let parsed;
+  try {
+    parsed = new URL(value);
+  } catch {
+    throw new Error(`Invalid E2E_APP_BASE_URL: ${value}`);
+  }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    throw new Error(`E2E_APP_BASE_URL must start with http:// or https:// (got ${parsed.protocol})`);
+  }
+  parsed.hash = '';
+  parsed.search = '';
+  const normalized = parsed.toString();
+  return normalized.endsWith('/') ? normalized.slice(0, -1) : normalized;
+}
+
+function normalizeSignalUrl(raw) {
+  const value = String(raw || '').trim();
+  if (!value) return '';
+  let parsed;
+  try {
+    parsed = new URL(value);
+  } catch {
+    throw new Error(`Invalid E2E_SIGNAL_URL: ${value}`);
+  }
+  if (parsed.protocol !== 'ws:' && parsed.protocol !== 'wss:') {
+    throw new Error(`E2E_SIGNAL_URL must start with ws:// or wss:// (got ${parsed.protocol})`);
+  }
+  parsed.hash = '';
+  return parsed.toString();
+}
+
 function generateRoomJoinKey(seed = '') {
   const entropy = `${Date.now()}-${Math.random().toString(16).slice(2)}-${seed}`;
   return `e2ejoin-${Buffer.from(entropy, 'utf8').toString('hex').slice(0, 48)}`;
@@ -319,6 +361,11 @@ async function run() {
   const PERF = process.env.E2E_PERF === '1' || process.env.E2E_PERF === 'true';
   const SOAK = process.env.E2E_SOAK === '1' || process.env.E2E_SOAK === 'true';
   const FAST = process.env.E2E_FAST === '1' || process.env.E2E_FAST === 'true';
+  const remoteFlag = parseBool(process.env.E2E_REMOTE, false);
+  const REMOTE_APP_BASE_URL = normalizeHttpBaseUrl(process.env.E2E_APP_BASE_URL || process.env.E2E_BASE_URL || '');
+  const REMOTE_SIGNAL_URL = normalizeSignalUrl(process.env.E2E_SIGNAL_URL || '');
+  const REMOTE_IGNORE_HTTPS_ERRORS = parseBool(process.env.E2E_REMOTE_IGNORE_HTTPS_ERRORS, true);
+  const REMOTE_MODE = remoteFlag || !!REMOTE_APP_BASE_URL;
   const RELAY_RUNTIME = process.env.E2E_RELAY_RUNTIME === '1' || process.env.E2E_RELAY_RUNTIME === 'true';
   const RELAY_REQUIRED = process.env.E2E_RELAY_REQUIRED === '1' || process.env.E2E_RELAY_REQUIRED === 'true';
   const RELAY_TURN_URL = String(process.env.E2E_TURN_URL || '').trim();
@@ -347,6 +394,14 @@ async function run() {
 
   if (RELAY_REQUIRED && !RELAY_RUNTIME) {
     throw new Error('E2E_RELAY_REQUIRED=1 requires E2E_RELAY_RUNTIME=1.');
+  }
+
+  if (REMOTE_MODE && !REMOTE_APP_BASE_URL) {
+    throw new Error('Remote E2E requires E2E_APP_BASE_URL.');
+  }
+
+  if (REMOTE_MODE && RELAY_RUNTIME) {
+    throw new Error('Remote E2E does not support E2E_RELAY_RUNTIME. Run relay validation locally.');
   }
 
   if (RELAY_RUNTIME) {
@@ -385,46 +440,65 @@ async function run() {
     return Math.min(200, Math.max(1, Math.floor(raw)));
   })();
 
-  const staticServer = await startStaticServer();
-  const sameOriginSignaling = createSignalingServer({ server: staticServer.server, pingIntervalMs: 0 });
-  const signalPort = await getFreePort();
-  let signaling = await startSignalingServer(signalPort);
-  const appPort = await getFreePort();
-  const appServer = await startAppServer(appPort);
+  let staticServer = null;
+  let sameOriginSignaling = null;
+  let signaling = null;
+  let appServer = null;
   let relayAppServer = null;
-  const securePort = await getFreePort();
-  const secureServer = await startSecureDevServer(securePort);
-
-  const baseUrl = `http://127.0.0.1:${staticServer.port}`;
-  const signalUrl = `ws://127.0.0.1:${signalPort}`;
-  const appBaseUrl = `http://127.0.0.1:${appPort}`;
+  let secureServer = null;
+  let baseUrl = REMOTE_APP_BASE_URL;
+  let signalUrl = REMOTE_SIGNAL_URL;
+  let appBaseUrl = REMOTE_APP_BASE_URL;
   let relayAppBaseUrl = '';
-  const secureBaseUrl = `https://127.0.0.1:${securePort}`;
+  let secureBaseUrl = REMOTE_APP_BASE_URL;
 
-  if (RELAY_RUNTIME) {
-    const relayPort = await getFreePort();
-    const relayUrls = [RELAY_TURN_URL];
-    if (RELAY_TURN_URL_TCP) relayUrls.push(RELAY_TURN_URL_TCP);
-    const relayEnv = {
-      ICE_TRANSPORT_POLICY: 'relay',
-    };
-    if (relayUseDynamicCredentials) {
-      relayEnv.TURN_URLS_JSON = JSON.stringify(relayUrls);
-      relayEnv.TURN_AUTH_SECRET = RELAY_TURN_AUTH_SECRET;
-      relayEnv.TURN_TTL_SECONDS = String(relayTurnTtlSeconds);
-    } else {
-      const relayIceServers = [
-        {
-          urls: relayUrls.length === 1 ? relayUrls[0] : relayUrls,
-          username: RELAY_TURN_USERNAME,
-          credential: RELAY_TURN_CREDENTIAL,
-        },
-      ];
-      relayEnv.ICE_SERVERS_JSON = JSON.stringify(relayIceServers);
+  if (!REMOTE_MODE) {
+    staticServer = await startStaticServer();
+    sameOriginSignaling = createSignalingServer({ server: staticServer.server, pingIntervalMs: 0 });
+    const signalPort = await getFreePort();
+    signaling = await startSignalingServer(signalPort);
+    const appPort = await getFreePort();
+    appServer = await startAppServer(appPort);
+    const securePort = await getFreePort();
+    secureServer = await startSecureDevServer(securePort);
+
+    baseUrl = `http://127.0.0.1:${staticServer.port}`;
+    signalUrl = `ws://127.0.0.1:${signalPort}`;
+    appBaseUrl = `http://127.0.0.1:${appPort}`;
+    secureBaseUrl = `https://127.0.0.1:${securePort}`;
+
+    if (RELAY_RUNTIME) {
+      const relayPort = await getFreePort();
+      const relayUrls = [RELAY_TURN_URL];
+      if (RELAY_TURN_URL_TCP) relayUrls.push(RELAY_TURN_URL_TCP);
+      const relayEnv = {
+        ICE_TRANSPORT_POLICY: 'relay',
+      };
+      if (relayUseDynamicCredentials) {
+        relayEnv.TURN_URLS_JSON = JSON.stringify(relayUrls);
+        relayEnv.TURN_AUTH_SECRET = RELAY_TURN_AUTH_SECRET;
+        relayEnv.TURN_TTL_SECONDS = String(relayTurnTtlSeconds);
+      } else {
+        const relayIceServers = [
+          {
+            urls: relayUrls.length === 1 ? relayUrls[0] : relayUrls,
+            username: RELAY_TURN_USERNAME,
+            credential: RELAY_TURN_CREDENTIAL,
+          },
+        ];
+        relayEnv.ICE_SERVERS_JSON = JSON.stringify(relayIceServers);
+      }
+
+      relayAppServer = await startAppServer(relayPort, relayEnv);
+      relayAppBaseUrl = `http://127.0.0.1:${relayPort}`;
     }
-
-    relayAppServer = await startAppServer(relayPort, relayEnv);
-    relayAppBaseUrl = `http://127.0.0.1:${relayPort}`;
+  } else {
+    console.log(`--- E2E MODE: REMOTE (${REMOTE_APP_BASE_URL}) ---`);
+    if (REMOTE_SIGNAL_URL) {
+      console.log(`--- E2E REMOTE SIGNAL OVERRIDE: ${REMOTE_SIGNAL_URL} ---`);
+    } else {
+      console.log('--- E2E REMOTE SIGNALING: same-origin default ---');
+    }
   }
 
   const fileSize = 512 * 1024; // 512 KB
@@ -486,6 +560,18 @@ async function run() {
   });
 
   try {
+    const defaultContextOptions = (REMOTE_MODE && REMOTE_IGNORE_HTTPS_ERRORS)
+      ? { ignoreHTTPSErrors: true }
+      : {};
+
+    async function newContext(extraOptions = null) {
+      const merged = {
+        ...defaultContextOptions,
+        ...(extraOptions && typeof extraOptions === 'object' ? extraOptions : {}),
+      };
+      return browser.newContext(merged);
+    }
+
     async function stagePayloadsViaDrop(page, selector, files) {
       const payloads = [];
       const list = Array.isArray(files) ? files : [];
@@ -621,6 +707,7 @@ async function run() {
     }) {
       const activeBaseUrl = baseUrlOverride || baseUrl;
       const activeSignalUrl = signalUrlOverride || signalUrl;
+      const shouldUseSameOrigin = sameOrigin || !activeSignalUrl;
       const roomId = `e2e-${Date.now()}-${Math.random().toString(16).slice(2)}-${label}`;
       const roomJoinKey = generateRoomJoinKey(label);
       const secretParams = new URLSearchParams();
@@ -628,7 +715,7 @@ async function run() {
       if (passphrase) secretParams.set('passphrase', passphrase);
       const secretHash = secretParams.toString() ? `#${secretParams.toString()}` : '';
 
-      const sigQ = sameOrigin ? '' : `&signalUrl=${encodeURIComponent(activeSignalUrl)}`;
+      const sigQ = shouldUseSameOrigin ? '' : `&signalUrl=${encodeURIComponent(activeSignalUrl)}`;
       const normalizeExtraQuery = (value) => {
         const s = String(value || '').trim();
         if (!s) return '';
@@ -649,8 +736,8 @@ async function run() {
         return sum + (f && f.buffer ? f.buffer.length : 0);
       }, 0);
 
-      const senderCtx = await browser.newContext(contextOptions || {});
-      const receiverCtx = await browser.newContext(contextOptions || {});
+      const senderCtx = await newContext(contextOptions || {});
+      const receiverCtx = await newContext(contextOptions || {});
 
       const sender = await senderCtx.newPage();
       const receiver = await receiverCtx.newPage();
@@ -829,6 +916,9 @@ async function run() {
         );
 
         if (restartSignaling) {
+          if (!signaling || !signaling.proc) {
+            throw new Error(`Scenario ${label} requires a local signaling process and cannot run in remote mode.`);
+          }
           console.log(`--- E2E (${label}): restarting signaling server ---`);
           try { signaling.proc.kill('SIGKILL'); } catch {}
           await withTimeout(signaling.exited, 5000);
@@ -1048,6 +1138,9 @@ async function run() {
         }
 
         if (killSignaling) {
+          if (!signaling || !signaling.proc) {
+            throw new Error(`Scenario ${label} requires a local signaling process and cannot run in remote mode.`);
+          }
           // Try to ensure the transfer actually started, then kill the signaling server.
           try {
             await sender.waitForFunction(
@@ -1271,8 +1364,8 @@ async function run() {
       const senderUrl = `${appBaseUrl}/index.html?e2e=1&role=create&roomId=${encodeURIComponent(roomId)}${secretHash}`;
       const receiverUrl = `${appBaseUrl}/index.html?e2e=1&role=join&autoReady=1&roomId=${encodeURIComponent(roomId)}${secretHash}`;
 
-      const senderCtx = await browser.newContext();
-      const receiverCtx = await browser.newContext();
+      const senderCtx = await newContext();
+      const receiverCtx = await newContext();
       const sender = await senderCtx.newPage();
       const receiver = await receiverCtx.newPage();
 
@@ -1367,8 +1460,8 @@ async function run() {
       const senderUrl = `${appBaseUrl}/index.html?e2e=1&role=create&roomId=${encodeURIComponent(roomId)}${secretHash}`;
       const receiverUrl = `${appBaseUrl}/index.html?e2e=1&role=join&autoReady=1&roomId=${encodeURIComponent(roomId)}${secretHash}`;
 
-      const senderCtx = await browser.newContext();
-      const receiverCtx = await browser.newContext();
+      const senderCtx = await newContext();
+      const receiverCtx = await newContext();
       const sender = await senderCtx.newPage();
       const receiver = await receiverCtx.newPage();
 
@@ -1456,8 +1549,8 @@ async function run() {
       const label = 'connect-disconnect-cycles';
 
       // One pair of pages; no reload. This catches cleanup regressions.
-      const senderCtx = await browser.newContext();
-      const receiverCtx = await browser.newContext();
+      const senderCtx = await newContext();
+      const receiverCtx = await newContext();
       const sender = await senderCtx.newPage();
       const receiver = await receiverCtx.newPage();
 
@@ -1604,8 +1697,8 @@ async function run() {
       const label = 'join-link-autojoin';
       const roomId = `e2e-${Date.now()}-${Math.random().toString(16).slice(2)}-${label}`;
 
-      const senderCtx = await browser.newContext();
-      const receiverCtx = await browser.newContext();
+      const senderCtx = await newContext();
+      const receiverCtx = await newContext();
 
       const sender = await senderCtx.newPage();
       const receiver = await receiverCtx.newPage();
@@ -1716,8 +1809,8 @@ async function run() {
 
     async function runInvitePackageApplyScenario() {
       const label = 'invite-package-apply-join';
-      const senderCtx = await browser.newContext();
-      const receiverCtx = await browser.newContext();
+      const senderCtx = await newContext();
+      const receiverCtx = await newContext();
       const sender = await senderCtx.newPage();
       const receiver = await receiverCtx.newPage();
 
@@ -1852,8 +1945,8 @@ async function run() {
       receiverExtraQuery = '',
       expectedEngine = '',
     } = {}) {
-      const senderCtx = await browser.newContext();
-      const receiverCtx = await browser.newContext();
+      const senderCtx = await newContext();
+      const receiverCtx = await newContext();
       const sender = await senderCtx.newPage();
       const receiver = await receiverCtx.newPage();
 
@@ -1993,7 +2086,7 @@ async function run() {
       label = 'invite-qr-invalid-image',
       receiverExtraQuery = '',
     } = {}) {
-      const ctx = await browser.newContext();
+      const ctx = await newContext();
       const page = await ctx.newPage();
 
       try {
@@ -2063,8 +2156,8 @@ async function run() {
       receiverExtraQuery = '',
       expectedEngine = '',
     } = {}) {
-      const senderCtx = await browser.newContext();
-      const receiverCtx = await browser.newContext();
+      const senderCtx = await newContext();
+      const receiverCtx = await newContext();
       const sender = await senderCtx.newPage();
       const receiver = await receiverCtx.newPage();
 
@@ -2270,7 +2363,7 @@ async function run() {
       label = 'invite-qr-camera-denied',
       receiverExtraQuery = '',
     } = {}) {
-      const ctx = await browser.newContext();
+      const ctx = await newContext();
       const page = await ctx.newPage();
 
       try {
@@ -2370,7 +2463,7 @@ async function run() {
 
     async function runInvitePackageInvalidScenario() {
       const label = 'invite-package-invalid';
-      const ctx = await browser.newContext();
+      const ctx = await newContext();
       const page = await ctx.newPage();
 
       try {
@@ -2442,8 +2535,8 @@ async function run() {
       const senderUrl = `${appBaseUrl}/index.html?e2e=1&role=create&roomId=${encodeURIComponent(roomId)}${secretHash}`;
       const receiverUrl = `${appBaseUrl}/index.html?e2e=1&role=join&autoReady=1&roomId=${encodeURIComponent(roomId)}${secretHash}`;
 
-      const senderCtx = await browser.newContext();
-      const receiverCtx = await browser.newContext();
+      const senderCtx = await newContext();
+      const receiverCtx = await newContext();
       const sender = await senderCtx.newPage();
       const receiver = await receiverCtx.newPage();
 
@@ -2598,8 +2691,8 @@ async function run() {
       const ownerUrl = `${appBaseUrl}/index.html?e2e=1&role=create&roomId=${encodeURIComponent(roomId)}${secretHash}`;
       const peerUrl = `${appBaseUrl}/index.html?e2e=1&role=join&autoReady=1&roomId=${encodeURIComponent(roomId)}${secretHash}`;
 
-      const ownerCtx = await browser.newContext();
-      const peerCtx = await browser.newContext();
+      const ownerCtx = await newContext();
+      const peerCtx = await newContext();
       const owner = await ownerCtx.newPage();
       const peer = await peerCtx.newPage();
 
@@ -2715,7 +2808,7 @@ async function run() {
         }, { k: nextJoinKey, baseline: rotatedBaseline }, { timeout: 10_000 });
 
         console.log(`--- E2E (${label}): validating old key denied / rotated key accepted ---`);
-        const lateJoinerCtx = await browser.newContext();
+        const lateJoinerCtx = await newContext();
         const lateJoiner = await lateJoinerCtx.newPage();
         try {
           const staleHash = `#roomJoinKey=${encodeURIComponent(roomJoinKey)}`;
@@ -2881,8 +2974,8 @@ async function run() {
       // Disable autoReady so the "ready" event is produced only by the folder picker path.
       const receiverUrl = `${appBaseUrl}/index.html?e2e=1&role=join&roomId=${encodeURIComponent(roomId)}${secretHash}`;
 
-      const senderCtx = await browser.newContext();
-      const receiverCtx = await browser.newContext();
+      const senderCtx = await newContext();
+      const receiverCtx = await newContext();
       const sender = await senderCtx.newPage();
       const receiver = await receiverCtx.newPage();
 
@@ -2987,8 +3080,8 @@ async function run() {
 	      const senderUrl = `${appBaseUrl}/index.html?e2e=1&role=create&roomId=${encodeURIComponent(roomId)}${secretHash}`;
 	      const receiverUrl = `${appBaseUrl}/index.html?e2e=1&role=join&roomId=${encodeURIComponent(roomId)}${secretHash}`;
 
-	      const senderCtx = await browser.newContext();
-	      const receiverCtx = await browser.newContext();
+	      const senderCtx = await newContext();
+	      const receiverCtx = await newContext();
 	      const sender = await senderCtx.newPage();
 	      const receiver = await receiverCtx.newPage();
 
@@ -3202,7 +3295,45 @@ async function run() {
       console.log(`--- E2E (${label}) PASS: active inbound entries were retained beyond settled cap during overflow ---`);
     }
 
-	    if (FAST) {
+    if (REMOTE_MODE && FAST) {
+      console.log('--- E2E MODE: FAST REMOTE (deployed subset) ---');
+      await runScenario({
+        label: 'remote-fast-core',
+        passphrase: null,
+        expectAutoPassphrase: true,
+        sameOrigin: true,
+        baseUrlOverride: appBaseUrl,
+        expectReceipt: true,
+      });
+      await runScenario({
+        label: 'remote-fast-plain',
+        passphrase: null,
+        sameOrigin: true,
+        baseUrlOverride: appBaseUrl,
+        expectReceipt: true,
+      });
+      await runScenario({
+        label: 'remote-fast-drop-send-bay',
+        passphrase: null,
+        expectAutoPassphrase: true,
+        sameOrigin: true,
+        baseUrlOverride: appBaseUrl,
+        files: [filePathB],
+        selectionMode: 'drop',
+        expectReceipt: true,
+      });
+      await runFolderInputFallbackScenario();
+      await runInvitePackageApplyScenario();
+      await runInviteQrPairingScenario({
+        label: 'remote-fast-invite-qr-pairing-jsqr',
+        receiverExtraQuery: 'qrScanMode=jsqr',
+        expectedEngine: 'jsqr',
+      });
+      await runInvitePackageInvalidScenario();
+      return;
+    }
+
+    if (FAST) {
       console.log('--- E2E MODE: FAST (smoke subset) ---');
       await runScenario({
         label: 'fast-same-origin',
@@ -3244,6 +3375,179 @@ async function run() {
         receiverExtraQuery: 'qrScanMode=jsqr',
       });
       await runInvitePackageInvalidScenario();
+      return;
+    }
+
+    if (REMOTE_MODE) {
+      console.log('--- E2E MODE: REMOTE FULL (deployed-compatible subset) ---');
+      await runScenario({
+        label: 'remote-core',
+        passphrase: null,
+        expectAutoPassphrase: true,
+        sameOrigin: true,
+        baseUrlOverride: appBaseUrl,
+        expectReceipt: true,
+      });
+      await runScenario({
+        label: 'remote-passphrase-mismatch',
+        passphrase: null,
+        expectAutoPassphrase: true,
+        sameOrigin: true,
+        baseUrlOverride: appBaseUrl,
+        mismatchPassphrase: true,
+        expectSendDisabled: true,
+      });
+      await runScenario({
+        label: 'remote-protocol-mismatch',
+        passphrase: null,
+        expectAutoPassphrase: true,
+        sameOrigin: true,
+        baseUrlOverride: appBaseUrl,
+        expectSendDisabled: true,
+        expectDisabledReason: 'protocol version mismatch',
+        skipPeerReadyWait: true,
+        senderExtraQuery: 'protoVersion=3&protoMin=3',
+        receiverExtraQuery: 'protoVersion=1&protoMin=1',
+      });
+      await runScenario({
+        label: 'remote-plain',
+        passphrase: null,
+        sameOrigin: true,
+        baseUrlOverride: appBaseUrl,
+        expectReceipt: true,
+      });
+      await runScenario({
+        label: 'remote-multi-plain',
+        passphrase: null,
+        sameOrigin: true,
+        baseUrlOverride: appBaseUrl,
+        files: [filePathA, filePathB],
+        expectReceipt: true,
+      });
+      await runScenario({
+        label: 'remote-drop-send-bay',
+        passphrase: null,
+        expectAutoPassphrase: true,
+        sameOrigin: true,
+        baseUrlOverride: appBaseUrl,
+        files: [filePathB],
+        selectionMode: 'drop',
+        expectReceipt: true,
+      });
+      await runFolderInputFallbackScenario();
+      await runScenario({
+        label: 'remote-passphrase',
+        passphrase: 'e2e-passphrase',
+        sameOrigin: true,
+        baseUrlOverride: appBaseUrl,
+        expectReceipt: true,
+      });
+      await runScenario({
+        label: 'remote-peer-left',
+        passphrase: null,
+        expectAutoPassphrase: true,
+        sameOrigin: true,
+        baseUrlOverride: appBaseUrl,
+        closeReceiverSignaling: true,
+        expectReceipt: true,
+      });
+      console.log('--- E2E (signaling-restart): SKIP (remote mode requires local signaling process) ---');
+      console.log('--- E2E (signaling-crash): SKIP (remote mode requires local signaling process) ---');
+      console.log('--- E2E (secure-app-server): SKIP (remote mode already targets deployed HTTPS runtime) ---');
+      console.log('--- E2E (relay-runtime-config): SKIP (relay runtime validation is local-only) ---');
+
+      const gcFiles = [];
+      for (let i = 0; i < 16; i++) {
+        gcFiles.push({
+          name: `gc-${i}.bin`,
+          mimeType: 'application/octet-stream',
+          buffer: Buffer.alloc(64 * 1024, i & 0xff),
+        });
+      }
+
+      await runJoinLinkAutojoinScenario();
+      await runInvitePackageApplyScenario();
+      await runInviteQrPairingScenario();
+      await runInviteQrPairingScenario({
+        label: 'remote-invite-qr-pairing-jsqr',
+        receiverExtraQuery: 'qrScanMode=jsqr',
+        expectedEngine: 'jsqr',
+      });
+      await runInviteQrCameraScanScenario({
+        receiverExtraQuery: 'qrScanMode=jsqr',
+        expectedEngine: 'jsqr',
+      });
+      await runInviteQrCameraDeniedScenario({
+        receiverExtraQuery: 'qrScanMode=jsqr',
+      });
+      await runInviteQrInvalidImageScenario({
+        receiverExtraQuery: 'qrScanMode=jsqr',
+      });
+      await runInvitePackageInvalidScenario();
+      await runOwnerAuthorityScenario();
+      await runOwnerDisconnectTransferScenario();
+      await runFolderSavePolyfillScenario();
+      await runFolderSendPolyfillScenario();
+      await runLedgerClearActiveScenario();
+      await runLedgerOverflowRetentionScenario();
+
+      await runScenario({
+        label: 'remote-gc-sessions',
+        passphrase: null,
+        expectAutoPassphrase: true,
+        sameOrigin: true,
+        baseUrlOverride: appBaseUrl,
+        files: gcFiles,
+        checkGc: true,
+      });
+
+      await runSenderCloseMidTransferScenario();
+      await runReceiverCancelMidTransferScenario();
+      await runConnectDisconnectCyclesScenario({ cycles: 5 });
+
+      if (PERF) {
+        await runScenario({
+          label: 'remote-perf-100mb',
+          passphrase: null,
+          expectAutoPassphrase: true,
+          sameOrigin: true,
+          baseUrlOverride: appBaseUrl,
+          files: [filePathPerfLarge],
+          recvDelayMs: 0,
+          transferTimeoutMs: 180_000,
+          expectReceipt: true,
+          perf: {
+            enabled: true,
+            pollMs: 100,
+            maxBufferedAmountBytes: 8 * 1024 * 1024,
+            maxHeapGrowthBytes: 64 * 1024 * 1024,
+            postGcHeapSlackBytes: 16 * 1024 * 1024,
+          },
+        });
+      }
+
+      if (SOAK) {
+        const idleFile = {
+          name: 'idle.bin',
+          mimeType: 'application/octet-stream',
+          buffer: Buffer.alloc(10 * 1024 * 1024, 0x11),
+        };
+
+        await runScenario({
+          label: `remote-idle-${SOAK_IDLE_MS}ms`,
+          passphrase: null,
+          expectAutoPassphrase: true,
+          sameOrigin: true,
+          baseUrlOverride: appBaseUrl,
+          files: [idleFile],
+          idleMsBeforeSend: SOAK_IDLE_MS,
+          transferTimeoutMs: 180_000,
+          expectReceipt: true,
+        });
+
+        await runConnectDisconnectCyclesScenario({ cycles: SOAK_CYCLES });
+      }
+
       return;
     }
 
@@ -3454,12 +3758,12 @@ async function run() {
   } finally {
     try { await browser.close(); } catch {}
 
-    try { await sameOriginSignaling.close(); } catch {}
-    try { staticServer.server.close(); } catch {}
-    try { signaling.proc.kill('SIGINT'); } catch {}
-    try { appServer.proc.kill('SIGINT'); } catch {}
+    try { if (sameOriginSignaling) await sameOriginSignaling.close(); } catch {}
+    try { if (staticServer) staticServer.server.close(); } catch {}
+    try { if (signaling) signaling.proc.kill('SIGINT'); } catch {}
+    try { if (appServer) appServer.proc.kill('SIGINT'); } catch {}
     try { if (relayAppServer) relayAppServer.proc.kill('SIGINT'); } catch {}
-    try { secureServer.proc.kill('SIGINT'); } catch {}
+    try { if (secureServer) secureServer.proc.kill('SIGINT'); } catch {}
 
     // Best-effort temp cleanup
     try { fs.unlinkSync(filePathSingle); } catch {}
