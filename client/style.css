@@ -52,6 +52,10 @@ body {
   overflow-x: hidden;
 }
 
+body.body-shell-dashboard {
+  background: linear-gradient(180deg, #07111a 0%, #09141d 52%, #0b1720 100%);
+}
+
 body::before,
 body::after {
   content: "";
@@ -86,6 +90,11 @@ body::after {
   filter: blur(70px);
 }
 
+body.body-shell-dashboard::before,
+body.body-shell-dashboard::after {
+  display: none;
+}
+
 html {
   scroll-behavior: smooth;
 }
@@ -97,6 +106,11 @@ html {
   margin: 0 auto;
   padding: 22px 24px 56px;
   animation: app-enter 560ms ease-out both;
+}
+
+.app.app-shell-dashboard {
+  max-width: none;
+  width: 100%;
 }
 
 .app::before,
@@ -146,32 +160,37 @@ html {
 }
 
 .app-shell-dashboard {
-  max-width: 1680px;
+  width: 100%;
+  min-height: 100vh;
+  padding: 0 18px 32px;
 }
 
 .app-shell-dashboard::before {
-  background:
-    radial-gradient(780px 420px at 6% 10%, rgba(22, 130, 161, 0.18), transparent 72%),
-    radial-gradient(720px 400px at 94% 4%, rgba(231, 125, 73, 0.16), transparent 74%),
-    linear-gradient(180deg, rgba(9, 18, 26, 0.18), transparent 58%);
-  opacity: 1;
-  mask-image: none;
+  display: none;
 }
 
 .app-shell-dashboard::after {
-  background:
-    radial-gradient(760px 360px at 16% 24%, rgba(15, 68, 90, 0.2), transparent 74%),
-    radial-gradient(860px 420px at 86% 78%, rgba(150, 71, 34, 0.14), transparent 76%);
+  display: none;
 }
 
 .app-shell-dashboard .product-bar {
+  top: 0;
+  z-index: 28;
+  margin: 0 0 16px;
+  border-top: 0;
+  border-radius: 0 0 18px 18px;
   border-color: rgba(126, 215, 232, 0.12);
   background:
-    linear-gradient(140deg, rgba(10, 23, 33, 0.88), rgba(15, 33, 46, 0.76)),
-    rgba(10, 23, 33, 0.82);
+    linear-gradient(180deg, rgba(8, 18, 27, 0.97), rgba(8, 18, 27, 0.92)),
+    rgba(8, 18, 27, 0.94);
   box-shadow:
-    0 24px 64px rgba(4, 10, 16, 0.42),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    0 18px 44px rgba(4, 10, 16, 0.28),
+    inset 0 -1px 0 rgba(126, 215, 232, 0.08);
+}
+
+.app-shell-dashboard #open-dashboard,
+.app-shell-dashboard a[href="#landing-principles"] {
+  display: none;
 }
 
 .app-shell-dashboard .product-brand-eyebrow {
@@ -186,6 +205,7 @@ html {
   color: rgba(229, 238, 245, 0.86);
   border-color: rgba(126, 215, 232, 0.14);
   background: rgba(255, 255, 255, 0.04);
+  border-radius: 12px;
 }
 
 .app-shell-dashboard .product-bar-link:hover {
@@ -198,6 +218,7 @@ html {
   border-color: rgba(126, 215, 232, 0.18);
   background: rgba(126, 215, 232, 0.08);
   color: rgba(190, 234, 245, 0.9);
+  border-radius: 12px;
 }
 
 .app-shell-dashboard .product-bar-chip-live {
@@ -207,18 +228,28 @@ html {
 }
 
 .app-shell-dashboard .dashboard-shell {
-  gap: 20px;
-  padding: 22px;
-  border-radius: 32px;
-  border: 1px solid rgba(126, 215, 232, 0.1);
+  display: grid;
+  grid-template-columns: 304px minmax(0, 1fr);
+  grid-template-areas:
+    "header spotlight"
+    "nav spotlight"
+    "deck workspace"
+    "deck workspace"
+    "footer footer";
+  align-items: start;
+  gap: 18px;
+  min-height: calc(100vh - 86px);
+  padding: 0 0 24px;
+  border-radius: 0;
+  border: 0;
   background:
-    linear-gradient(180deg, rgba(9, 18, 26, 0.82), rgba(12, 25, 36, 0.74)),
-    rgba(9, 18, 26, 0.76);
-  box-shadow:
-    0 32px 90px rgba(4, 10, 16, 0.42),
-    inset 0 1px 0 rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(24px) saturate(120%);
-  -webkit-backdrop-filter: blur(24px) saturate(120%);
+    linear-gradient(180deg, rgba(7, 15, 22, 0.99), rgba(10, 20, 30, 0.97)),
+    rgba(8, 17, 24, 0.98);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.app-shell-dashboard .dashboard-shell > * {
+  min-width: 0;
 }
 
 .app-shell-dashboard .dashboard-shell .hint,
@@ -277,17 +308,84 @@ html {
 .app-shell-dashboard .transfer-advanced > .card {
   border-color: rgba(126, 215, 232, 0.1);
   background:
-    linear-gradient(170deg, rgba(12, 26, 37, 0.94), rgba(15, 31, 44, 0.86)),
-    rgba(12, 26, 37, 0.88);
+    linear-gradient(180deg, rgba(11, 24, 35, 0.99), rgba(9, 20, 30, 0.99)),
+    rgba(10, 23, 33, 0.97);
   box-shadow:
-    0 18px 46px rgba(2, 8, 13, 0.34),
-    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    0 12px 30px rgba(2, 8, 13, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.app-shell-dashboard .workspace-header {
+  grid-area: header;
+  margin: 0;
+  min-height: 164px;
+}
+
+.app-shell-dashboard .console-nav {
+  grid-area: nav;
+  position: sticky;
+  top: 98px;
+  margin: 0;
+  padding: 10px;
+  flex-direction: column;
+  align-items: stretch;
+  border-radius: 18px;
+}
+
+.app-shell-dashboard .console-nav-link {
+  justify-content: flex-start;
+  min-height: 48px;
+  padding: 11px 14px;
+  font-size: 0.7rem;
+  border-radius: 12px;
+}
+
+.app-shell-dashboard .workspace-command-deck {
+  grid-area: deck;
+  margin: 0;
+  grid-template-columns: 1fr;
+  align-self: start;
+  position: sticky;
+  top: 184px;
+}
+
+.app-shell-dashboard .workspace-spotlight {
+  grid-area: spotlight;
+  margin: 0;
+  grid-template-columns: minmax(0, 1.08fr) minmax(320px, 0.92fr);
+}
+
+.app-shell-dashboard .workspace-layout {
+  grid-area: workspace;
+  margin: 0;
+  grid-template-columns: minmax(0, 1fr) 352px;
+  gap: 18px;
+}
+
+.app-shell-dashboard .workspace-layout::before {
+  display: none;
+}
+
+.app-shell-dashboard .workspace-column-main,
+.app-shell-dashboard .workspace-column-side {
+  gap: 18px;
+}
+
+.app-shell-dashboard .workspace-column-side {
+  align-self: start;
+}
+
+.app-shell-dashboard .footer {
+  grid-area: footer;
+  margin-top: 0;
+  padding-top: 16px;
+  border-top-color: rgba(126, 215, 232, 0.08);
 }
 
 .app-shell-dashboard .workspace-header {
   background:
-    linear-gradient(135deg, rgba(17, 38, 52, 0.96), rgba(12, 25, 36, 0.9)),
-    rgba(12, 25, 36, 0.88);
+    linear-gradient(180deg, rgba(12, 26, 37, 0.99), rgba(10, 21, 31, 0.99)),
+    rgba(10, 22, 32, 0.98);
 }
 
 .app-shell-dashboard .workspace-header::before {
@@ -316,12 +414,13 @@ html {
   border-color: rgba(126, 215, 232, 0.16);
   background: rgba(255, 255, 255, 0.04);
   color: rgba(216, 230, 238, 0.88);
+  border-radius: 12px;
 }
 
 .app-shell-dashboard .console-nav {
   border-color: rgba(126, 215, 232, 0.12);
-  background: rgba(255, 255, 255, 0.04);
-  box-shadow: 0 16px 34px rgba(2, 8, 13, 0.26);
+  background: rgba(255, 255, 255, 0.025);
+  box-shadow: 0 10px 24px rgba(2, 8, 13, 0.2);
 }
 
 .app-shell-dashboard .console-nav-link {
@@ -339,22 +438,20 @@ html {
 
 .app-shell-dashboard .command-card-runtime {
   background:
-    radial-gradient(circle at 10% 0%, rgba(126, 215, 232, 0.14), transparent 44%),
-    linear-gradient(155deg, rgba(9, 30, 42, 0.96), rgba(12, 45, 61, 0.9));
+    linear-gradient(180deg, rgba(11, 24, 35, 0.99), rgba(9, 20, 30, 0.99));
 }
 
 .app-shell-dashboard .command-card-flow {
   background:
-    radial-gradient(circle at 100% 0%, rgba(231, 125, 73, 0.14), transparent 38%),
-    linear-gradient(160deg, rgba(17, 32, 44, 0.94), rgba(14, 27, 37, 0.88));
+    linear-gradient(180deg, rgba(11, 24, 35, 0.99), rgba(9, 20, 30, 0.99));
 }
 
 .app-shell-dashboard .command-card-authority,
 .app-shell-dashboard .spotlight-card-phase,
 .app-shell-dashboard .spotlight-card-next {
   background:
-    linear-gradient(155deg, rgba(17, 31, 43, 0.94), rgba(13, 27, 38, 0.88)),
-    rgba(12, 26, 37, 0.88);
+    linear-gradient(180deg, rgba(11, 24, 35, 0.99), rgba(9, 20, 30, 0.99)),
+    rgba(10, 22, 32, 0.98);
 }
 
 .app-shell-dashboard input[type="text"],
@@ -978,6 +1075,27 @@ html {
   pointer-events: none;
 }
 
+.app-shell-dashboard .workspace-header::after,
+.app-shell-dashboard .panel::before,
+.app-shell-dashboard .spotlight-card::before,
+.app-shell-dashboard .spotlight-card::after,
+.app-shell-dashboard .command-card::before,
+.app-shell-dashboard .command-card::after,
+.app-shell-dashboard .transfer-shell::after,
+.app-shell-dashboard .transfer-action::after,
+.app-shell-dashboard .send-dropzone::after {
+  display: none;
+}
+
+.app-shell-dashboard .transfer-shell,
+.app-shell-dashboard .launchpad-mode-host,
+.app-shell-dashboard .launchpad-mode-join,
+.app-shell-dashboard .invite-workbench,
+.app-shell-dashboard .connection-detail-card,
+.app-shell-dashboard .operator-console {
+  background-image: none;
+}
+
 .workspace-header-negotiation {
   border-color: rgba(173, 79, 44, 0.2);
   background:
@@ -1467,6 +1585,71 @@ html {
   gap: 16px;
 }
 
+.app-shell-dashboard .spotlight-card,
+.app-shell-dashboard .command-card {
+  border-radius: 22px;
+}
+
+.app-shell-dashboard .spotlight-card-phase,
+.app-shell-dashboard .spotlight-card-next,
+.app-shell-dashboard .command-card-runtime,
+.app-shell-dashboard .command-card-flow,
+.app-shell-dashboard .command-card-authority {
+  background:
+    linear-gradient(160deg, rgba(13, 28, 39, 0.96), rgba(10, 21, 31, 0.92)),
+    rgba(11, 24, 35, 0.92);
+}
+
+.app-shell-dashboard .phase-rail {
+  gap: 8px;
+}
+
+.app-shell-dashboard .phase-node,
+.app-shell-dashboard .spotlight-note,
+.app-shell-dashboard .preflight-row,
+.app-shell-dashboard .flow-step,
+.app-shell-dashboard .activity-kind-toggle,
+.app-shell-dashboard .activity-item,
+.app-shell-dashboard .receive-destination,
+.app-shell-dashboard .send-gate-reason,
+.app-shell-dashboard .ledger-entry,
+.app-shell-dashboard .transfer,
+.app-shell-dashboard .launchpad-mode,
+.app-shell-dashboard .invite-workbench,
+.app-shell-dashboard .connection-detail-card,
+.app-shell-dashboard .transfer-contract,
+.app-shell-dashboard .transfer-action-stage,
+.app-shell-dashboard .transfer-action-visual,
+.app-shell-dashboard .send-dropzone,
+.app-shell-dashboard .operator-console,
+.app-shell-dashboard .qr-pairing-inline,
+.app-shell-dashboard .diag {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(126, 215, 232, 0.08);
+  box-shadow: none;
+}
+
+.app-shell-dashboard .activity-kind,
+.app-shell-dashboard .activity-kind-toggle,
+.app-shell-dashboard .send-progress-chip,
+.app-shell-dashboard .ledger-title-pill,
+.app-shell-dashboard .preflight-pill,
+.app-shell-dashboard .launchpad-state,
+.app-shell-dashboard .transfer-action-state {
+  border-radius: 10px;
+}
+
+.app-shell-dashboard .phase-node-active,
+.app-shell-dashboard .transfer-action-ready,
+.app-shell-dashboard .send-dropzone-ready,
+.app-shell-dashboard .send-dropzone-staged,
+.app-shell-dashboard .launchpad-mode:hover,
+.app-shell-dashboard .invite-workbench:hover {
+  background: rgba(126, 215, 232, 0.08);
+  border-color: rgba(126, 215, 232, 0.18);
+  box-shadow: none;
+}
+
 .workspace-column .panel {
   margin: 0;
 }
@@ -1506,21 +1689,6 @@ html {
   display: grid;
 }
 
-.app-shell-dashboard.app-mode-onboarding .workspace-command-deck {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-.app-shell-dashboard.app-mode-onboarding .workspace-spotlight,
-.app-shell-dashboard.app-mode-onboarding .console-nav,
-.app-shell-dashboard.app-mode-onboarding .workspace-column-side {
-  display: grid;
-}
-
-.app-shell-dashboard.app-mode-onboarding .console-nav {
-  display: flex;
-}
-
 .app-shell-dashboard.app-mode-onboarding .workspace-header {
   margin: 0 0 18px;
   padding: 28px 30px;
@@ -1540,22 +1708,12 @@ html {
   color: rgba(196, 208, 219, 0.76);
 }
 
-.app-shell-dashboard.app-mode-onboarding .workspace-layout {
-  grid-template-columns: minmax(0, 1.15fr) minmax(340px, 0.85fr);
-  max-width: none;
-  margin: 0;
+.app-shell-dashboard.app-mode-onboarding .workspace-command-deck {
+  display: grid;
 }
 
 .app-shell-dashboard.app-mode-onboarding #room-controls {
   box-shadow: 0 26px 60px rgba(2, 8, 13, 0.28);
-}
-
-.app-shell-dashboard.app-mode-onboarding .workspace-column-main {
-  gap: 16px;
-}
-
-.app-shell-dashboard.app-mode-onboarding .workspace-column-side {
-  gap: 16px;
 }
 
 .app-shell-dashboard.app-mode-onboarding #transfer-controls {
@@ -1967,6 +2125,28 @@ html {
   background:
     radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.9), rgba(240, 233, 223, 0.64));
   overflow: hidden;
+}
+
+.app-shell-dashboard .transfer-action-orbit {
+  display: none;
+}
+
+.app-shell-dashboard .transfer-action-visual {
+  border-radius: 16px;
+  background:
+    linear-gradient(160deg, rgba(18, 42, 58, 0.9), rgba(12, 27, 38, 0.86));
+}
+
+.app-shell-dashboard .transfer-action-core {
+  box-shadow: none;
+}
+
+.app-shell-dashboard .transfer-action-beam-receive {
+  background: linear-gradient(90deg, rgba(126, 215, 232, 0.12), rgba(126, 215, 232, 0.88), rgba(126, 215, 232, 0.12));
+}
+
+.app-shell-dashboard .transfer-action-beam-send {
+  background: linear-gradient(90deg, rgba(231, 125, 73, 0.12), rgba(231, 125, 73, 0.88), rgba(231, 125, 73, 0.12));
 }
 
 .transfer-action-core,
@@ -3338,6 +3518,15 @@ button:disabled {
 }
 
 @media (max-width: 1320px) {
+  .app-shell-dashboard .dashboard-shell {
+    grid-template-columns: 264px minmax(0, 1fr);
+    grid-template-areas:
+      "header spotlight"
+      "nav spotlight"
+      "deck workspace"
+      "footer footer";
+  }
+
   .app-mode-channel .workspace-column-main,
   .app-mode-cockpit .workspace-column-main {
     grid-template-columns: 1fr;
@@ -3350,6 +3539,32 @@ button:disabled {
 }
 
 @media (max-width: 1100px) {
+  .app-shell-dashboard {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .app-shell-dashboard .dashboard-shell {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "header"
+      "nav"
+      "spotlight"
+      "deck"
+      "workspace"
+      "footer";
+  }
+
+  .app-shell-dashboard .console-nav {
+    position: static;
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .app-shell-dashboard .workspace-command-deck {
+    grid-template-columns: 1fr 1fr;
+  }
+
   .app-shell-landing.app-mode-onboarding {
     grid-template-columns: 1fr;
     grid-template-areas:
@@ -3391,6 +3606,14 @@ button:disabled {
 }
 
 @media (max-width: 860px) {
+  .app-shell-dashboard .workspace-command-deck,
+  .app-shell-dashboard .workspace-spotlight,
+  .app-shell-dashboard .workspace-layout,
+  .app-shell-dashboard .workspace-column-side,
+  .app-shell-dashboard .workspace-column-main {
+    grid-template-columns: 1fr;
+  }
+
   .app {
     padding: 24px 14px 36px;
   }
@@ -3486,6 +3709,11 @@ button:disabled {
 }
 
 @media (max-width: 560px) {
+  .app-shell-dashboard .dashboard-shell {
+    padding: 14px;
+    border-radius: 20px;
+  }
+
   .landing-principles {
     grid-template-columns: 1fr;
   }

@@ -2788,6 +2788,10 @@ function renderShellView({ inRoom = false, channelLive = false, signalingOpen = 
     appRootEl.classList.toggle('app-shell-landing', landingVisible);
     appRootEl.classList.toggle('app-shell-dashboard', dashboardVisible);
   }
+  try {
+    document.body.classList.toggle('body-shell-landing', landingVisible);
+    document.body.classList.toggle('body-shell-dashboard', dashboardVisible);
+  } catch {}
   if (landingShellEl) landingShellEl.hidden = !landingVisible;
   if (dashboardShellEl) dashboardShellEl.hidden = !dashboardVisible;
 
