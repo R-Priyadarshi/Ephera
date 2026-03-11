@@ -34,12 +34,52 @@ Render steps:
    - `GET /healthz` should return `200`.
    - `GET /readyz` should return `200`.
 5. Run the GitHub Actions `staging-smoke` workflow with that public URL.
+6. Run the GitHub Actions `deployed-remote-e2e` workflow:
+   - `mode=fast` for a deployed smoke matrix using the main E2E runner.
+   - `mode=full` for the broader deployed-compatible matrix.
 
 Notes:
 
 - Keep `staging_signal_url` empty unless signaling is on a separate host.
 - `localhost` and private LAN addresses (`192.168.x.x`) cannot be reached by GitHub-hosted runners.
 - For production NAT traversal, configure TURN env vars (`TURN_URLS_JSON`, `TURN_AUTH_SECRET`, `TURN_TTL_SECONDS`) before release.
+
+## GitHub Remote E2E Workflow
+
+The repo includes a dedicated workflow:
+
+- `.github/workflows/deployed-remote-e2e.yml`
+
+Supported triggers:
+
+- `workflow_dispatch`
+- `repository_dispatch` with event type `staging_deployed`
+
+Manual run inputs:
+
+- `base_url`: deployed HTTPS URL
+- `signal_url`: optional WS/WSS override
+- `mode`: `fast` or `full`
+
+Repository dispatch payload shape:
+
+```json
+{
+  "event_type": "staging_deployed",
+  "client_payload": {
+    "base_url": "https://ephera.onrender.com",
+    "signal_url": "",
+    "mode": "fast"
+  }
+}
+```
+
+Behavior:
+
+- Waits for `GET /readyz` to report healthy before running browser validation.
+- `fast` runs `npm run e2e:remote:fast`.
+- `full` runs `npm run e2e:remote`.
+- Same-origin signaling is used by default unless `signal_url` is provided.
 
 ## Ephera App Server
 

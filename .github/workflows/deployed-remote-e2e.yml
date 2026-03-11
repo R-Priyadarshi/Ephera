@@ -1,0 +1,163 @@
+name: deployed-remote-e2e
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: 'HTTPS base URL for deployed Ephera (example: https://ephera.onrender.com)'
+        required: true
+        type: string
+      signal_url:
+        description: 'Optional signaling URL override (example: wss://signal.example.com)'
+        required: false
+        type: string
+      mode:
+        description: 'Remote E2E depth'
+        required: true
+        default: fast
+        type: choice
+        options:
+          - fast
+          - full
+  repository_dispatch:
+    types:
+      - staging_deployed
+
+permissions:
+  contents: read
+
+jobs:
+  remote-e2e:
+    name: remote-e2e
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      INPUT_BASE_URL: ${{ inputs.base_url }}
+      INPUT_SIGNAL_URL: ${{ inputs.signal_url }}
+      INPUT_MODE: ${{ inputs.mode }}
+      PAYLOAD_BASE_URL: ${{ github.event.client_payload.base_url }}
+      PAYLOAD_SIGNAL_URL: ${{ github.event.client_payload.signal_url }}
+      PAYLOAD_MODE: ${{ github.event.client_payload.mode }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Setup Chrome
+        id: chrome
+        uses: browser-actions/setup-chrome@v1
+
+      - name: Export Chrome path
+        run: echo "CHROME_PATH=${{ steps.chrome.outputs.chrome-path }}" >> "$GITHUB_ENV"
+
+      - name: Resolve deployed target
+        run: |
+          BASE_URL="${INPUT_BASE_URL:-}"
+          SIGNAL_URL="${INPUT_SIGNAL_URL:-}"
+          MODE="${INPUT_MODE:-fast}"
+
+          if [ "$GITHUB_EVENT_NAME" = "repository_dispatch" ]; then
+            if [ -n "${PAYLOAD_BASE_URL:-}" ]; then BASE_URL="$PAYLOAD_BASE_URL"; fi
+            if [ -n "${PAYLOAD_SIGNAL_URL:-}" ]; then SIGNAL_URL="$PAYLOAD_SIGNAL_URL"; fi
+            if [ -n "${PAYLOAD_MODE:-}" ]; then MODE="$PAYLOAD_MODE"; fi
+          fi
+
+          case "$MODE" in
+            fast|full) ;;
+            *)
+              echo "Unsupported mode: $MODE" >&2
+              exit 1
+              ;;
+          esac
+
+          if [ -z "$BASE_URL" ]; then
+            echo "Missing deployed base URL. Provide workflow_dispatch input 'base_url' or repository_dispatch client_payload.base_url." >&2
+            exit 1
+          fi
+
+          echo "E2E_APP_BASE_URL=$BASE_URL" >> "$GITHUB_ENV"
+          echo "REMOTE_E2E_MODE=$MODE" >> "$GITHUB_ENV"
+
+          if [ -n "$SIGNAL_URL" ]; then
+            echo "E2E_SIGNAL_URL=$SIGNAL_URL" >> "$GITHUB_ENV"
+          fi
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Wait for deployed readiness
+        run: |
+          node - <<'NODE'
+          const baseUrl = String(process.env.E2E_APP_BASE_URL || '').trim();
+          if (!baseUrl) throw new Error('Missing E2E_APP_BASE_URL');
+
+          const readyUrl = `${baseUrl.replace(/\/$/, '')}/readyz`;
+          const timeoutMs = 10 * 60 * 1000;
+          const pollMs = 10000;
+          const start = Date.now();
+
+          async function sleep(ms) {
+            return new Promise((resolve) => setTimeout(resolve, ms));
+          }
+
+          async function check() {
+            try {
+              const res = await fetch(readyUrl, { redirect: 'follow' });
+              if (!res.ok) return false;
+              const text = await res.text();
+              return text.includes('"ok":true');
+            } catch {
+              return false;
+            }
+          }
+
+          (async () => {
+            while (Date.now() - start < timeoutMs) {
+              if (await check()) {
+                console.log(`readyz healthy: ${readyUrl}`);
+                return;
+              }
+              console.log(`waiting for readiness: ${readyUrl}`);
+              await sleep(pollMs);
+            }
+            throw new Error(`Timed out waiting for deployed readiness: ${readyUrl}`);
+          })().catch((err) => {
+            console.error(err && err.stack ? err.stack : String(err));
+            process.exit(1);
+          });
+          NODE
+
+      - name: Run remote fast E2E
+        if: ${{ env.REMOTE_E2E_MODE == 'fast' }}
+        run: npm run e2e:remote:fast
+
+      - name: Run remote full E2E
+        if: ${{ env.REMOTE_E2E_MODE == 'full' }}
+        run: npm run e2e:remote
+
+      - name: Append remote E2E summary
+        if: ${{ always() }}
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+
+          const out = process.env.GITHUB_STEP_SUMMARY;
+          if (!out) process.exit(0);
+
+          const lines = [
+            '## Deployed Remote E2E',
+            `- baseUrl: \`${String(process.env.E2E_APP_BASE_URL || 'n/a')}\``,
+            `- signalUrl: \`${String(process.env.E2E_SIGNAL_URL || 'same-origin')}\``,
+            `- mode: \`${String(process.env.REMOTE_E2E_MODE || 'unknown')}\``,
+            `- event: \`${String(process.env.GITHUB_EVENT_NAME || 'unknown')}\``,
+            '',
+            'Remote E2E logs are emitted in the job output.',
+          ];
+
+          fs.appendFileSync(out, `${lines.join('\n')}\n`);
+          NODE
