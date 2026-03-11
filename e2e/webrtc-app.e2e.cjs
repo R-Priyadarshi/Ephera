@@ -446,6 +446,7 @@ async function run() {
   let appServer = null;
   let relayAppServer = null;
   let secureServer = null;
+  let signalPort = null;
   let baseUrl = REMOTE_APP_BASE_URL;
   let signalUrl = REMOTE_SIGNAL_URL;
   let appBaseUrl = REMOTE_APP_BASE_URL;
@@ -455,7 +456,7 @@ async function run() {
   if (!REMOTE_MODE) {
     staticServer = await startStaticServer();
     sameOriginSignaling = createSignalingServer({ server: staticServer.server, pingIntervalMs: 0 });
-    const signalPort = await getFreePort();
+    signalPort = await getFreePort();
     signaling = await startSignalingServer(signalPort);
     const appPort = await getFreePort();
     appServer = await startAppServer(appPort);
