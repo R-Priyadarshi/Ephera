@@ -8,19 +8,119 @@
 </head>
 <body>
   <main class="app">
-    <header class="header">
-      <div class="header-top">
-        <h1 class="title">Ephera</h1>
-        <span class="header-badge">Ephemeral Transport Engine</span>
+    <section class="landing-hero" id="landing">
+      <div class="landing-hero-grid">
+        <div class="landing-copy">
+          <p class="landing-eyebrow">Zero-memory data movement infrastructure</p>
+          <h1 class="landing-title">Move sensitive data peer-to-peer. Leave no retained trace.</h1>
+          <p class="landing-subtitle">
+            Ephera is not cloud storage. It is a live transport engine that streams encrypted payloads directly between peers and does not preserve transfer history.
+          </p>
+          <div class="landing-actions">
+            <a class="landing-button landing-button-primary" href="#room-controls">Launch Secure Session</a>
+            <a class="landing-button landing-button-secondary" href="#landing-principles">Explore Trust Model</a>
+          </div>
+          <div class="landing-metrics" aria-label="Core operating signals">
+            <div class="landing-metric">
+              <span class="landing-metric-value">0</span>
+              <span class="landing-metric-label">retained payload bytes</span>
+            </div>
+            <div class="landing-metric">
+              <span class="landing-metric-value">P2P</span>
+              <span class="landing-metric-label">direct DataChannel transport</span>
+            </div>
+            <div class="landing-metric">
+              <span class="landing-metric-value">Deterministic</span>
+              <span class="landing-metric-label">explicit START/CHUNK/END lifecycle</span>
+            </div>
+          </div>
+        </div>
+        <aside class="landing-protocol-card" aria-label="Protocol snapshot">
+          <h2>Protocol Snapshot</h2>
+          <div class="protocol-row"><span>Signaling</span><strong>stateless WebSocket relay</strong></div>
+          <div class="protocol-row"><span>Transport</span><strong>WebRTC DataChannel (encrypted)</strong></div>
+          <div class="protocol-row"><span>Persistence</span><strong>none by design</strong></div>
+          <div class="protocol-row"><span>Abort Model</span><strong>terminal and isolated</strong></div>
+          <div class="protocol-row"><span>Concurrency</span><strong>session-scoped routing</strong></div>
+          <p class="hint">Server only coordinates connection setup. File payload does not pass through application storage.</p>
+          <div class="protocol-stage" aria-hidden="true">
+            <span class="protocol-node protocol-node-a"></span>
+            <span class="protocol-node protocol-node-b"></span>
+            <span class="protocol-node protocol-node-c"></span>
+            <span class="protocol-link protocol-link-a"></span>
+            <span class="protocol-link protocol-link-b"></span>
+            <span class="protocol-link protocol-link-c"></span>
+            <span class="protocol-pulse protocol-pulse-a"></span>
+            <span class="protocol-pulse protocol-pulse-b"></span>
+            <div class="protocol-stage-label protocol-stage-label-a">sender</div>
+            <div class="protocol-stage-label protocol-stage-label-b">signal</div>
+            <div class="protocol-stage-label protocol-stage-label-c">receiver</div>
+          </div>
+        </aside>
       </div>
-      <p class="subtitle">Zero-memory peer-to-peer transport. No storage. No logs.</p>
+    </section>
+
+    <section class="landing-principles" id="landing-principles">
+      <article class="landing-principle">
+        <h2>Zero-Memory Core</h2>
+        <p>No DB writes, no file cache, no transfer history. Session data exists only while the runtime is alive.</p>
+      </article>
+      <article class="landing-principle">
+        <h2>Trust-Minimized Path</h2>
+        <p>Data flows directly between peers. Signaling only introduces endpoints and then steps out of the payload path.</p>
+      </article>
+      <article class="landing-principle">
+        <h2>Abort-Safe Semantics</h2>
+        <p>Abort is explicit and terminal. Partial completion is not misreported as success.</p>
+      </article>
+      <article class="landing-principle">
+        <h2>Concurrency Discipline</h2>
+        <p>Transfers are isolated by session IDs with deterministic routing and bounded memory behavior.</p>
+      </article>
+    </section>
+
+    <section class="landing-flow">
+      <h2>How Ephera Operates</h2>
+      <ol class="landing-flow-list">
+        <li>
+          <strong>1. Session Initiation</strong>
+          Host creates a room and issues an invite package (link, key, and optional passphrase snapshot).
+        </li>
+        <li>
+          <strong>2. Peer Handshake</strong>
+          Receiver joins, signaling coordinates WebRTC negotiation, and peers establish direct channel.
+        </li>
+        <li>
+          <strong>3. Streamed Transfer</strong>
+          Sender streams chunks under backpressure control. Receiver chooses save folder or discard mode.
+        </li>
+        <li>
+          <strong>4. Deterministic Teardown</strong>
+          END/ABORT finalizes session lifecycle; no persistent transfer state remains in Ephera.
+        </li>
+      </ol>
+    </section>
+
+    <header class="header workspace-header">
+      <div class="header-top">
+        <h2 class="title">Engine Console</h2>
+        <span class="header-badge">Live Session Control Plane</span>
+      </div>
+      <p class="subtitle">Use this console to create or join rooms, verify runtime guarantees, and execute direct peer transfers.</p>
       <div class="header-chips" aria-label="Core guarantees">
-        <span class="header-chip">Direct P2P DataChannel</span>
-        <span class="header-chip">Server used only for signaling</span>
-        <span class="header-chip">No transfer history retention</span>
-        <span class="header-chip">Receiver controls local save</span>
+        <span class="header-chip">Launchpad + manual controls</span>
+        <span class="header-chip">Live preflight verification</span>
+        <span class="header-chip">Flow-state guidance</span>
+        <span class="header-chip">Session-local diagnostics</span>
       </div>
     </header>
+
+    <nav class="console-nav" aria-label="Console navigation">
+      <a class="console-nav-link" data-console-link href="#room-controls">Connection</a>
+      <a class="console-nav-link" data-console-link href="#transfer-controls">Transfer Bay</a>
+      <a class="console-nav-link" data-console-link href="#flow-guide">Flow</a>
+      <a class="console-nav-link" data-console-link href="#activity-timeline">Activity</a>
+    </nav>
 
     <section class="panel" id="room-controls">
       <div class="panel-head">
@@ -179,7 +279,7 @@
             <li id="flow-step-p2p" class="flow-step">Establish P2P channel</li>
             <li id="flow-step-local-ready" class="flow-step">Peer signals ready</li>
             <li id="flow-step-peer-ready" class="flow-step">Protocol + crypto verified</li>
-            <li id="flow-step-send" class="flow-step">Choose file and send</li>
+            <li id="flow-step-send" class="flow-step">Choose payload and send</li>
           </ol>
           <p id="flow-next" class="hint">Next: create or join a room.</p>
           <p id="role-onboarding-hint" class="hint onboarding-hint">Role hint: create a room to become owner, or join as peer.</p>
@@ -187,16 +287,29 @@
       </div>
     </section>
 
-    <section class="panel" id="transfer-controls" hidden>
+    <section class="panel transfer-shell transfer-shell-locked" id="transfer-controls">
       <div class="panel-head">
         <h2>Transfer</h2>
+      </div>
+      <div class="card transfer-lock-banner" id="transfer-lock-banner">
+        <div class="transfer-lock-head">
+          <h3>Transfer Bay</h3>
+          <span class="transfer-lock-state" id="transfer-lock-state">Locked</span>
+        </div>
+        <p id="transfer-lock-text" class="transfer-lock-text">Create or join a room to unlock direct transfer controls.</p>
+        <div class="transfer-lock-chips">
+          <span class="transfer-lock-chip">1. Room</span>
+          <span class="transfer-lock-chip">2. P2P channel</span>
+          <span class="transfer-lock-chip">3. Peer ready</span>
+          <span class="transfer-lock-chip">4. Send files</span>
+        </div>
       </div>
       <div class="card quick-transfer">
         <div class="panel-head panel-head-inline">
           <h3>Quick Mode</h3>
           <span id="transfer-quick-summary" class="quick-summary">Create or join a room to start.</span>
         </div>
-        <p class="hint">Primary path: wait for peer ready, choose files, press Send. Expand advanced controls only when needed.</p>
+        <p class="hint">Primary path: wait for peer ready, choose payloads, press Send. Expand advanced controls only when needed.</p>
       </div>
       <div class="card transfer-contract">
         <h3>Receive Behavior</h3>
@@ -204,12 +317,30 @@
           <li><strong>Pick Receive Folder</strong> means files are saved to that folder on this device.</li>
           <li><strong>Ready (Discard)</strong> means files are received and verified in memory, then discarded.</li>
           <li>Ephera does not keep transfer history; local saved files are outside Ephera trust boundary.</li>
+          <li><strong>Sender path today</strong> supports file batches and folder-file batches. File hierarchy is preserved when relative paths are available; empty directories are not transferred.</li>
         </ul>
       </div>
 
-      <div class="grid">
-        <div class="card">
-          <h3>Receive</h3>
+      <div class="grid transfer-grid">
+        <div class="card transfer-action transfer-action-receive" id="receive-card">
+          <div class="transfer-action-head">
+            <div>
+              <h3>Receive</h3>
+              <p id="receive-action-copy" class="transfer-action-copy">Choose how this device should handle incoming payloads before the peer starts streaming.</p>
+            </div>
+            <span id="receive-action-state" class="transfer-action-state">Standby</span>
+          </div>
+          <div class="transfer-action-stage">
+            <div class="transfer-action-visual transfer-action-visual-receive" aria-hidden="true">
+              <span class="transfer-action-core transfer-action-core-a"></span>
+              <span class="transfer-action-core transfer-action-core-b"></span>
+              <span class="transfer-action-beam transfer-action-beam-receive"></span>
+            </div>
+            <div class="transfer-action-stage-copy">
+              <strong id="receive-stage-title" class="transfer-stage-title">Choose local receive policy</strong>
+              <p id="receive-stage-text" class="transfer-stage-text">Pick a folder to save received files, or switch to discard mode to verify and drop payloads in memory.</p>
+            </div>
+          </div>
           <div class="row">
             <button id="pick-receive-folder">Pick Receive Folder</button>
             <button id="ready-discard" type="button">Ready (Discard)</button>
@@ -227,14 +358,53 @@
           <p class="hint">Pick a folder to save received files, or signal ready in discard mode to receive without saving.</p>
         </div>
 
-        <div class="card">
-          <h3>Send</h3>
+        <div class="card transfer-action transfer-action-send" id="send-card">
+          <div class="transfer-action-head">
+            <div>
+              <h3>Send Files</h3>
+              <p id="send-action-copy" class="transfer-action-copy">Sender controls stay visible, but the transport gate remains closed until the live session is fully negotiated.</p>
+            </div>
+            <span id="send-action-state" class="transfer-action-state">Locked</span>
+          </div>
+          <div class="transfer-action-stage">
+            <div class="transfer-action-visual transfer-action-visual-send" aria-hidden="true">
+              <span class="transfer-action-core transfer-action-core-send"></span>
+              <span class="transfer-action-orbit transfer-action-orbit-a"></span>
+              <span class="transfer-action-orbit transfer-action-orbit-b"></span>
+              <span class="transfer-action-beam transfer-action-beam-send"></span>
+            </div>
+            <div class="transfer-action-stage-copy">
+              <strong id="send-stage-title" class="transfer-stage-title">Waiting for live room</strong>
+              <p id="send-stage-text" class="transfer-stage-text">Create or join a room first. Ephera only unlocks transfer after the direct channel and peer-ready signal are present.</p>
+            </div>
+          </div>
+          <div class="send-progress" aria-label="Send unlock progression">
+            <span id="send-chip-room" class="send-progress-chip">room</span>
+            <span id="send-chip-p2p" class="send-progress-chip">p2p</span>
+            <span id="send-chip-peer" class="send-progress-chip">peer ready</span>
+            <span id="send-chip-crypto" class="send-progress-chip">crypto</span>
+          </div>
+          <div
+            id="send-dropzone"
+            class="send-dropzone"
+            tabindex="0"
+            role="button"
+            aria-describedby="send-dropzone-hint"
+          >
+            <strong id="send-dropzone-title" class="send-dropzone-title">Drop files or folders here</strong>
+            <p id="send-dropzone-hint" class="send-dropzone-hint">
+              Stage payloads directly in the transfer bay. You can drop before the room fully unlocks; Send still stays gated until the session is ready.
+            </p>
+          </div>
           <div class="row">
             <input type="file" id="file-input" multiple>
+            <input type="file" id="folder-input" webkitdirectory multiple hidden>
+            <button id="pick-send-folder" type="button">Choose Folder</button>
             <button id="send-file" disabled>Send</button>
           </div>
+          <p id="send-selection-summary" class="hint send-selection-summary">No payload selected.</p>
           <p id="send-gate-reason" class="hint send-gate-reason"></p>
-          <p class="hint">Send is enabled only when the peer signals “ready”. Multiple files are sent as concurrent transfers.</p>
+          <p class="hint">Send is enabled only when the peer signals “ready”. Selected payloads are sent as concurrent transfers.</p>
         </div>
       </div>
 
@@ -267,6 +437,20 @@
           </div>
           <p id="crypto-state" class="status"></p>
           <p class="hint">If set, each payload chunk is encrypted with AES-256-GCM using a key derived from this passphrase. Ephera does not store it.</p>
+        </div>
+
+        <div class="card">
+          <div class="panel-head panel-head-inline">
+            <h3>Transfer Ledger</h3>
+            <button id="clear-transfer-ledger" type="button">Clear</button>
+          </div>
+          <p class="hint">Operator view of transfer batches and receipts. Local only and cleared on refresh.</p>
+          <div class="ledger-summary" aria-label="Transfer ledger summary">
+            <span id="transfer-ledger-active-count" class="ledger-summary-chip">active 0</span>
+            <span id="transfer-ledger-complete-count" class="ledger-summary-chip">complete 0</span>
+            <span id="transfer-ledger-attention-count" class="ledger-summary-chip">attention 0</span>
+          </div>
+          <div id="transfer-ledger-list" class="transfer-ledger"></div>
         </div>
 
         <div class="card">

@@ -435,15 +435,37 @@ async function run() {
   const fileBuf2 = Buffer.allocUnsafe(fileSize2);
   for (let i = 0; i < fileSize2; i++) fileBuf2[i] = (i * 7) & 0xff;
 
+  function computeBufferDigest(buf) {
+    let sum = 0;
+    for (let i = 0; i < buf.length; i++) sum = (sum + buf[i]) >>> 0;
+    return {
+      size: buf.length >>> 0,
+      sum: sum >>> 0,
+      first16: Array.from(buf.subarray(0, 16)),
+      last16: Array.from(buf.subarray(Math.max(0, buf.length - 16))),
+    };
+  }
+
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ephera-e2e-'));
   const filePathSingle = path.join(tmpDir, 'e2e.bin');
   const filePathA = path.join(tmpDir, 'a.bin');
   const filePathB = path.join(tmpDir, 'b.bin');
   const filePathCrash = path.join(tmpDir, 'crash.bin');
   const filePathPerfLarge = path.join(tmpDir, 'perf-large.bin');
+  const folderBatchRoot = path.join(tmpDir, 'payload-folder');
+  const folderBatchFileAPath = path.join(folderBatchRoot, 'docs', 'guide.bin');
+  const folderBatchFileBPath = path.join(folderBatchRoot, 'media', 'clip.bin');
+  const folderBatchRelA = 'payload-folder/docs/guide.bin';
+  const folderBatchRelB = 'payload-folder/media/clip.bin';
+  const folderBatchDigestA = computeBufferDigest(fileBuf);
+  const folderBatchDigestB = computeBufferDigest(fileBuf2);
   fs.writeFileSync(filePathSingle, fileBuf);
   fs.writeFileSync(filePathA, fileBuf);
   fs.writeFileSync(filePathB, fileBuf2);
+  fs.mkdirSync(path.dirname(folderBatchFileAPath), { recursive: true });
+  fs.mkdirSync(path.dirname(folderBatchFileBPath), { recursive: true });
+  fs.writeFileSync(folderBatchFileAPath, fileBuf);
+  fs.writeFileSync(folderBatchFileBPath, fileBuf2);
   // Larger file to ensure the transfer is in-flight when signaling is killed.
   fs.writeFileSync(filePathCrash, Buffer.alloc(32 * 1024 * 1024, 0x5a));
   if (PERF) {
@@ -464,10 +486,116 @@ async function run() {
   });
 
   try {
+    async function stagePayloadsViaDrop(page, selector, files) {
+      const payloads = [];
+      const list = Array.isArray(files) ? files : [];
+
+      for (let i = 0; i < list.length; i++) {
+        const item = list[i];
+        if (typeof item === 'string') {
+          payloads.push({
+            name: path.basename(item),
+            mimeType: 'application/octet-stream',
+            bytes: Array.from(fs.readFileSync(item)),
+          });
+          continue;
+        }
+
+        if (item && typeof item === 'object' && item.buffer) {
+          payloads.push({
+            name: item.name || `drop-${i}.bin`,
+            mimeType: item.mimeType || 'application/octet-stream',
+            bytes: Array.from(item.buffer),
+          });
+        }
+      }
+
+      const dt = await page.evaluateHandle((items) => {
+        const data = new DataTransfer();
+        for (let i = 0; i < items.length; i++) {
+          const item = items[i];
+          const bytes = new Uint8Array(Array.isArray(item.bytes) ? item.bytes : []);
+          const file = new File([bytes], item.name || `drop-${i}.bin`, {
+            type: item.mimeType || 'application/octet-stream',
+          });
+          data.items.add(file);
+        }
+        return data;
+      }, payloads);
+
+      try {
+        await page.dispatchEvent(selector, 'dragenter', { dataTransfer: dt });
+        await page.dispatchEvent(selector, 'dragover', { dataTransfer: dt });
+        await page.dispatchEvent(selector, 'drop', { dataTransfer: dt });
+      } finally {
+        try { await dt.dispose(); } catch {}
+      }
+    }
+
+    async function readTransferLedgerSnapshot(page) {
+      return page.evaluate(() => {
+        const parseCount = (id) => {
+          const el = document.getElementById(id);
+          const text = el ? String(el.textContent || '') : '';
+          const match = text.match(/(\d+)/);
+          return match ? Number(match[1]) : 0;
+        };
+
+        const cards = Array.from(document.querySelectorAll('#transfer-ledger-list .ledger-entry'));
+        return {
+          count: cards.length,
+          active: parseCount('transfer-ledger-active-count'),
+          complete: parseCount('transfer-ledger-complete-count'),
+          attention: parseCount('transfer-ledger-attention-count'),
+          text: cards.map((card) => String(card.textContent || '')).join('\n'),
+        };
+      });
+    }
+
+    function assertLedgerContainsPayloads(label, ledger, expectedNames) {
+      const text = String(ledger && ledger.text ? ledger.text : '');
+      const allNamesPresent = expectedNames.every((name) => text.includes(name));
+      if (allNamesPresent) return;
+
+      const visibleNames = expectedNames.slice(0, Math.min(3, expectedNames.length));
+      let headVisible = true;
+      for (const name of visibleNames) {
+        if (!text.includes(name)) {
+          headVisible = false;
+          break;
+        }
+      }
+
+      if (headVisible && expectedNames.length > visibleNames.length) {
+        const moreLabel = `+${expectedNames.length - visibleNames.length} more`;
+        if (!text.includes(moreLabel)) {
+          throw new Error(`${label} ledger missing collapsed payload indicator ${JSON.stringify(moreLabel)}: ${JSON.stringify(ledger)}`);
+        }
+      }
+      if (headVisible) return;
+
+      // Receiver ledger may retain only the newest settled entries once the cap
+      // is reached. In that case, assert visibility of tail payload names.
+      const ledgerCount = Math.max(0, Number(ledger && ledger.count) || 0);
+      if (ledgerCount > 0 && expectedNames.length > ledgerCount) {
+        const tailVisible = expectedNames
+          .slice(-Math.min(3, expectedNames.length))
+          .every((name) => text.includes(name));
+        if (tailVisible) return;
+      }
+
+      throw new Error(`${label} ledger missing visible payload names for expected batch: ${JSON.stringify(ledger)}`);
+    }
+
     async function runScenario({
       label,
       passphrase,
       files,
+      selectionMode = 'input',
+      folderInputPath = '',
+      expectSelectionSummaryIncludes = '',
+      expectSelectionSummaryExcludes = '',
+      expectSenderFolderUploadCapable = null,
       expectAutoPassphrase = false,
       mismatchPassphrase = false,
       expectSendDisabled = false,
@@ -489,6 +617,7 @@ async function run() {
       idleMsBeforeSend = 0,
       contextOptions = null,
       expectRelayPolicy = false,
+      onSendStarted = null,
     }) {
       const activeBaseUrl = baseUrlOverride || baseUrl;
       const activeSignalUrl = signalUrlOverride || signalUrl;
@@ -579,6 +708,8 @@ async function run() {
             return {
               folderSaveCapable: s ? s.preflightFolderSaveCapable : null,
               hasFolderSaveField: !!(s && typeof s.preflightFolderSaveCapable === 'boolean'),
+              senderFolderUploadCapable: s ? s.preflightSenderFolderUploadCapable : null,
+              hasSenderFolderUploadField: !!(s && typeof s.preflightSenderFolderUploadCapable === 'boolean'),
               buttonDisabled: !!(btn && btn.disabled),
             };
           }),
@@ -588,6 +719,8 @@ async function run() {
             return {
               folderSaveCapable: s ? s.preflightFolderSaveCapable : null,
               hasFolderSaveField: !!(s && typeof s.preflightFolderSaveCapable === 'boolean'),
+              senderFolderUploadCapable: s ? s.preflightSenderFolderUploadCapable : null,
+              hasSenderFolderUploadField: !!(s && typeof s.preflightSenderFolderUploadCapable === 'boolean'),
               buttonDisabled: !!(btn && btn.disabled),
             };
           }),
@@ -599,10 +732,20 @@ async function run() {
           if (!side.data || side.data.hasFolderSaveField !== true) {
             throw new Error(`Missing preflightFolderSaveCapable boolean on ${side.name}: ${JSON.stringify(side.data)}`);
           }
+          if (!side.data || side.data.hasSenderFolderUploadField !== true) {
+            throw new Error(`Missing preflightSenderFolderUploadCapable boolean on ${side.name}: ${JSON.stringify(side.data)}`);
+          }
           const expectedDisabled = !side.data.folderSaveCapable;
           if (side.data.buttonDisabled !== expectedDisabled) {
             throw new Error(
               `Preflight/button mismatch on ${side.name}: folderSaveCapable=${side.data.folderSaveCapable}, buttonDisabled=${side.data.buttonDisabled}`
+            );
+          }
+        }
+        if (typeof expectSenderFolderUploadCapable === 'boolean') {
+          if (senderPreflight.senderFolderUploadCapable !== expectSenderFolderUploadCapable) {
+            throw new Error(
+              `Sender folder upload capability mismatch: expected ${expectSenderFolderUploadCapable}, got ${senderPreflight.senderFolderUploadCapable}`
             );
           }
         }
@@ -747,9 +890,49 @@ async function run() {
           );
         }
 
-        console.log(`--- E2E (${label}): selecting file + sending ---`);
-        await sender.setInputFiles('#file-input', fileList);
-        console.log(`--- E2E (${label}): files selected ---`);
+        console.log(`--- E2E (${label}): selecting payloads + sending ---`);
+        if (selectionMode === 'drop') {
+          await stagePayloadsViaDrop(sender, '#send-dropzone', fileList);
+          await sender.waitForFunction(
+            () => {
+              const txt = (document.getElementById('send-selection-summary') || {}).textContent || '';
+              return String(txt).toLowerCase() !== 'no payload selected.';
+            },
+            null,
+            { timeout: 10_000 }
+          );
+          console.log(`--- E2E (${label}): payloads dropped into send bay ---`);
+        } else if (selectionMode === 'folder-input') {
+          const folderTarget = String(folderInputPath || '').trim();
+          await sender.setInputFiles('#folder-input', folderTarget || fileList);
+          console.log(`--- E2E (${label}): folder input selected ---`);
+        } else {
+          await sender.setInputFiles('#file-input', fileList);
+          console.log(`--- E2E (${label}): files selected ---`);
+        }
+
+        if (expectSelectionSummaryIncludes) {
+          const needle = String(expectSelectionSummaryIncludes).toLowerCase();
+          await sender.waitForFunction(
+            (n) => {
+              const txt = (document.getElementById('send-selection-summary') || {}).textContent || '';
+              return String(txt).toLowerCase().includes(String(n || ''));
+            },
+            needle,
+            { timeout: 10_000 }
+          );
+        }
+        if (expectSelectionSummaryExcludes) {
+          const needle = String(expectSelectionSummaryExcludes).toLowerCase();
+          await sender.waitForFunction(
+            (n) => {
+              const txt = (document.getElementById('send-selection-summary') || {}).textContent || '';
+              return !String(txt).toLowerCase().includes(String(n || ''));
+            },
+            needle,
+            { timeout: 10_000 }
+          );
+        }
 
         if (!expectSendDisabled) {
           await sender.waitForFunction(
@@ -852,6 +1035,18 @@ async function run() {
         await sender.evaluate(() => document.getElementById('send-file').click());
         console.log(`--- E2E (${label}): send clicked ---`);
 
+        if (typeof onSendStarted === 'function') {
+          await onSendStarted({
+            sender,
+            receiver,
+            label,
+            expectedCount,
+            expectedNames,
+            expectedTotalBytes,
+            readTransferLedgerSnapshot,
+          });
+        }
+
         if (killSignaling) {
           // Try to ensure the transfer actually started, then kill the signaling server.
           try {
@@ -939,6 +1134,23 @@ async function run() {
           }
         }
 
+        const [senderLedger, receiverLedger] = await Promise.all([
+          readTransferLedgerSnapshot(sender),
+          readTransferLedgerSnapshot(receiver),
+        ]);
+
+        if (!senderLedger || senderLedger.count < 1) {
+          throw new Error(`Sender ledger missing entries: ${JSON.stringify(senderLedger)}`);
+        }
+        if (!receiverLedger || receiverLedger.count < 1) {
+          throw new Error(`Receiver ledger missing entries: ${JSON.stringify(receiverLedger)}`);
+        }
+        if (receiverLedger.complete < 1) {
+          throw new Error(`Receiver ledger did not mark completion: ${JSON.stringify(receiverLedger)}`);
+        }
+        assertLedgerContainsPayloads('Sender', senderLedger, expectedNames);
+        assertLedgerContainsPayloads('Receiver', receiverLedger, expectedNames);
+
         console.log(`--- E2E (${label}) PASS: ${expectedTotalBytes} bytes transferred over WebRTC P2P (${expectedCount} file(s)) ---`);
 
         if (stopPerf) stopPerf();
@@ -1000,6 +1212,11 @@ async function run() {
           // E2E receiver runs in discard mode (autoReady, no folder picker).
           if (s.deliveredDiscardCount !== expectedCount) {
             throw new Error(`Receipt sink mismatch: expected discard=${expectedCount}, got discard=${s.deliveredDiscardCount}`);
+          }
+
+          const senderLedgerAfterReceipt = await readTransferLedgerSnapshot(sender);
+          if (!senderLedgerAfterReceipt || senderLedgerAfterReceipt.complete < 1) {
+            throw new Error(`Sender ledger did not mark completion after receipt: ${JSON.stringify(senderLedgerAfterReceipt)}`);
           }
         }
 
@@ -2530,12 +2747,130 @@ async function run() {
 
         console.log(`--- E2E (${label}) PASS: ownership transferred on disconnect and owner controls remained correct ---`);
       } finally {
-        try { await ownerCtx.close(); } catch {}
-        try { await peerCtx.close(); } catch {}
-      }
-    }
+	        try { await ownerCtx.close(); } catch {}
+	        try { await peerCtx.close(); } catch {}
+	      }
+	    }
 
-    async function runFolderSavePolyfillScenario() {
+	    async function installFakeFolderPicker(page) {
+	      await page.evaluate(() => {
+	        const files = Object.create(null); // relative path -> { chunks, size, data, sum, first16, last16 }
+
+	        function normalizeChunk(v) {
+	          if (v instanceof Uint8Array) return v;
+	          if (v instanceof ArrayBuffer) return new Uint8Array(v);
+	          if (ArrayBuffer.isView(v)) return new Uint8Array(v.buffer, v.byteOffset, v.byteLength);
+	          throw new Error('unsupported writable chunk type');
+	        }
+
+	        function computeDigest(u8) {
+	          const size = u8.byteLength >>> 0;
+	          let sum = 0;
+	          for (let i = 0; i < u8.byteLength; i++) sum = (sum + u8[i]) >>> 0;
+	          const first16 = Array.from(u8.slice(0, 16));
+	          const last16 = Array.from(u8.slice(Math.max(0, u8.byteLength - 16)));
+	          return { size, sum, first16, last16 };
+	        }
+
+	        function joinPath(prefix, name) {
+	          const safeName = String(name || '').trim();
+	          if (!safeName) throw new Error('Invalid path segment');
+	          return prefix ? `${prefix}/${safeName}` : safeName;
+	        }
+
+	        function createDirHandle(prefix = '') {
+	          return {
+	            name: prefix ? prefix.split('/').slice(-1)[0] : 'ephera-e2e',
+	            async requestPermission() { return 'granted'; },
+	            async getDirectoryHandle(name) {
+	              return createDirHandle(joinPath(prefix, name));
+	            },
+	            async getFileHandle(name, opts) {
+	              const key = joinPath(prefix, name);
+	              const create = !!(opts && opts.create);
+	              if (!files[key]) {
+	                if (!create) {
+	                  const err = new Error('NotFoundError');
+	                  err.name = 'NotFoundError';
+	                  throw err;
+	                }
+	                files[key] = { chunks: [], size: 0, data: null, sum: 0, first16: [], last16: [] };
+	              }
+	              const entry = files[key];
+	              return {
+	                async createWritable() {
+	                  entry.chunks = [];
+	                  entry.size = 0;
+	                  entry.data = null;
+	                  entry.sum = 0;
+	                  entry.first16 = [];
+	                  entry.last16 = [];
+
+	                  let aborted = false;
+	                  let closed = false;
+
+	                  return {
+	                    async write(v) {
+	                      if (aborted) throw new Error('writable aborted');
+	                      if (closed) throw new Error('writable closed');
+	                      const u8 = normalizeChunk(v);
+	                      const copy = new Uint8Array(u8.byteLength);
+	                      copy.set(u8);
+	                      entry.chunks.push(copy);
+	                      entry.size += copy.byteLength;
+	                    },
+	                    async close() {
+	                      if (aborted) throw new Error('writable aborted');
+	                      if (closed) return;
+	                      closed = true;
+
+	                      const out = new Uint8Array(entry.size);
+	                      let off = 0;
+	                      for (const c of entry.chunks) {
+	                        out.set(c, off);
+	                        off += c.byteLength;
+	                      }
+	                      entry.data = out;
+	                      const d = computeDigest(out);
+	                      entry.size = d.size >>> 0;
+	                      entry.sum = d.sum >>> 0;
+	                      entry.first16 = d.first16;
+	                      entry.last16 = d.last16;
+	                    },
+	                    abort() { aborted = true; },
+	                  };
+	                },
+	              };
+	            },
+	          };
+	        }
+
+	        window.__epheraFakeFs = {
+	          list() { return Object.keys(files).sort(); },
+	          digest(name) {
+	            const e = files[name];
+	            if (!e || !e.data) return null;
+	            return { name, size: e.size >>> 0, sum: e.sum >>> 0, first16: e.first16, last16: e.last16 };
+	          },
+	        };
+
+	        window.showDirectoryPicker = async () => createDirHandle('');
+	      });
+
+	      await page.evaluate(() => {
+	        const s = window.__epheraE2E;
+	        if (s && typeof s.refreshPreflight === 'function') s.refreshPreflight();
+	      });
+
+	      await page.waitForFunction(() => {
+	        const s = window.__epheraE2E;
+	        const btn = document.getElementById('pick-receive-folder');
+	        if (!s || !btn) return false;
+	        return s.preflightFolderSaveCapable === true && btn.disabled === false;
+	      }, null, { timeout: 10_000 });
+	    }
+
+	    async function runFolderSavePolyfillScenario() {
       const label = 'folder-save-polyfill';
       const roomId = `e2e-${Date.now()}-${Math.random().toString(16).slice(2)}-${label}`;
       const roomJoinKey = generateRoomJoinKey(label);
@@ -2573,107 +2908,8 @@ async function run() {
           input.dispatchEvent(new Event('input', { bubbles: true }));
         }, senderPass);
 
-        console.log(`--- E2E (${label}): installing in-memory folder picker polyfill ---`);
-        await receiver.evaluate(() => {
-          const files = Object.create(null); // name -> { chunks: Uint8Array[], size, data, sum, first16, last16 }
-
-          function normalizeChunk(v) {
-            if (v instanceof Uint8Array) return v;
-            if (v instanceof ArrayBuffer) return new Uint8Array(v);
-            if (ArrayBuffer.isView(v)) return new Uint8Array(v.buffer, v.byteOffset, v.byteLength);
-            throw new Error('unsupported writable chunk type');
-          }
-
-          function computeDigest(u8) {
-            const size = u8.byteLength >>> 0;
-            let sum = 0;
-            for (let i = 0; i < u8.byteLength; i++) sum = (sum + u8[i]) >>> 0;
-            const first16 = Array.from(u8.slice(0, 16));
-            const last16 = Array.from(u8.slice(Math.max(0, u8.byteLength - 16)));
-            return { size, sum, first16, last16 };
-          }
-
-          window.__epheraFakeFs = {
-            list() { return Object.keys(files); },
-            digest(name) {
-              const e = files[name];
-              if (!e || !e.data) return null;
-              return { name, size: e.size >>> 0, sum: e.sum >>> 0, first16: e.first16, last16: e.last16 };
-            },
-          };
-
-          window.showDirectoryPicker = async () => ({
-            name: 'ephera-e2e',
-            async requestPermission() { return 'granted'; },
-            async getFileHandle(name, opts) {
-              const create = !!(opts && opts.create);
-              if (!files[name]) {
-                if (!create) {
-                  const err = new Error('NotFoundError');
-                  err.name = 'NotFoundError';
-                  throw err;
-                }
-                files[name] = { chunks: [], size: 0, data: null, sum: 0, first16: [], last16: [] };
-              }
-              const entry = files[name];
-              return {
-                async createWritable() {
-                  // Overwrite semantics: createWritable() truncates existing file.
-                  entry.chunks = [];
-                  entry.size = 0;
-                  entry.data = null;
-                  entry.sum = 0;
-                  entry.first16 = [];
-                  entry.last16 = [];
-
-                  let aborted = false;
-                  let closed = false;
-
-                  return {
-                    async write(v) {
-                      if (aborted) throw new Error('writable aborted');
-                      if (closed) throw new Error('writable closed');
-                      const u8 = normalizeChunk(v);
-                      const copy = new Uint8Array(u8.byteLength);
-                      copy.set(u8);
-                      entry.chunks.push(copy);
-                      entry.size += copy.byteLength;
-                    },
-                    async close() {
-                      if (aborted) throw new Error('writable aborted');
-                      if (closed) return;
-                      closed = true;
-
-                      const out = new Uint8Array(entry.size);
-                      let off = 0;
-                      for (const c of entry.chunks) {
-                        out.set(c, off);
-                        off += c.byteLength;
-                      }
-                      entry.data = out;
-                      const d = computeDigest(out);
-                      entry.size = d.size >>> 0;
-                      entry.sum = d.sum >>> 0;
-                      entry.first16 = d.first16;
-                      entry.last16 = d.last16;
-                    },
-                    abort() { aborted = true; },
-                  };
-                },
-              };
-            },
-          });
-        });
-        await receiver.evaluate(() => {
-          const s = window.__epheraE2E;
-          if (s && typeof s.refreshPreflight === 'function') s.refreshPreflight();
-        });
-        await receiver.waitForFunction(() => {
-          const s = window.__epheraE2E;
-          const btn = document.getElementById('pick-receive-folder');
-          if (!s || !btn) return false;
-          return s.preflightFolderSaveCapable === true && btn.disabled === false;
-        }, null, { timeout: 10_000 });
+	        console.log(`--- E2E (${label}): installing in-memory folder picker polyfill ---`);
+	        await installFakeFolderPicker(receiver);
 
         console.log(`--- E2E (${label}): picking receive folder (polyfilled) ---`);
         await receiver.evaluate(() => {
@@ -2735,14 +2971,238 @@ async function run() {
           throw new Error(`Expected saved inbound outcome, got ${JSON.stringify(receiverState.lastInboundOutcome)}`);
         }
 
-        console.log(`--- E2E (${label}) PASS: saved receipt + saved bytes verified (polyfill) ---`);
-      } finally {
-        try { await senderCtx.close(); } catch {}
-        try { await receiverCtx.close(); } catch {}
-      }
+	        console.log(`--- E2E (${label}) PASS: saved receipt + saved bytes verified (polyfill) ---`);
+	      } finally {
+	        try { await senderCtx.close(); } catch {}
+	        try { await receiverCtx.close(); } catch {}
+	      }
+	    }
+
+	    async function runFolderSendPolyfillScenario() {
+	      const label = 'folder-send-polyfill';
+	      const roomId = `e2e-${Date.now()}-${Math.random().toString(16).slice(2)}-${label}`;
+	      const roomJoinKey = generateRoomJoinKey(label);
+	      const secretHash = `#roomJoinKey=${encodeURIComponent(roomJoinKey)}`;
+
+	      const senderUrl = `${appBaseUrl}/index.html?e2e=1&role=create&roomId=${encodeURIComponent(roomId)}${secretHash}`;
+	      const receiverUrl = `${appBaseUrl}/index.html?e2e=1&role=join&roomId=${encodeURIComponent(roomId)}${secretHash}`;
+
+	      const senderCtx = await browser.newContext();
+	      const receiverCtx = await browser.newContext();
+	      const sender = await senderCtx.newPage();
+	      const receiver = await receiverCtx.newPage();
+
+	      try {
+	        console.log(`--- E2E (${label}): launching pages ---`);
+	        await sender.goto(senderUrl, { waitUntil: 'domcontentloaded' });
+	        await receiver.goto(receiverUrl, { waitUntil: 'domcontentloaded' });
+
+	        await Promise.all([
+	          sender.waitForFunction(() => window.__epheraE2E && window.__epheraE2E.transportOpen === true, null, { timeout: 20_000 }),
+	          receiver.waitForFunction(() => window.__epheraE2E && window.__epheraE2E.transportOpen === true, null, { timeout: 20_000 }),
+	        ]);
+
+	        console.log(`--- E2E (${label}): syncing auto-generated passphrase ---`);
+	        const senderPass = await sender.evaluate(() => (document.getElementById('passphrase') || {}).value || '');
+	        if (!senderPass) throw new Error('Expected sender passphrase to be populated');
+
+	        await receiver.evaluate((p) => {
+	          const input = document.getElementById('passphrase');
+	          if (!input) throw new Error('passphrase input not found');
+	          input.value = p;
+	          input.dispatchEvent(new Event('input', { bubbles: true }));
+	        }, senderPass);
+
+	        console.log(`--- E2E (${label}): installing nested fake folder picker ---`);
+	        await installFakeFolderPicker(receiver);
+
+	        await receiver.evaluate(() => {
+	          const btn = document.getElementById('pick-receive-folder');
+	          if (!btn) throw new Error('pick-receive-folder button not found');
+	          btn.click();
+	        });
+
+	        await sender.waitForFunction(() => window.__epheraE2E && window.__epheraE2E.peerReady === true, null, { timeout: 15_000 });
+
+	        console.log(`--- E2E (${label}): selecting sender folder + sending ---`);
+	        await sender.setInputFiles('#folder-input', folderBatchRoot);
+	        await sender.waitForFunction(() => !document.getElementById('send-file').disabled, null, { timeout: 20_000 });
+	        await sender.evaluate(() => document.getElementById('send-file').click());
+
+	        await Promise.all([
+	          sender.waitForFunction(() => window.__epheraE2E && window.__epheraE2E.sentDoneCount >= 2, null, { timeout: 60_000 }),
+	          receiver.waitForFunction(() => window.__epheraE2E && window.__epheraE2E.recvDoneCount >= 2, null, { timeout: 60_000 }),
+	        ]);
+
+	        await sender.waitForFunction(() => window.__epheraE2E && window.__epheraE2E.deliveredSavedCount >= 2, null, { timeout: 20_000 });
+
+	        const fsState = await receiver.evaluate(() => {
+	          const fs = window.__epheraFakeFs;
+	          if (!fs || typeof fs.list !== 'function' || typeof fs.digest !== 'function') return null;
+	          const names = fs.list();
+	          return {
+	            names,
+	            docs: fs.digest('payload-folder/docs/guide.bin'),
+	            media: fs.digest('payload-folder/media/clip.bin'),
+	          };
+	        });
+
+	        if (!fsState || !Array.isArray(fsState.names)) {
+	          throw new Error(`Expected fake FS state, got ${JSON.stringify(fsState)}`);
+	        }
+
+	        for (const expected of [folderBatchRelA, folderBatchRelB]) {
+	          if (!fsState.names.includes(expected)) {
+	            throw new Error(`Saved folder listing missing ${expected}: ${JSON.stringify(fsState.names)}`);
+	          }
+	        }
+
+	        const docs = fsState.docs;
+	        const media = fsState.media;
+	        if (!docs || docs.name !== folderBatchRelA) throw new Error(`Bad docs digest: ${JSON.stringify(docs)}`);
+	        if (!media || media.name !== folderBatchRelB) throw new Error(`Bad media digest: ${JSON.stringify(media)}`);
+
+	        for (const [actual, expected, labelPart] of [
+	          [docs, folderBatchDigestA, 'docs'],
+	          [media, folderBatchDigestB, 'media'],
+	        ]) {
+	          if (actual.size !== expected.size) throw new Error(`${labelPart} size mismatch: expected ${expected.size}, got ${actual.size}`);
+	          if (actual.sum !== expected.sum) throw new Error(`${labelPart} checksum mismatch: expected ${expected.sum}, got ${actual.sum}`);
+	          if (JSON.stringify(actual.first16) !== JSON.stringify(expected.first16)) {
+	            throw new Error(`${labelPart} first16 mismatch: ${JSON.stringify(actual.first16)}`);
+	          }
+	          if (JSON.stringify(actual.last16) !== JSON.stringify(expected.last16)) {
+	            throw new Error(`${labelPart} last16 mismatch: ${JSON.stringify(actual.last16)}`);
+	          }
+	        }
+
+	        const receiverState = await receiver.evaluate(() => window.__epheraE2E);
+	        if (!receiverState) throw new Error('Missing receiver __epheraE2E state');
+	        const recvTitles = Array.isArray(receiverState.recvTitles) ? receiverState.recvTitles : [];
+	        for (const expected of [folderBatchRelA, folderBatchRelB]) {
+	          if (!recvTitles.includes(expected)) {
+	            throw new Error(`Expected recvTitles to include ${expected}, got ${JSON.stringify(recvTitles)}`);
+	          }
+	        }
+
+	        console.log(`--- E2E (${label}) PASS: folder hierarchy preserved across sender metadata + receiver save path ---`);
+	      } finally {
+	        try { await senderCtx.close(); } catch {}
+	        try { await receiverCtx.close(); } catch {}
+	      }
+	    }
+
+    async function runFolderInputFallbackScenario() {
+      const label = 'folder-input-fallback';
+      await runScenario({
+        label,
+        passphrase: null,
+        expectAutoPassphrase: true,
+        sameOrigin: true,
+        baseUrlOverride: appBaseUrl,
+        senderExtraQuery: 'noFolderUpload=1',
+        selectionMode: 'folder-input',
+        folderInputPath: folderBatchRoot,
+        files: [
+          {
+            name: 'guide.bin',
+            mimeType: 'application/octet-stream',
+            buffer: fileBuf,
+          },
+          {
+            name: 'clip.bin',
+            mimeType: 'application/octet-stream',
+            buffer: fileBuf2,
+          },
+        ],
+        expectSenderFolderUploadCapable: false,
+        expectSelectionSummaryIncludes: 'payload batch selected',
+        expectSelectionSummaryExcludes: 'folder batch selected',
+        expectReceipt: true,
+      });
+      console.log(`--- E2E (${label}) PASS: unsupported folder runtime downgraded to file payload mode ---`);
     }
 
-    if (FAST) {
+    async function runLedgerClearActiveScenario() {
+      const label = 'ledger-clear-active';
+      await runScenario({
+        label,
+        passphrase: null,
+        expectAutoPassphrase: true,
+        sameOrigin: true,
+        baseUrlOverride: appBaseUrl,
+        files: [filePathCrash],
+        transferTimeoutMs: 120_000,
+        expectReceipt: true,
+        onSendStarted: async ({ sender, readTransferLedgerSnapshot: readLedger }) => {
+          await sender.waitForFunction(() => {
+            const el = document.getElementById('transfer-ledger-active-count');
+            const text = el ? String(el.textContent || '') : '';
+            const m = text.match(/(\d+)/);
+            return !!(m && Number(m[1]) > 0);
+          }, null, { timeout: 20_000 });
+
+          await sender.evaluate(() => {
+            const btn = document.getElementById('clear-transfer-ledger');
+            if (!btn) throw new Error('clear-transfer-ledger button not found');
+            btn.click();
+          });
+
+          const snapshot = await readLedger(sender);
+          if (!snapshot || snapshot.count < 1 || snapshot.active < 1) {
+            throw new Error(`Active ledger entry disappeared after clear: ${JSON.stringify(snapshot)}`);
+          }
+        },
+      });
+      console.log(`--- E2E (${label}) PASS: clear action preserved active in-flight ledger entries ---`);
+    }
+
+    async function runLedgerOverflowRetentionScenario() {
+      const label = 'ledger-overflow-active-retention';
+      const overflowFiles = [];
+      for (let i = 0; i < 48; i++) {
+        overflowFiles.push({
+          name: `overflow-${i}.bin`,
+          mimeType: 'application/octet-stream',
+          buffer: Buffer.alloc(512 * 1024, i & 0xff),
+        });
+      }
+
+      await runScenario({
+        label,
+        passphrase: null,
+        expectAutoPassphrase: true,
+        sameOrigin: true,
+        baseUrlOverride: appBaseUrl,
+        files: overflowFiles,
+        recvDelayMs: 10,
+        transferTimeoutMs: 120_000,
+        expectReceipt: true,
+        onSendStarted: async ({ receiver, readTransferLedgerSnapshot: readLedger }) => {
+          await receiver.waitForFunction(() => {
+            const parse = (id) => {
+              const el = document.getElementById(id);
+              const txt = el ? String(el.textContent || '') : '';
+              const m = txt.match(/(\d+)/);
+              return m ? Number(m[1]) : 0;
+            };
+            const cards = document.querySelectorAll('#transfer-ledger-list .ledger-entry').length;
+            const active = parse('transfer-ledger-active-count');
+            const s = window.__epheraE2E;
+            const recvDone = s ? Number(s.recvDoneCount || 0) : 0;
+            return recvDone >= 41 && recvDone < 48 && cards >= 40 && active > 0;
+          }, null, { timeout: 90_000 });
+
+          const snapshot = await readLedger(receiver);
+          if (!snapshot || snapshot.count < 40) {
+            throw new Error(`Receiver ledger did not retain active overflow entries: ${JSON.stringify(snapshot)}`);
+          }
+        },
+      });
+      console.log(`--- E2E (${label}) PASS: active inbound entries were retained beyond settled cap during overflow ---`);
+    }
+
+	    if (FAST) {
       console.log('--- E2E MODE: FAST (smoke subset) ---');
       await runScenario({
         label: 'fast-same-origin',
@@ -2764,6 +3224,16 @@ async function run() {
         baseUrlOverride: appBaseUrl,
         expectReceipt: true,
       });
+      await runScenario({
+        label: 'fast-drop-send-bay',
+        passphrase: null,
+        expectAutoPassphrase: true,
+        sameOrigin: true,
+        files: [filePathB],
+        selectionMode: 'drop',
+        expectReceipt: true,
+      });
+      await runFolderInputFallbackScenario();
       await runInvitePackageApplyScenario();
       await runInviteQrPairingScenario({
         label: 'fast-invite-qr-pairing-jsqr',
@@ -2797,6 +3267,16 @@ async function run() {
       files: [filePathA, filePathB],
       expectReceipt: true,
     });
+    await runScenario({
+      label: 'drop-send-bay',
+      passphrase: null,
+      expectAutoPassphrase: true,
+      sameOrigin: true,
+      files: [filePathB],
+      selectionMode: 'drop',
+      expectReceipt: true,
+    });
+    await runFolderInputFallbackScenario();
     await runScenario({ label: 'passphrase', passphrase: 'e2e-passphrase', expectReceipt: true });
     await runScenario({
       label: 'peer-left',
@@ -2892,10 +3372,13 @@ async function run() {
     await runInviteQrInvalidImageScenario({
       receiverExtraQuery: 'qrScanMode=jsqr',
     });
-    await runInvitePackageInvalidScenario();
-    await runOwnerAuthorityScenario();
-    await runOwnerDisconnectTransferScenario();
-    await runFolderSavePolyfillScenario();
+	    await runInvitePackageInvalidScenario();
+	    await runOwnerAuthorityScenario();
+	    await runOwnerDisconnectTransferScenario();
+	    await runFolderSavePolyfillScenario();
+	    await runFolderSendPolyfillScenario();
+    await runLedgerClearActiveScenario();
+    await runLedgerOverflowRetentionScenario();
 
     await runScenario({
       label: 'gc-sessions',
@@ -2980,13 +3463,13 @@ async function run() {
 
     // Best-effort temp cleanup
     try { fs.unlinkSync(filePathSingle); } catch {}
-    try { fs.unlinkSync(filePathA); } catch {}
-    try { fs.unlinkSync(filePathB); } catch {}
-    try { fs.unlinkSync(filePathCrash); } catch {}
-    try { fs.unlinkSync(filePathPerfLarge); } catch {}
-    try { fs.rmdirSync(tmpDir); } catch {}
-  }
-}
+	    try { fs.unlinkSync(filePathA); } catch {}
+	    try { fs.unlinkSync(filePathB); } catch {}
+	    try { fs.unlinkSync(filePathCrash); } catch {}
+	    try { fs.unlinkSync(filePathPerfLarge); } catch {}
+	    try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
+	  }
+	}
 
 run().catch((err) => {
   console.error(err && err.stack ? err.stack : String(err));

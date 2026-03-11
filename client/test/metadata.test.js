@@ -59,7 +59,12 @@ function parseJsonMeta(u8) {
 
 async function runScenario({ passphrase }) {
   const totalBytes = 64 * 1024 + 7;
-  const metaIn = { name: 'hello.txt', type: 'text/plain', size: totalBytes };
+  const metaIn = {
+    name: 'hello.txt',
+    type: 'text/plain',
+    size: totalBytes,
+    path: 'folder-a/folder-b/hello.txt',
+  };
 
   const transportA = new EpheraTransport();
   const transportB = new EpheraTransport();
@@ -146,6 +151,9 @@ async function runScenario({ passphrase }) {
   }
   if (metaObj.size !== metaIn.size) {
     throw new Error(`FAIL: META size mismatch (got ${metaObj.size}, expected ${metaIn.size})`);
+  }
+  if (metaObj.path !== metaIn.path) {
+    throw new Error(`FAIL: META path mismatch (got ${metaObj.path}, expected ${metaIn.path})`);
   }
 
   if (sessionManager.getSessionCount() !== 0) {

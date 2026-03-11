@@ -114,7 +114,12 @@ function sanitizeMeta(value) {
     out.size = Math.floor(value.size);
   }
 
-  if (!out.name && !out.type && !Number.isFinite(out.size)) return null;
+  if (typeof value.path === 'string') {
+    const p = value.path.trim().replace(/\\/g, '/').replace(/^\/+/, '').replace(/\/+/g, '/');
+    if (p && p !== '.' && p !== '..') out.path = p.slice(0, 768);
+  }
+
+  if (!out.name && !out.type && !Number.isFinite(out.size) && !out.path) return null;
   return out;
 }
 
@@ -209,6 +214,7 @@ class EpheraSender {
           ...(m.name ? { name: m.name } : null),
           ...(m.type ? { type: m.type } : null),
           ...(Number.isFinite(m.size) ? { size: m.size } : null),
+          ...(m.path ? { path: m.path } : null),
         });
       } catch {}
 

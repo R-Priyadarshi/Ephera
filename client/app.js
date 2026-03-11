@@ -33,6 +33,7 @@ const HASH_PARAMS = (() => {
 const IS_E2E = PARAMS.get('e2e') === '1' || PARAMS.has('e2e');
 const E2E_ROLE = PARAMS.get('role'); // 'create' | 'join'
 const E2E_AUTO_READY = PARAMS.get('autoReady') === '1' || PARAMS.has('autoReady');
+const FORCE_NO_FOLDER_UPLOAD = PARAMS.get('noFolderUpload') === '1' || PARAMS.has('noFolderUpload');
 const E2E_RECV_DELAY_MS = (() => {
   if (!IS_E2E) return 0;
   const raw = Number(PARAMS.get('recvDelayMs') || 0);
@@ -123,6 +124,7 @@ const E2E_STATE = IS_E2E ? (window.__epheraE2E = {
   preflightSecureContext: false,
   preflightDirectoryPicker: false,
   preflightFolderSaveCapable: false,
+  preflightSenderFolderUploadCapable: false,
   preflightWebRTC: false,
   preflightClipboard: false,
   preflightSummary: '',
@@ -374,6 +376,9 @@ const qrCameraPreview = document.getElementById('qr-camera-preview');
 const qrPairingStateEl = document.getElementById('qr-pairing-state');
 
 const transferSection = document.getElementById('transfer-controls');
+const transferLockBannerEl = document.getElementById('transfer-lock-banner');
+const transferLockStateEl = document.getElementById('transfer-lock-state');
+const transferLockTextEl = document.getElementById('transfer-lock-text');
 const pickReceiveFolderBtn = document.getElementById('pick-receive-folder');
 const readyDiscardBtn = document.getElementById('ready-discard');
 const receiveFolderLabel = document.getElementById('receive-folder-label');
@@ -381,9 +386,29 @@ const receiveDestinationStateEl = document.getElementById('receive-destination-s
 const copyReceiveDestinationBtn = document.getElementById('copy-receive-destination');
 const openReceiveFolderBtn = document.getElementById('open-receive-folder');
 const peerStateEl = document.getElementById('peer-state');
+const receiveCardEl = document.getElementById('receive-card');
+const receiveActionStateEl = document.getElementById('receive-action-state');
+const receiveActionCopyEl = document.getElementById('receive-action-copy');
+const receiveStageTitleEl = document.getElementById('receive-stage-title');
+const receiveStageTextEl = document.getElementById('receive-stage-text');
 const fileInput = document.getElementById('file-input');
+const folderInput = document.getElementById('folder-input');
+const pickSendFolderBtn = document.getElementById('pick-send-folder');
 const sendFileBtn = document.getElementById('send-file');
 const sendGateReasonEl = document.getElementById('send-gate-reason');
+const sendCardEl = document.getElementById('send-card');
+const sendActionStateEl = document.getElementById('send-action-state');
+const sendActionCopyEl = document.getElementById('send-action-copy');
+const sendStageTitleEl = document.getElementById('send-stage-title');
+const sendStageTextEl = document.getElementById('send-stage-text');
+const sendSelectionSummaryEl = document.getElementById('send-selection-summary');
+const sendChipRoomEl = document.getElementById('send-chip-room');
+const sendChipP2PEl = document.getElementById('send-chip-p2p');
+const sendChipPeerEl = document.getElementById('send-chip-peer');
+const sendChipCryptoEl = document.getElementById('send-chip-crypto');
+const sendDropzoneEl = document.getElementById('send-dropzone');
+const sendDropzoneTitleEl = document.getElementById('send-dropzone-title');
+const sendDropzoneHintEl = document.getElementById('send-dropzone-hint');
 const sendWeightInput = document.getElementById('send-weight');
 const sendWeightValue = document.getElementById('send-weight-value');
 const transfersEl = document.getElementById('transfers');
@@ -401,6 +426,11 @@ const copyActivityBtn = document.getElementById('copy-activity');
 const downloadActivityTxtBtn = document.getElementById('download-activity-txt');
 const downloadActivityJsonBtn = document.getElementById('download-activity-json');
 const activityCountEl = document.getElementById('activity-count');
+const transferLedgerListEl = document.getElementById('transfer-ledger-list');
+const clearTransferLedgerBtn = document.getElementById('clear-transfer-ledger');
+const transferLedgerActiveCountEl = document.getElementById('transfer-ledger-active-count');
+const transferLedgerCompleteCountEl = document.getElementById('transfer-ledger-complete-count');
+const transferLedgerAttentionCountEl = document.getElementById('transfer-ledger-attention-count');
 const passphraseInput = document.getElementById('passphrase');
 const generatePassphraseBtn = document.getElementById('generate-passphrase');
 const copyPassphraseBtn = document.getElementById('copy-passphrase');
@@ -437,6 +467,78 @@ const flowStepP2PEl = document.getElementById('flow-step-p2p');
 const flowStepLocalReadyEl = document.getElementById('flow-step-local-ready');
 const flowStepPeerReadyEl = document.getElementById('flow-step-peer-ready');
 const flowStepSendEl = document.getElementById('flow-step-send');
+const consoleNavLinks = Array.from(document.querySelectorAll('[data-console-link]'));
+
+function setActiveConsoleLink(hash) {
+  if (!consoleNavLinks || consoleNavLinks.length < 1) return;
+  for (let i = 0; i < consoleNavLinks.length; i++) {
+    const link = consoleNavLinks[i];
+    const active = link && typeof link.hash === 'string' && link.hash === hash;
+    link.classList.toggle('console-nav-link-active', !!active);
+  }
+}
+
+function initConsoleNav() {
+  if (!consoleNavLinks || consoleNavLinks.length < 1) return;
+
+  const targets = consoleNavLinks
+    .map((link) => {
+      const hash = link && typeof link.hash === 'string' ? link.hash : '';
+      const id = hash.startsWith('#') ? hash.slice(1) : '';
+      if (!id) return null;
+      const el = document.getElementById(id);
+      return el ? { hash, el } : null;
+    })
+    .filter(Boolean);
+
+  if (targets.length < 1) return;
+
+  const pickFromScroll = () => {
+    let best = targets[0];
+    let bestDistance = Number.POSITIVE_INFINITY;
+    for (let i = 0; i < targets.length; i++) {
+      const item = targets[i];
+      const rect = item.el.getBoundingClientRect();
+      const distance = Math.abs(rect.top - 120);
+      if (distance < bestDistance) {
+        best = item;
+        bestDistance = distance;
+      }
+    }
+    setActiveConsoleLink(best.hash);
+  };
+
+  if (typeof IntersectionObserver === 'function') {
+    const observer = new IntersectionObserver((entries) => {
+      let bestEntry = null;
+      for (let i = 0; i < entries.length; i++) {
+        const entry = entries[i];
+        if (!entry.isIntersecting) continue;
+        if (!bestEntry || entry.intersectionRatio > bestEntry.intersectionRatio) bestEntry = entry;
+      }
+      if (!bestEntry) {
+        pickFromScroll();
+        return;
+      }
+      const match = targets.find((item) => item.el === bestEntry.target);
+      if (match) setActiveConsoleLink(match.hash);
+    }, {
+      rootMargin: '-18% 0px -55% 0px',
+      threshold: [0.2, 0.45, 0.7],
+    });
+
+    for (let i = 0; i < targets.length; i++) observer.observe(targets[i].el);
+  } else {
+    window.addEventListener('scroll', pickFromScroll, { passive: true });
+  }
+
+  window.addEventListener('hashchange', () => {
+    const next = window.location.hash || targets[0].hash;
+    setActiveConsoleLink(next);
+  });
+
+  setActiveConsoleLink(window.location.hash || targets[0].hash);
+}
 
 /* ---------- State ---------- */
 
@@ -485,6 +587,9 @@ let qrScanInFlight = false;
 
 // Allow multiple concurrent outbound transfers (Stage 3/4 engine supports this).
 const activeSenders = new Set();
+let pendingOutboundEntries = [];
+let pendingOutboundSource = 'none'; // 'none' | 'files' | 'folder'
+let sendDropzoneDragDepth = 0;
 
 // Track outbound transfers by transferId so we can:
 // - abort sending if the receiver requests it (peer ABORT)
@@ -495,6 +600,9 @@ const activityEntries = [];
 let activitySeq = 0;
 let lastStatusText = '';
 let lastIceState = null;
+const TRANSFER_LEDGER_LIMIT = 40;
+const transferLedgerEntries = [];
+let transferLedgerSeq = 0;
 const QR_DETECTOR_SUPPORTED = typeof BarcodeDetector === 'function';
 const QR_JSQR_SUPPORTED = typeof window !== 'undefined' && typeof window.jsQR === 'function';
 const QR_SCAN_SUPPORTED = QR_DETECTOR_SUPPORTED || QR_JSQR_SUPPORTED;
@@ -676,6 +784,315 @@ function renderActivityTimeline({ autoScroll = false } = {}) {
 function clearActivityTimeline() {
   activityEntries.length = 0;
   renderActivityTimeline();
+}
+
+function isLedgerTransferFinalOk(state) {
+  return (
+    state === 'delivered-saved'
+    || state === 'delivered-discarded'
+    || state === 'received-saved'
+    || state === 'received-discarded'
+  );
+}
+
+function isLedgerTransferAttention(state) {
+  return (
+    state === 'aborted'
+    || state === 'cancelled'
+    || state === 'receiver-aborted'
+    || state === 'receipt-abort'
+    || state === 'receipt-timeout'
+    || state === 'blocked'
+  );
+}
+
+function computeLedgerEntrySnapshot(entry) {
+  const transfers = Array.isArray(entry && entry.transfers) ? entry.transfers : [];
+  const payloadCount = Math.max(0, transfers.length || Number(entry && entry.count) || 0);
+  const totalBytes = transfers.reduce((sum, item) => sum + Math.max(0, Number(item && item.totalBytes) || 0), 0)
+    || Math.max(0, Number(entry && entry.totalBytes) || 0);
+  const bytesDone = transfers.reduce((sum, item) => sum + Math.max(0, Number(item && item.bytes) || 0), 0);
+  let okCount = 0;
+  let attentionCount = 0;
+
+  for (let i = 0; i < transfers.length; i++) {
+    const state = String(transfers[i] && transfers[i].state || '').trim();
+    if (isLedgerTransferFinalOk(state)) okCount++;
+    else if (isLedgerTransferAttention(state)) attentionCount++;
+  }
+
+  const activeCount = Math.max(0, payloadCount - okCount - attentionCount);
+  let status = 'live';
+  if (activeCount > 0) {
+    status = attentionCount > 0 ? 'attention' : 'live';
+  } else if (attentionCount > 0) {
+    status = okCount > 0 ? 'partial' : 'attention';
+  } else if (payloadCount > 0) {
+    status = 'complete';
+  }
+
+  const progress = totalBytes > 0
+    ? Math.max(0, Math.min(100, Math.floor((bytesDone / totalBytes) * 100)))
+    : (payloadCount > 0 ? Math.max(0, Math.min(100, Math.floor((okCount / payloadCount) * 100))) : 0);
+
+  return {
+    payloadCount,
+    totalBytes,
+    bytesDone,
+    okCount,
+    attentionCount,
+    activeCount,
+    status,
+    progress,
+  };
+}
+
+function isLedgerEntryActive(entry) {
+  const snap = computeLedgerEntrySnapshot(entry);
+  return snap.activeCount > 0;
+}
+
+function pruneTransferLedger() {
+  if (transferLedgerEntries.length <= TRANSFER_LEDGER_LIMIT) return;
+
+  // Never evict in-flight entries. If overflow contains active transfers only,
+  // keep the overflow until those entries settle.
+  while (transferLedgerEntries.length > TRANSFER_LEDGER_LIMIT) {
+    let removeIndex = -1;
+    for (let i = transferLedgerEntries.length - 1; i >= 0; i--) {
+      if (!isLedgerEntryActive(transferLedgerEntries[i])) {
+        removeIndex = i;
+        break;
+      }
+    }
+    if (removeIndex < 0) break;
+    transferLedgerEntries.splice(removeIndex, 1);
+  }
+}
+
+function getLedgerStatusLabel(status) {
+  if (status === 'complete') return 'Complete';
+  if (status === 'partial') return 'Partial';
+  if (status === 'attention') return 'Attention';
+  return 'Live';
+}
+
+function formatLedgerSource(source) {
+  if (source === 'folder') return 'folder batch';
+  if (source === 'incoming') return 'inbound';
+  return 'file batch';
+}
+
+function getLedgerTimeLabel(entry) {
+  const ts = Number(entry && entry.updatedAt) || Number(entry && entry.startedAt) || Date.now();
+  return formatActivityTime(ts);
+}
+
+function trimLedgerTitles(transfers, max = 3) {
+  const out = [];
+  const list = Array.isArray(transfers) ? transfers : [];
+  for (let i = 0; i < list.length; i++) {
+    const title = String(list[i] && list[i].title || '').trim();
+    if (!title || out.includes(title)) continue;
+    out.push(title);
+    if (out.length >= max) break;
+  }
+  return out;
+}
+
+function renderTransferLedger() {
+  if (!transferLedgerListEl) return;
+
+  const items = transferLedgerEntries.slice();
+  transferLedgerListEl.textContent = '';
+
+  let active = 0;
+  let complete = 0;
+  let attention = 0;
+
+  if (items.length < 1) {
+    const empty = document.createElement('div');
+    empty.className = 'transfer-ledger-empty';
+    empty.textContent = 'No transfer batches yet. Start a send or receive flow to populate the ledger.';
+    transferLedgerListEl.appendChild(empty);
+  }
+
+  for (let i = 0; i < items.length; i++) {
+    const entry = items[i];
+    const snap = computeLedgerEntrySnapshot(entry);
+    if (snap.status === 'complete') complete++;
+    else if (snap.status === 'live') active++;
+    else attention++;
+
+    const card = document.createElement('article');
+    card.className = `ledger-entry ledger-entry-${snap.status}`;
+
+    const head = document.createElement('div');
+    head.className = 'ledger-entry-head';
+
+    const dir = document.createElement('span');
+    dir.className = `ledger-chip ledger-chip-${entry.direction === 'in' ? 'in' : 'out'}`;
+    dir.textContent = entry.direction === 'in' ? 'Inbound' : 'Outbound';
+
+    const source = document.createElement('span');
+    source.className = 'ledger-chip';
+    source.textContent = formatLedgerSource(entry.source);
+
+    const count = document.createElement('span');
+    count.className = 'ledger-chip';
+    count.textContent = `${snap.payloadCount} payload${snap.payloadCount === 1 ? '' : 's'}`;
+
+    const status = document.createElement('span');
+    status.className = `ledger-status ledger-status-${snap.status}`;
+    status.textContent = getLedgerStatusLabel(snap.status);
+
+    head.appendChild(dir);
+    head.appendChild(source);
+    head.appendChild(count);
+    head.appendChild(status);
+
+    const title = document.createElement('h4');
+    title.className = 'ledger-entry-title';
+    title.textContent = String(entry.title || (entry.direction === 'in' ? 'Inbound transfer' : 'Outbound transfer batch'));
+
+    const detail = document.createElement('p');
+    detail.className = 'ledger-entry-detail';
+    detail.textContent = String(entry.detail || '');
+
+    const meta = document.createElement('div');
+    meta.className = 'ledger-entry-meta';
+    meta.innerHTML = [
+      `<span>${formatBytes(snap.bytesDone)} / ${formatBytes(snap.totalBytes || snap.bytesDone)}</span>`,
+      `<span>done ${snap.okCount}/${snap.payloadCount}</span>`,
+      `<span>attention ${snap.attentionCount}</span>`,
+      `<span>updated ${getLedgerTimeLabel(entry)}</span>`,
+    ].join('');
+
+    const progress = document.createElement('div');
+    progress.className = 'ledger-progress';
+    const fill = document.createElement('div');
+    fill.className = 'ledger-progress-fill';
+    fill.style.width = `${Math.max(0, Math.min(100, snap.progress))}%`;
+    progress.appendChild(fill);
+
+    const titles = trimLedgerTitles(entry.transfers);
+    const strip = document.createElement('div');
+    strip.className = 'ledger-title-strip';
+    for (let j = 0; j < titles.length; j++) {
+      const pill = document.createElement('span');
+      pill.className = 'ledger-title-pill';
+      pill.textContent = titles[j];
+      strip.appendChild(pill);
+    }
+    if ((entry.transfers || []).length > titles.length) {
+      const more = document.createElement('span');
+      more.className = 'ledger-title-pill';
+      more.textContent = `+${entry.transfers.length - titles.length} more`;
+      strip.appendChild(more);
+    }
+
+    card.appendChild(head);
+    card.appendChild(title);
+    if (detail.textContent) card.appendChild(detail);
+    card.appendChild(meta);
+    card.appendChild(progress);
+    if (strip.childNodes.length > 0) card.appendChild(strip);
+
+    transferLedgerListEl.appendChild(card);
+  }
+
+  if (transferLedgerActiveCountEl) transferLedgerActiveCountEl.textContent = `active ${active}`;
+  if (transferLedgerCompleteCountEl) transferLedgerCompleteCountEl.textContent = `complete ${complete}`;
+  if (transferLedgerAttentionCountEl) transferLedgerAttentionCountEl.textContent = `attention ${attention}`;
+}
+
+function touchTransferLedgerEntry(entry, detail = null) {
+  if (!entry || typeof entry !== 'object') return;
+  entry.updatedAt = Date.now();
+  if (typeof detail === 'string' && detail.trim()) entry.detail = detail.trim();
+  pruneTransferLedger();
+  renderTransferLedger();
+}
+
+function createTransferLedgerEntry({
+  direction = 'out',
+  source = 'files',
+  count = 1,
+  totalBytes = 0,
+  title = '',
+  detail = '',
+} = {}) {
+  transferLedgerSeq++;
+  const entry = {
+    id: transferLedgerSeq,
+    direction: direction === 'in' ? 'in' : 'out',
+    source,
+    count: Math.max(1, Math.floor(Number(count) || 1)),
+    totalBytes: Math.max(0, Number(totalBytes) || 0),
+    title: String(title || '').trim() || 'Transfer batch',
+    detail: String(detail || '').trim(),
+    transfers: [],
+    startedAt: Date.now(),
+    updatedAt: Date.now(),
+  };
+
+  transferLedgerEntries.unshift(entry);
+  pruneTransferLedger();
+
+  renderTransferLedger();
+  return entry;
+}
+
+function createTransferLedgerTransfer(entry, {
+  title = '',
+  totalBytes = 0,
+  state = 'queued',
+} = {}) {
+  if (!entry || typeof entry !== 'object') return null;
+  const transfer = {
+    entry,
+    id: `${entry.id}:${entry.transfers.length + 1}`,
+    title: String(title || '').trim() || 'payload',
+    totalBytes: Math.max(0, Number(totalBytes) || 0),
+    bytes: 0,
+    state: String(state || 'queued'),
+    sink: '',
+    outcome: '',
+    updatedAt: Date.now(),
+  };
+  entry.transfers.push(transfer);
+  touchTransferLedgerEntry(entry);
+  return transfer;
+}
+
+function updateTransferLedgerTransfer(transfer, patch = {}) {
+  if (!transfer || typeof transfer !== 'object') return;
+  if (typeof patch.title === 'string' && patch.title.trim()) transfer.title = patch.title.trim();
+  if (Number.isFinite(patch.totalBytes) && patch.totalBytes >= 0) transfer.totalBytes = Math.floor(patch.totalBytes);
+  if (Number.isFinite(patch.bytes) && patch.bytes >= 0) transfer.bytes = Math.floor(patch.bytes);
+  if (typeof patch.state === 'string' && patch.state.trim()) transfer.state = patch.state.trim();
+  if (typeof patch.sink === 'string') transfer.sink = patch.sink.trim();
+  if (typeof patch.outcome === 'string') transfer.outcome = patch.outcome.trim();
+  transfer.updatedAt = Date.now();
+  touchTransferLedgerEntry(transfer.entry, typeof patch.detail === 'string' ? patch.detail : null);
+}
+
+function clearTransferLedger() {
+  const kept = [];
+  let removed = 0;
+  for (let i = 0; i < transferLedgerEntries.length; i++) {
+    const entry = transferLedgerEntries[i];
+    if (isLedgerEntryActive(entry)) kept.push(entry);
+    else removed++;
+  }
+  transferLedgerEntries.length = 0;
+  if (kept.length > 0) transferLedgerEntries.push(...kept);
+  renderTransferLedger();
+  return {
+    removed,
+    activeKept: kept.length,
+    totalAfter: transferLedgerEntries.length,
+  };
 }
 
 function buildActivityExportText(entries) {
@@ -1660,7 +2077,7 @@ function getSendGateState() {
   const localMode = getLocalCryptoMode();
   const modeOk = peerCryptoMode === localMode;
   const passOk = localMode !== 'passphrase' || passphraseVerified;
-  const fileCount = fileInput && fileInput.files ? fileInput.files.length : 0;
+  const fileCount = Array.isArray(pendingOutboundEntries) ? pendingOutboundEntries.length : 0;
 
   if (!transportOpen) {
     return { enabled: false, reason: 'Waiting for P2P connection', localMode, modeOk, passOk, fileCount };
@@ -1687,7 +2104,7 @@ function getSendGateState() {
     return { enabled: false, reason: 'Verifying passphrase match with peer', localMode, modeOk, passOk, fileCount };
   }
   if (fileCount < 1) {
-    return { enabled: false, reason: 'Choose at least one file', localMode, modeOk, passOk, fileCount };
+    return { enabled: false, reason: 'Choose at least one payload', localMode, modeOk, passOk, fileCount };
   }
 
   return { enabled: true, reason: 'Ready to send', localMode, modeOk, passOk, fileCount };
@@ -1716,9 +2133,20 @@ function setPreflightPill(el, ok) {
   el.classList.add(ok ? 'preflight-pill-ok' : 'preflight-pill-warn');
 }
 
+function detectSenderFolderUploadCapable() {
+  if (FORCE_NO_FOLDER_UPLOAD) return false;
+  if (!folderInput) return false;
+  return (
+    'webkitdirectory' in folderInput
+    || 'directory' in folderInput
+    || 'mozdirectory' in folderInput
+  );
+}
+
 function getPreflightState() {
   const secureContext = !!window.isSecureContext;
   const hasDirectoryPicker = typeof window.showDirectoryPicker === 'function';
+  const senderFolderUploadCapable = detectSenderFolderUploadCapable();
   const hasWebRTC = typeof RTCPeerConnection === 'function';
   const hasClipboard = !!(navigator.clipboard && typeof navigator.clipboard.writeText === 'function');
   const folderSaveCapable = secureContext && hasDirectoryPicker;
@@ -1747,6 +2175,7 @@ function getPreflightState() {
   return {
     secureContext,
     hasDirectoryPicker,
+    senderFolderUploadCapable,
     folderSaveCapable,
     hasWebRTC,
     hasClipboard,
@@ -1780,11 +2209,18 @@ function renderPreflight() {
     pickReceiveFolderBtn.disabled = !pf.folderSaveCapable;
     pickReceiveFolderBtn.title = pf.folderSaveCapable ? '' : (pf.folderSaveHint || 'Folder-save unavailable');
   }
+  if (pickSendFolderBtn) {
+    pickSendFolderBtn.disabled = !pf.senderFolderUploadCapable;
+    pickSendFolderBtn.title = pf.senderFolderUploadCapable
+      ? ''
+      : 'Folder upload metadata is unavailable in this browser. Use Choose Files or drag-drop.';
+  }
 
   if (E2E_STATE) {
     E2E_STATE.preflightSecureContext = pf.secureContext;
     E2E_STATE.preflightDirectoryPicker = pf.hasDirectoryPicker;
     E2E_STATE.preflightFolderSaveCapable = pf.folderSaveCapable;
+    E2E_STATE.preflightSenderFolderUploadCapable = pf.senderFolderUploadCapable;
     E2E_STATE.preflightWebRTC = pf.hasWebRTC;
     E2E_STATE.preflightClipboard = pf.hasClipboard;
     E2E_STATE.preflightSummary = pf.summary;
@@ -1836,7 +2272,7 @@ function renderFlowGuide(gate) {
     'Establish P2P channel',
     'Peer signals ready',
     'Protocol + crypto verified',
-    'Choose file and send',
+    'Choose payload and send',
   ];
 
   if (flowCurrentEl) {
@@ -1856,7 +2292,7 @@ function renderFlowGuide(gate) {
     const reason = g && typeof g.reason === 'string' ? g.reason.trim() : '';
     nextText = reason ? `Next: ${reason}.` : 'Next: wait for protocol and crypto verification.';
   } else if (!stepDone[4]) {
-    nextText = 'Next: choose at least one file to enable Send.';
+    nextText = 'Next: choose payloads to enable Send.';
   } else {
     nextText = 'All transfer gates are green. Press Send.';
   }
@@ -1886,7 +2322,7 @@ function renderQuickSummary(gate) {
   } else if (activeRoomId && transportOpen && peerReady && g && !g.passOk) {
     text = g.reason || 'Verifying passphrase.';
   } else if (activeRoomId && transportOpen && peerReady && g && g.fileCount < 1) {
-    text = 'Choose one or more files to enable Send.';
+    text = 'Choose files or a folder to enable Send.';
   } else if (g && g.enabled) {
     text = 'Ready to send.';
   }
@@ -1901,6 +2337,197 @@ function renderQuickSummary(gate) {
   if (E2E_STATE) {
     E2E_STATE.quickSummary = text;
     E2E_STATE.transferAdvancedOpen = !!(transferAdvancedDetailsEl && transferAdvancedDetailsEl.open);
+  }
+}
+
+function setTransferProgressChip(el, { live = false, ready = false } = {}) {
+  if (!el) return;
+  el.classList.toggle('send-progress-chip-live', !!live);
+  el.classList.toggle('send-progress-chip-ready', !!ready);
+}
+
+function renderTransferActionDeck(gate) {
+  const g = gate || getSendGateState();
+  const folderUploadCapable = detectSenderFolderUploadCapable();
+  const receiveState = getReceiveDestinationState();
+  const channelLive = !!(activeRoomId && transportOpen);
+  const peerReadyLive = !!(channelLive && peerReady);
+  const cryptoReady = !!(
+    activeRoomId
+    && transportOpen
+    && peerReady
+    && peerCapabilities
+    && capabilitiesCompatible
+    && g
+    && g.modeOk
+    && g.passOk
+  );
+  const senderReady = !!(g && g.enabled);
+
+  let receiveBadge = 'Standby';
+  let receiveCopy = 'Choose how this device should handle incoming payloads before the peer starts streaming.';
+  let receiveTitle = 'Choose local receive policy';
+  let receiveText = 'Pick a folder to save received files, or switch to discard mode to verify and drop payloads in memory.';
+
+  if (receiveState.ready && receiveState.mode === 'saved') {
+    receiveBadge = channelLive ? 'Ready' : 'Primed';
+    receiveCopy = `This device will save inbound files to ${receiveState.folderName || 'selected folder'}.`;
+    receiveTitle = channelLive ? 'Receiver is armed for folder save' : 'Local save destination is primed';
+    receiveText = channelLive
+      ? 'Peer can stream now. Incoming files will land in the selected folder on this device.'
+      : 'The destination is already chosen. Once the direct channel opens, this tab can immediately advertise ready.';
+  } else if (receiveState.ready && receiveState.mode === 'discard') {
+    receiveBadge = channelLive ? 'Ready' : 'Primed';
+    receiveCopy = 'This device is armed in discard mode for zero-retention receive verification.';
+    receiveTitle = channelLive ? 'Receiver is armed in discard mode' : 'Discard mode is primed';
+    receiveText = channelLive
+      ? 'Peer can stream now. Ephera will verify payloads in memory and discard them after receipt.'
+      : 'Local discard mode is set. When the direct channel opens, this tab can immediately advertise ready.';
+  } else if (activeRoomId) {
+    receiveBadge = 'Arm Local';
+    receiveCopy = 'Set local receive posture now so the peer sees a clear readiness signal once transport opens.';
+    receiveTitle = 'Choose folder save or discard';
+    receiveText = 'Picking a receive mode is local-only. It does not expose your save path to the peer.';
+  }
+
+  if (receiveActionStateEl) receiveActionStateEl.textContent = receiveBadge;
+  if (receiveActionCopyEl) receiveActionCopyEl.textContent = receiveCopy;
+  if (receiveStageTitleEl) receiveStageTitleEl.textContent = receiveTitle;
+  if (receiveStageTextEl) receiveStageTextEl.textContent = receiveText;
+
+  if (receiveCardEl) {
+    receiveCardEl.classList.toggle('transfer-action-live', !!activeRoomId);
+    receiveCardEl.classList.toggle('transfer-action-ready', !!receiveState.ready);
+    receiveCardEl.classList.toggle('transfer-action-locked', !receiveState.ready);
+  }
+
+  let sendBadge = 'Locked';
+  let sendCopy = 'Sender controls stay visible, but the transport gate remains closed until the live session is fully negotiated.';
+  let sendTitle = 'Waiting for live room';
+  let sendText = 'Create or join a room first. Ephera only unlocks transfer after the direct channel and peer-ready signal are present.';
+
+  if (activeRoomId && !transportOpen) {
+    sendBadge = 'Await P2P';
+    sendCopy = 'Room exists. The next unlock gate is the direct peer channel.';
+    sendTitle = 'Waiting for direct channel';
+    sendText = 'Share the join link or invite package. Sender controls will advance when the peer completes WebRTC negotiation.';
+  } else if (channelLive && !peerReady) {
+    sendBadge = 'Await Peer';
+    sendCopy = 'Direct transport is established. Sender remains locked until the receiver chooses a ready mode.';
+    sendTitle = 'Waiting for receiver readiness';
+    sendText = 'Ask the peer to click Pick Receive Folder or Ready (Discard). That signal is the final operator-intent gate before send can arm.';
+  } else if (channelLive && peerReady && !cryptoReady) {
+    sendBadge = 'Verify';
+    sendCopy = 'Transport is live. Ephera is still checking protocol compatibility and crypto alignment.';
+    sendTitle = 'Negotiating protocol + crypto';
+    sendText = g && g.reason ? g.reason : 'Waiting for capability exchange and passphrase verification to complete.';
+  } else if (cryptoReady && !(g && g.fileCount > 0)) {
+    sendBadge = 'Armed';
+    sendCopy = 'All protocol gates are clear. Selecting payload files is the only remaining operator action.';
+    sendTitle = folderUploadCapable ? 'Choose files or a folder' : 'Choose files';
+    sendText = folderUploadCapable
+      ? 'Multiple files or folder contents are streamed as concurrent transfers. File hierarchy is preserved when relative paths are provided.'
+      : 'Multiple files are streamed as concurrent transfers. Folder batching is unavailable in this browser.';
+  } else if (senderReady) {
+    sendBadge = 'Unlocked';
+    sendCopy = 'Session is fully live. Direct transfer is available now.';
+    sendTitle = 'Ready for direct send';
+    sendText = 'Press Send to stream payloads directly to the peer. No cloud retention or transfer history is introduced by Ephera.';
+  }
+
+  if (sendActionStateEl) sendActionStateEl.textContent = sendBadge;
+  if (sendActionCopyEl) sendActionCopyEl.textContent = sendCopy;
+  if (sendStageTitleEl) sendStageTitleEl.textContent = sendTitle;
+  if (sendStageTextEl) sendStageTextEl.textContent = sendText;
+
+  setTransferProgressChip(sendChipRoomEl, { live: !!activeRoomId, ready: !!activeRoomId });
+  setTransferProgressChip(sendChipP2PEl, { live: !!activeRoomId, ready: channelLive });
+  setTransferProgressChip(sendChipPeerEl, { live: channelLive, ready: peerReadyLive });
+  setTransferProgressChip(sendChipCryptoEl, { live: peerReadyLive, ready: cryptoReady });
+
+  if (sendCardEl) {
+    sendCardEl.classList.toggle('transfer-action-live', !!activeRoomId);
+    sendCardEl.classList.toggle('transfer-action-ready', senderReady);
+    sendCardEl.classList.toggle('transfer-action-armed', cryptoReady && !!(g && g.fileCount < 1));
+    sendCardEl.classList.toggle('transfer-action-locked', !cryptoReady);
+  }
+
+  renderSendDropzone(g);
+}
+
+function renderTransferBay(gate) {
+  const g = gate || getSendGateState();
+  const folderUploadCapable = detectSenderFolderUploadCapable();
+  if (transferSection) transferSection.hidden = false;
+
+  let state = 'Locked';
+  let text = 'Create or join a room to unlock direct transfer controls.';
+  let live = false;
+  let ready = false;
+
+  if (activeRoomId && !transportOpen) {
+    state = 'Await P2P';
+    text = 'Room is live. Open the join link on another tab or device and wait for the direct peer channel.';
+    live = true;
+  } else if (activeRoomId && transportOpen && !peerReady) {
+    state = 'Await Peer';
+    text = 'Direct channel is up. The receiver must choose Pick Receive Folder or Ready (Discard) to signal readiness.';
+    live = true;
+  } else if (activeRoomId && transportOpen && peerReady && (!peerCapabilities || !capabilitiesCompatible)) {
+    state = 'Verifying';
+    text = compatibilityReason && compatibilityReason !== 'Protocol negotiation pending'
+      ? compatibilityReason
+      : 'Channel is live. Waiting for protocol and crypto verification.';
+    live = true;
+  } else if (activeRoomId && transportOpen && peerReady && g && !g.modeOk) {
+    state = 'Crypto Gate';
+    text = g.reason || 'Crypto modes must match before sending.';
+    live = true;
+  } else if (activeRoomId && transportOpen && peerReady && g && !g.passOk) {
+    state = 'Verifying';
+    text = g.reason || 'Verifying passphrase before enabling send.';
+    live = true;
+  } else if (activeRoomId && transportOpen && peerReady && g && g.fileCount < 1) {
+    state = 'Armed';
+    text = folderUploadCapable
+      ? 'Transfer bay is live. Choose files or a folder to enable Send.'
+      : 'Transfer bay is live. Choose files to enable Send.';
+    live = true;
+  } else if (g && g.enabled) {
+    state = 'Unlocked';
+    text = 'Transfer bay is fully unlocked. Send files now; receiver save/discard mode is already negotiated.';
+    live = true;
+    ready = true;
+  }
+
+  if (transferLockStateEl) transferLockStateEl.textContent = state;
+  if (transferLockTextEl) transferLockTextEl.textContent = text;
+
+  if (transferLockBannerEl) {
+    transferLockBannerEl.classList.toggle('transfer-lock-banner-live', live);
+    transferLockBannerEl.classList.toggle('transfer-lock-banner-ready', ready);
+  }
+
+  if (transferSection) {
+    transferSection.classList.toggle('transfer-shell-live', live);
+    transferSection.classList.toggle('transfer-shell-ready', ready);
+    transferSection.classList.toggle('transfer-shell-locked', !ready);
+  }
+
+  renderTransferActionDeck(g);
+
+  if (fileInput) {
+    fileInput.title = ready
+      ? 'Choose one or more files to send'
+      : 'Visible now for discoverability. Send unlocks after room, P2P, and peer-ready gates pass';
+  }
+
+  if (folderInput) {
+    folderInput.title = !folderUploadCapable
+      ? 'Folder upload metadata unavailable in this browser'
+      : (ready
+        ? 'Choose a folder to send with relative file hierarchy preserved'
+        : 'Visible now for discoverability. Folder send unlocks after room, P2P, and peer-ready gates pass');
   }
 }
 
@@ -2142,6 +2769,7 @@ function renderStateStrip(gate) {
   renderRoomAuthority();
   renderFlowGuide(g);
   renderQuickSummary(g);
+  renderTransferBay(g);
   renderLaunchpad(g);
   renderRoleOnboardingHint(g);
   renderPreflight();
@@ -2234,7 +2862,8 @@ function getReceiveDestinationState() {
 
 function buildReceiveDestinationPath(fileName = '') {
   const state = getReceiveDestinationState();
-  const safeFileName = typeof fileName === 'string' ? fileName.trim() : '';
+  const safePath = sanitizeRelativeTransferPath(fileName);
+  const safeFileName = safePath || (typeof fileName === 'string' ? fileName.trim() : '');
   if (state.mode === 'saved') {
     if (!safeFileName) return state.folderName || 'selected-folder';
     return `${state.folderName || 'selected-folder'}/${safeFileName}`;
@@ -2268,6 +2897,8 @@ function syncReceiveDestinationUI() {
       : 'Open folder is unavailable in this browser/session';
   }
 
+  renderTransferActionDeck();
+
   if (E2E_STATE) {
     E2E_STATE.receiveDestinationMode = state.mode;
     E2E_STATE.receiveDestinationLabel = state.fullLabel;
@@ -2278,7 +2909,8 @@ function syncReceiveDestinationUI() {
 
 function getReceiveDestinationCopyText(fileName = '') {
   const state = getReceiveDestinationState();
-  const safeFileName = typeof fileName === 'string' ? fileName.trim() : '';
+  const safePath = sanitizeRelativeTransferPath(fileName);
+  const safeFileName = safePath || (typeof fileName === 'string' ? fileName.trim() : '');
   if (safeFileName) {
     if (state.mode === 'saved') return `Saved destination: ${buildReceiveDestinationPath(safeFileName)}`;
     return `Discarded transfer: ${safeFileName}`;
@@ -2296,6 +2928,70 @@ async function openReceiveFolderAtCurrentDestination() {
   } catch {
     return false;
   }
+}
+
+async function existsInDirectory(dirHandle, name) {
+  try {
+    await dirHandle.getFileHandle(name, { create: false });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function getUniqueReceiveFileHandle(dirHandle, proposedName, transferHexId) {
+  let fileName = sanitizeFileName(proposedName) || `ephera-${transferHexId}.bin`;
+  if (await existsInDirectory(dirHandle, fileName)) {
+    const dot = fileName.lastIndexOf('.');
+    const base = dot > 0 ? fileName.slice(0, dot) : fileName;
+    const ext = dot > 0 ? fileName.slice(dot) : '';
+    const short = String(transferHexId || '').slice(0, 8) || 'transfer';
+
+    let candidate = sanitizeFileName(`${base} (${short})${ext}`) || `ephera-${short}.bin`;
+    if (await existsInDirectory(dirHandle, candidate)) {
+      for (let i = 2; i <= 50; i++) {
+        // eslint-disable-next-line no-await-in-loop
+        const next = sanitizeFileName(`${base} (${short}-${i})${ext}`) || `ephera-${short}-${i}.bin`;
+        // eslint-disable-next-line no-await-in-loop
+        if (!(await existsInDirectory(dirHandle, next))) {
+          candidate = next;
+          break;
+        }
+      }
+    }
+    fileName = candidate;
+  }
+
+  const fileHandle = await dirHandle.getFileHandle(fileName, { create: true });
+  return { fileHandle, fileName };
+}
+
+async function resolveReceiveWriteTarget(rootDirHandle, transferHexId, { relativePath = '', fallbackName = '' } = {}) {
+  const safeRelativePath = sanitizeRelativeTransferPath(relativePath);
+  const fallbackSafeName = sanitizeFileName(fallbackName) || `ephera-${transferHexId}.bin`;
+
+  let dirHandle = rootDirHandle;
+  let parentPath = '';
+  let targetName = fallbackSafeName;
+
+  if (safeRelativePath && typeof rootDirHandle.getDirectoryHandle === 'function') {
+    const parts = safeRelativePath.split('/');
+    const maybeName = parts.pop();
+    if (maybeName) targetName = maybeName;
+    for (let i = 0; i < parts.length; i++) {
+      const seg = parts[i];
+      // eslint-disable-next-line no-await-in-loop
+      dirHandle = await dirHandle.getDirectoryHandle(seg, { create: true });
+    }
+    parentPath = parts.join('/');
+  } else if (safeRelativePath) {
+    const baseName = getTransferPathBasename(safeRelativePath);
+    if (baseName) targetName = baseName;
+  }
+
+  const { fileHandle, fileName } = await getUniqueReceiveFileHandle(dirHandle, targetName, transferHexId);
+  const savedRelativePath = parentPath ? `${parentPath}/${fileName}` : fileName;
+  return { fileHandle, fileName, savedRelativePath };
 }
 
 function addTransferRow({ direction, title }) {
@@ -2448,6 +3144,333 @@ function sanitizeFileName(value) {
   }
 
   return s;
+}
+
+function sanitizeRelativeTransferPath(value) {
+  if (typeof value !== 'string') return null;
+  let s = value.trim();
+  if (!s) return null;
+
+  s = s.replace(/\\/g, '/');
+  s = s.replace(/^\/+/, '');
+  s = s.replace(/\/+/g, '/');
+  if (!s) return null;
+
+  const rawSegments = s.split('/').filter(Boolean);
+  if (rawSegments.length < 1 || rawSegments.length > 24) return null;
+
+  const safeSegments = [];
+  for (let i = 0; i < rawSegments.length; i++) {
+    const seg = rawSegments[i];
+    if (!seg || seg === '.' || seg === '..') return null;
+    const safe = sanitizeFileName(seg);
+    if (!safe) return null;
+    safeSegments.push(safe);
+  }
+
+  const out = safeSegments.join('/');
+  if (!out || out.length > 768) return null;
+  return out;
+}
+
+function getTransferPathBasename(value) {
+  const safe = sanitizeRelativeTransferPath(value);
+  if (!safe) return null;
+  const parts = safe.split('/');
+  return parts.length > 0 ? parts[parts.length - 1] : null;
+}
+
+function getOutboundEntryDisplayName(entry) {
+  if (!entry || typeof entry !== 'object') return 'unnamed';
+  const safePath = sanitizeRelativeTransferPath(entry.relativePath);
+  if (safePath) return safePath;
+  const safeName = sanitizeFileName(entry.name || (entry.file && entry.file.name) || '');
+  return safeName || 'unnamed';
+}
+
+function getOutboundBatchRoot(entries) {
+  const list = Array.isArray(entries) ? entries : [];
+  for (let i = 0; i < list.length; i++) {
+    const safePath = sanitizeRelativeTransferPath(list[i] && list[i].relativePath);
+    if (!safePath) continue;
+    const parts = safePath.split('/');
+    if (parts.length > 1) return parts[0];
+  }
+  return '';
+}
+
+function buildOutboundBatchTitle(entries, source) {
+  const list = Array.isArray(entries) ? entries : [];
+  const count = list.length;
+  if (source === 'folder') {
+    const root = getOutboundBatchRoot(list) || 'folder';
+    if (count <= 1) return `Folder send · ${getOutboundEntryDisplayName(list[0])}`;
+    return `Folder batch · ${root}`;
+  }
+  if (count <= 1) return `Direct send · ${getOutboundEntryDisplayName(list[0])}`;
+  return `File batch · ${count} payloads`;
+}
+
+function buildOutboundEntriesFromInput(fileList, { preferRelativePath = false } = {}) {
+  const files = Array.from(fileList || []);
+  const entries = [];
+
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+    if (!file) continue;
+    const relativePath = preferRelativePath
+      ? sanitizeRelativeTransferPath(file.webkitRelativePath || '')
+      : null;
+    const name = sanitizeFileName(file.name || '') || 'unnamed';
+    entries.push({
+      file,
+      name,
+      relativePath,
+    });
+  }
+
+  return entries;
+}
+
+function clearOutboundPickerValues() {
+  if (fileInput) {
+    try { fileInput.value = ''; } catch {}
+  }
+  if (folderInput) {
+    try { folderInput.value = ''; } catch {}
+  }
+}
+
+function inferOutboundSource(entries) {
+  const list = Array.isArray(entries) ? entries : [];
+  for (let i = 0; i < list.length; i++) {
+    const entry = list[i];
+    if (sanitizeRelativeTransferPath(entry && entry.relativePath)) return 'folder';
+  }
+  return list.length > 0 ? 'files' : 'none';
+}
+
+function renderSendDropzone(gate) {
+  if (!sendDropzoneEl) return;
+
+  const g = gate || getSendGateState();
+  const folderUploadCapable = detectSenderFolderUploadCapable();
+  const count = Array.isArray(pendingOutboundEntries) ? pendingOutboundEntries.length : 0;
+  const staged = count > 0;
+  const source = inferOutboundSource(pendingOutboundEntries);
+  const dragging = sendDropzoneDragDepth > 0;
+  const ready = !!(g && g.enabled);
+  const live = !!activeRoomId;
+
+  let title = folderUploadCapable ? 'Drop files or folders here' : 'Drop files here';
+  let hint = folderUploadCapable
+    ? 'Stage payloads directly in the transfer bay. You can drop before the room fully unlocks; Send still stays gated until the session is ready.'
+    : 'Stage files directly in the transfer bay. Send still stays gated until the session is ready.';
+
+  if (dragging) {
+    title = 'Release to stage payloads';
+    hint = folderUploadCapable
+      ? 'Ephera will import dropped files immediately. File hierarchy is preserved when the browser exposes directory structure.'
+      : 'Ephera will import dropped files immediately.';
+  } else if (staged && source === 'folder') {
+    title = `${count} folder payload${count === 1 ? '' : 's'} staged`;
+    hint = ready
+      ? 'Hierarchy-preserving payloads are armed. Press Send to stream them directly to the peer.'
+      : 'Hierarchy-preserving payloads are staged. Send will unlock when room, P2P, peer-ready, and crypto gates are clear.';
+  } else if (staged) {
+    title = `${count} file payload${count === 1 ? '' : 's'} staged`;
+    hint = ready
+      ? 'Payloads are armed. Press Send to stream them directly to the peer.'
+      : 'Payloads are staged. Send will unlock when room, P2P, peer-ready, and crypto gates are clear.';
+  } else if (ready) {
+    title = folderUploadCapable ? 'Drop files or folders here' : 'Drop files here';
+    hint = folderUploadCapable
+      ? 'Session is live. Drop payloads directly into the bay or use the pickers below, then press Send.'
+      : 'Session is live. Drop files into the bay or use Choose Files, then press Send.';
+  } else if (live && transportOpen && !peerReady) {
+    title = 'Stage payloads while peer arms receive mode';
+    hint = 'You can queue files now. Send stays blocked until the receiver chooses folder-save or discard mode.';
+  } else if (live) {
+    title = 'Stage payloads while the session negotiates';
+    hint = folderUploadCapable
+      ? 'You can stage files or folders early. Ephera will still enforce P2P, peer-ready, and crypto verification before send.'
+      : 'You can stage files early. Ephera will still enforce P2P, peer-ready, and crypto verification before send.';
+  }
+
+  if (sendDropzoneTitleEl) sendDropzoneTitleEl.textContent = title;
+  if (sendDropzoneHintEl) sendDropzoneHintEl.textContent = hint;
+
+  sendDropzoneEl.classList.toggle('send-dropzone-live', live);
+  sendDropzoneEl.classList.toggle('send-dropzone-ready', ready);
+  sendDropzoneEl.classList.toggle('send-dropzone-staged', staged);
+  sendDropzoneEl.classList.toggle('send-dropzone-drag', dragging);
+  sendDropzoneEl.title = hint;
+}
+
+function syncOutboundSelectionSummary() {
+  if (!sendSelectionSummaryEl) return;
+  const count = Array.isArray(pendingOutboundEntries) ? pendingOutboundEntries.length : 0;
+
+  if (count < 1) {
+    sendSelectionSummaryEl.textContent = 'No payload selected.';
+  } else if (pendingOutboundSource === 'folder') {
+    const first = pendingOutboundEntries[0];
+    const safePath = sanitizeRelativeTransferPath(first && first.relativePath);
+    const root = safePath ? safePath.split('/')[0] : 'folder';
+    sendSelectionSummaryEl.textContent = `Folder batch selected: ${count} file(s) from ${root}.`;
+  } else if (count === 1) {
+    sendSelectionSummaryEl.textContent = `Payload selected: ${getOutboundEntryDisplayName(pendingOutboundEntries[0])}.`;
+  } else {
+    sendSelectionSummaryEl.textContent = `Payload batch selected: ${count} file(s).`;
+  }
+}
+
+function setPendingOutboundEntries(entries, source = 'none') {
+  pendingOutboundEntries = Array.isArray(entries) ? entries.filter(Boolean) : [];
+  if (pendingOutboundEntries.length < 1) {
+    pendingOutboundSource = 'none';
+  } else {
+    // Source is derived from captured metadata; callers cannot force
+    // "folder" mode when no relative paths were actually provided.
+    const inferred = inferOutboundSource(pendingOutboundEntries);
+    pendingOutboundSource = inferred === 'none' ? source : inferred;
+  }
+  syncOutboundSelectionSummary();
+  renderSendDropzone();
+}
+
+function readWebkitEntryFile(entry) {
+  return new Promise((resolve, reject) => {
+    try {
+      entry.file(resolve, reject);
+    } catch (err) {
+      reject(err);
+    }
+  });
+}
+
+function readAllWebkitDirectoryEntries(reader) {
+  return new Promise((resolve, reject) => {
+    const out = [];
+    const pump = () => {
+      try {
+        reader.readEntries((batch) => {
+          if (!Array.isArray(batch) || batch.length < 1) {
+            resolve(out);
+            return;
+          }
+          out.push(...batch);
+          pump();
+        }, reject);
+      } catch (err) {
+        reject(err);
+      }
+    };
+    pump();
+  });
+}
+
+async function collectOutboundEntriesFromWebkitEntry(entry, parentPath = '') {
+  if (!entry) return [];
+
+  if (entry.isFile) {
+    const file = await readWebkitEntryFile(entry);
+    const name = sanitizeFileName((file && file.name) || entry.name || '') || 'unnamed';
+    return [{
+      file,
+      name,
+      relativePath: parentPath ? sanitizeRelativeTransferPath(`${parentPath}/${name}`) : null,
+    }];
+  }
+
+  if (!entry.isDirectory || typeof entry.createReader !== 'function') return [];
+
+  const dirName = sanitizeFileName(entry.name || '');
+  if (!dirName) return [];
+
+  const nextParent = parentPath ? `${parentPath}/${dirName}` : dirName;
+  const reader = entry.createReader();
+  const children = await readAllWebkitDirectoryEntries(reader);
+  const out = [];
+
+  for (let i = 0; i < children.length; i++) {
+    // eslint-disable-next-line no-await-in-loop
+    const nested = await collectOutboundEntriesFromWebkitEntry(children[i], nextParent);
+    if (nested.length > 0) out.push(...nested);
+  }
+
+  return out;
+}
+
+async function collectOutboundEntriesFromHandle(handle, parentPath = '') {
+  if (!handle || typeof handle !== 'object') return [];
+
+  if (handle.kind === 'file' && typeof handle.getFile === 'function') {
+    const file = await handle.getFile();
+    const name = sanitizeFileName((file && file.name) || handle.name || '') || 'unnamed';
+    return [{
+      file,
+      name,
+      relativePath: parentPath ? sanitizeRelativeTransferPath(`${parentPath}/${name}`) : null,
+    }];
+  }
+
+  if (handle.kind !== 'directory' || typeof handle.values !== 'function') return [];
+
+  const dirName = sanitizeFileName(handle.name || '');
+  if (!dirName) return [];
+
+  const nextParent = parentPath ? `${parentPath}/${dirName}` : dirName;
+  const out = [];
+
+  // FileSystemDirectoryHandle is async-iterable in Chromium.
+  // eslint-disable-next-line no-restricted-syntax
+  for await (const child of handle.values()) {
+    // eslint-disable-next-line no-await-in-loop
+    const nested = await collectOutboundEntriesFromHandle(child, nextParent);
+    if (nested.length > 0) out.push(...nested);
+  }
+
+  return out;
+}
+
+async function buildOutboundEntriesFromDataTransfer(dataTransfer) {
+  const items = dataTransfer ? Array.from(dataTransfer.items || []) : [];
+  const files = dataTransfer ? Array.from(dataTransfer.files || []) : [];
+  const fileItems = items.filter((item) => item && item.kind === 'file');
+
+  if (fileItems.length > 0) {
+    if (typeof fileItems[0].getAsFileSystemHandle === 'function') {
+      const out = [];
+      for (let i = 0; i < fileItems.length; i++) {
+        let handle = null;
+        try {
+          // eslint-disable-next-line no-await-in-loop
+          handle = await fileItems[i].getAsFileSystemHandle();
+        } catch {}
+        if (!handle) continue;
+        // eslint-disable-next-line no-await-in-loop
+        const nested = await collectOutboundEntriesFromHandle(handle);
+        if (nested.length > 0) out.push(...nested);
+      }
+      if (out.length > 0) return out;
+    }
+
+    if (typeof fileItems[0].webkitGetAsEntry === 'function') {
+      const out = [];
+      for (let i = 0; i < fileItems.length; i++) {
+        let entry = null;
+        try { entry = fileItems[i].webkitGetAsEntry(); } catch {}
+        if (!entry) continue;
+        // eslint-disable-next-line no-await-in-loop
+        const nested = await collectOutboundEntriesFromWebkitEntry(entry);
+        if (nested.length > 0) out.push(...nested);
+      }
+      if (out.length > 0) return out;
+    }
+  }
+
+  return buildOutboundEntriesFromInput(files, { preferRelativePath: false });
 }
 
 function hexId(u8) {
@@ -3120,6 +4143,12 @@ async function handleOutboundControlFrame(data) {
 
     try { if (entry.row) entry.row.setStatus('aborted by peer'); } catch {}
     try { if (entry.sender) entry.sender.destroy(); } catch {}
+    if (entry.ledgerTransfer) {
+      updateTransferLedgerTransfer(entry.ledgerTransfer, {
+        state: 'receiver-aborted',
+        detail: `Peer aborted ${entry.ledgerTransfer.title || key.slice(0, 8)}`,
+      });
+    }
     addActivity('warn', `Outbound ${key.slice(0, 8)} aborted by peer`);
 
     outboundTransfers.delete(key);
@@ -3172,6 +4201,13 @@ async function handleOutboundControlFrame(data) {
 
   if (status === 'ok') {
     try { if (entry.row) entry.row.setStatus(sink === 'saved' ? 'delivered (saved)' : 'delivered (discarded)'); } catch {}
+    if (entry.ledgerTransfer) {
+      updateTransferLedgerTransfer(entry.ledgerTransfer, {
+        state: sink === 'saved' ? 'delivered-saved' : 'delivered-discarded',
+        sink,
+        detail: sink === 'saved' ? 'Delivered and saved by peer' : 'Delivered and discarded by peer',
+      });
+    }
     addActivity('receipt', `Receipt ok (${sink}) for ${key.slice(0, 8)}`);
     entry.delivered = true;
     if (IS_E2E && E2E_STATE) {
@@ -3181,6 +4217,12 @@ async function handleOutboundControlFrame(data) {
     }
   } else {
     try { if (entry.row) entry.row.setStatus('receiver aborted'); } catch {}
+    if (entry.ledgerTransfer) {
+      updateTransferLedgerTransfer(entry.ledgerTransfer, {
+        state: 'receipt-abort',
+        detail: `Receiver aborted ${entry.ledgerTransfer.title || key.slice(0, 8)}`,
+      });
+    }
     addActivity('receipt', `Receipt abort for ${key.slice(0, 8)}`);
   }
 
@@ -3194,7 +4236,7 @@ function createTransport() {
 
   transport.onOpen = () => {
     transportOpen = true;
-    transferSection.hidden = false;
+    if (transferSection) transferSection.hidden = false;
     setStatus('P2P connected');
     sendLocalCapabilities('transport open');
     if (localReady) {
@@ -3420,13 +4462,24 @@ function sendAdvisoryMeaning(file) {
   } catch {}
 }
 
-async function startOutboundTransfer(file, { weight, passphrase, markE2E = false } = {}) {
+async function startOutboundTransfer(entry, { weight, passphrase, markE2E = false, ledgerTransfer = null } = {}) {
+  const file = entry && entry.file ? entry.file : entry;
   if (!file || !transport) return false;
 
-  sendAdvisoryMeaning(file);
-  addActivity('transfer', `Outbound start: ${file.name || 'unnamed'} (${formatBytes(file.size || 0)})`);
-
+  const relativePath = sanitizeRelativeTransferPath(entry && entry.relativePath);
+  const displayName = getOutboundEntryDisplayName(entry && entry.file ? entry : { file });
   const totalBytes = Number(file.size) || 0;
+
+  sendAdvisoryMeaning(file);
+  addActivity('transfer', `Outbound start: ${displayName} (${formatBytes(file.size || 0)})`);
+  if (ledgerTransfer) {
+    updateTransferLedgerTransfer(ledgerTransfer, {
+      title: displayName,
+      totalBytes: totalBytes || 0,
+      state: 'sending',
+      detail: `Streaming ${displayName}`,
+    });
+  }
   let sentBytes = 0;
   let lastPct = null;
   let lastSpeedTs = (globalThis.performance && typeof performance.now === 'function') ? performance.now() : Date.now();
@@ -3435,7 +4488,7 @@ async function startOutboundTransfer(file, { weight, passphrase, markE2E = false
 
   const row = addTransferRow({
     direction: 'out',
-    title: file.name || 'unnamed',
+    title: displayName,
   });
 
   const srcReader = file.stream().getReader();
@@ -3460,6 +4513,12 @@ async function startOutboundTransfer(file, { weight, passphrase, markE2E = false
       const u8 = value instanceof Uint8Array ? value : new Uint8Array(value);
       sentBytes += u8.byteLength;
       row.setBytes(sentBytes);
+      if (ledgerTransfer) {
+        updateTransferLedgerTransfer(ledgerTransfer, {
+          bytes: sentBytes,
+          state: cancelled ? 'cancelling' : 'sending',
+        });
+      }
 
       if (markE2E && E2E_STATE) E2E_STATE.sentBytes = sentBytes;
       if (IS_E2E && E2E_STATE) E2E_STATE.sentTotalBytes += u8.byteLength;
@@ -3502,6 +4561,7 @@ async function startOutboundTransfer(file, { weight, passphrase, markE2E = false
       name: file.name || null,
       type: file.type || null,
       size: totalBytes || null,
+      path: relativePath || null,
     },
   });
   activeSenders.add(localSender);
@@ -3510,7 +4570,13 @@ async function startOutboundTransfer(file, { weight, passphrase, markE2E = false
   row.setCancel(() => {
     cancelled = true;
     row.setStatus('cancelling');
-    addActivity('warn', `Outbound cancel requested: ${file.name || 'unnamed'}`);
+    addActivity('warn', `Outbound cancel requested: ${displayName}`);
+    if (ledgerTransfer) {
+      updateTransferLedgerTransfer(ledgerTransfer, {
+        state: 'cancelling',
+        detail: `Cancelling ${displayName}`,
+      });
+    }
     try { localSender.destroy(); } catch {}
   });
 
@@ -3524,6 +4590,7 @@ async function startOutboundTransfer(file, { weight, passphrase, markE2E = false
       sender: localSender,
       receiptTimer: null,
       delivered: false,
+      ledgerTransfer,
     });
     addActivity('transfer', `Outbound transfer id=${transferKey.slice(0, 8)} weight=${Math.max(1, Number(weight) || 1)}`);
   }
@@ -3537,7 +4604,14 @@ async function startOutboundTransfer(file, { weight, passphrase, markE2E = false
 
     if (cancelled) {
       row.setStatus('cancelled');
-      addActivity('warn', `Outbound cancelled: ${file.name || 'unnamed'}`);
+      addActivity('warn', `Outbound cancelled: ${displayName}`);
+      if (ledgerTransfer) {
+        updateTransferLedgerTransfer(ledgerTransfer, {
+          bytes: totalBytes || sentBytes,
+          state: 'cancelled',
+          detail: `Cancelled ${displayName}`,
+        });
+      }
       return false;
     }
 
@@ -3554,6 +4628,12 @@ async function startOutboundTransfer(file, { weight, passphrase, markE2E = false
           if (!cur) return;
           if (!cur.delivered) {
             try { if (cur.row) cur.row.setStatus('sent (no receipt)'); } catch {}
+            if (cur.ledgerTransfer) {
+              updateTransferLedgerTransfer(cur.ledgerTransfer, {
+                state: 'receipt-timeout',
+                detail: `Receipt timeout for ${cur.ledgerTransfer.title || transferKey.slice(0, 8)}`,
+              });
+            }
             addActivity('warn', `Receipt timeout for ${transferKey.slice(0, 8)}`);
           }
           outboundTransfers.delete(transferKey);
@@ -3562,25 +4642,49 @@ async function startOutboundTransfer(file, { weight, passphrase, markE2E = false
     }
 
     row.setStatus(awaitingReceipt ? 'sent (awaiting receipt)' : 'sent');
+    if (ledgerTransfer) {
+      updateTransferLedgerTransfer(ledgerTransfer, {
+        bytes: totalBytes || sentBytes,
+        state: awaitingReceipt ? 'awaiting-receipt' : 'sent',
+        detail: awaitingReceipt
+          ? `Awaiting receiver receipt for ${displayName}`
+          : `Sent ${displayName}`,
+      });
+    }
     addActivity('transfer', awaitingReceipt
-      ? `Outbound sent: ${file.name || 'unnamed'} (awaiting receipt)`
-      : `Outbound sent: ${file.name || 'unnamed'}`);
+      ? `Outbound sent: ${displayName} (awaiting receipt)`
+      : `Outbound sent: ${displayName}`);
     if (IS_E2E && E2E_STATE) E2E_STATE.sentDoneCount = (E2E_STATE.sentDoneCount || 0) + 1;
     if (markE2E && E2E_STATE) E2E_STATE.sentDone = true;
     return true;
   } catch (err) {
     if (cancelled) {
       row.setStatus('cancelled');
-      addActivity('warn', `Outbound cancelled: ${file.name || 'unnamed'}`);
+      addActivity('warn', `Outbound cancelled: ${displayName}`);
+      if (ledgerTransfer) {
+        updateTransferLedgerTransfer(ledgerTransfer, {
+          bytes: totalBytes || sentBytes,
+          state: 'cancelled',
+          detail: `Cancelled ${displayName}`,
+        });
+      }
       return false;
     }
 
     row.setStatus('aborted');
-    addActivity('warn', `Outbound aborted: ${file.name || 'unnamed'} (${err && err.message ? err.message : 'send failed'})`);
+    addActivity('warn', `Outbound aborted: ${displayName} (${err && err.message ? err.message : 'send failed'})`);
+    if (ledgerTransfer) {
+      updateTransferLedgerTransfer(ledgerTransfer, {
+        bytes: totalBytes || sentBytes,
+        state: 'aborted',
+        detail: `Aborted ${displayName}`,
+        outcome: err && err.message ? err.message : 'send failed',
+      });
+    }
     if (IS_E2E && E2E_STATE) E2E_STATE.sentAbortCount = (E2E_STATE.sentAbortCount || 0) + 1;
     if (IS_E2E && E2E_STATE && !E2E_STATE.error) {
       const detail = err && err.message ? err.message : 'send failed';
-      const name = file && file.name ? file.name : 'unknown';
+      const name = displayName || 'unknown';
       E2E_STATE.error = `send failed (${name}): ${detail}`;
     }
 
@@ -3602,7 +4706,7 @@ async function startOutboundTransfer(file, { weight, passphrase, markE2E = false
 async function sendSelectedFile() {
   if (!transport) return;
 
-  const all = Array.from(fileInput.files || []);
+  const all = Array.isArray(pendingOutboundEntries) ? pendingOutboundEntries.slice() : [];
   if (all.length === 0) return;
 
   const gate = getSendGateState();
@@ -3611,25 +4715,48 @@ async function sendSelectedFile() {
     return;
   }
 
-  const MAX_FILES_PER_BATCH = 20;
-  const files = all.slice(0, MAX_FILES_PER_BATCH);
-  if (all.length > MAX_FILES_PER_BATCH) {
-    setStatus(`Sending first ${MAX_FILES_PER_BATCH} files (selected ${all.length})`);
-  } else {
-    setStatus(`Sending ${files.length} transfer(s)`);
-  }
+  const files = all;
+  setStatus(`Sending ${files.length} transfer(s)`);
 
   const weight = Number(sendWeightInput?.value || 1) || 1;
   const passphrase = getLocalPassphrase();
+  const source = inferOutboundSource(files);
+  const totalBytes = files.reduce((sum, current) => {
+    const file = current && current.file ? current.file : null;
+    return sum + Math.max(0, Number(file && file.size) || 0);
+  }, 0);
+  const batchRoot = source === 'folder' ? getOutboundBatchRoot(files) : '';
+  const ledgerEntry = createTransferLedgerEntry({
+    direction: 'out',
+    source,
+    count: files.length,
+    totalBytes,
+    title: buildOutboundBatchTitle(files, source),
+    detail: source === 'folder'
+      ? `Streaming folder payloads${batchRoot ? ` from ${batchRoot}` : ''}`
+      : `Streaming ${files.length} file payload${files.length === 1 ? '' : 's'}`,
+  });
 
-  fileInput.value = '';
+  setPendingOutboundEntries([], 'none');
+  clearOutboundPickerValues();
   updateSendButton();
 
   // Start transfers on a new task so the click handler returns immediately,
   // even when many files are queued.
-  const tasks = files.map((file, i) => new Promise((resolve) => {
+  const tasks = files.map((entry, i) => new Promise((resolve) => {
+    const displayName = getOutboundEntryDisplayName(entry);
+    const transfer = createTransferLedgerTransfer(ledgerEntry, {
+      title: displayName,
+      totalBytes: Number(entry && entry.file && entry.file.size) || 0,
+      state: 'queued',
+    });
     setTimeout(() => {
-      startOutboundTransfer(file, { weight, passphrase, markE2E: IS_E2E && i === 0 })
+      startOutboundTransfer(entry, {
+        weight,
+        passphrase,
+        markE2E: IS_E2E && i === 0,
+        ledgerTransfer: transfer,
+      })
         .then(resolve)
         .catch(() => resolve(false));
     }, 0);
@@ -3681,6 +4808,19 @@ async function handleIncomingSession(session) {
     direction: 'in',
     title: id,
   });
+  const ledgerEntry = createTransferLedgerEntry({
+    direction: 'in',
+    source: 'incoming',
+    count: 1,
+    totalBytes: 0,
+    title: `Inbound transfer · ${id.slice(0, 8)}`,
+    detail: 'Waiting for metadata and destination policy',
+  });
+  const ledgerTransfer = createTransferLedgerTransfer(ledgerEntry, {
+    title: id,
+    totalBytes: 0,
+    state: 'receiving',
+  });
   row.setStatus('receiving');
   row.setOutcome(`destination: ${buildReceiveDestinationPath()}`, {
     warn: getReceiveDestinationState().mode === 'discard',
@@ -3691,6 +4831,11 @@ async function handleIncomingSession(session) {
   if (!capabilitiesCompatible) {
     const reason = compatibilityReason || 'Protocol incompatible with peer';
     row.setStatus('aborted (protocol incompatible)');
+    updateTransferLedgerTransfer(ledgerTransfer, {
+      state: 'blocked',
+      detail: `Blocked ${id.slice(0, 8)}: ${reason}`,
+      outcome: reason,
+    });
     addActivity('warn', `Inbound blocked for ${id.slice(0, 8)}: ${reason}`);
     setStatus(reason);
     sendPeerAbort(session.transferId);
@@ -3700,6 +4845,11 @@ async function handleIncomingSession(session) {
   const stream = session.getStream();
   if (!stream) {
     row.setStatus('aborted');
+    updateTransferLedgerTransfer(ledgerTransfer, {
+      state: 'aborted',
+      detail: `Inbound stream unavailable for ${id.slice(0, 8)}`,
+      outcome: 'stream unavailable',
+    });
     addActivity('warn', `Inbound aborted before stream open: ${id.slice(0, 8)}`);
     return;
   }
@@ -3727,7 +4877,9 @@ async function handleIncomingSession(session) {
 
   const DEFAULT_NAME = `ephera-${id}.bin`;
   let saveName = DEFAULT_NAME;
+  let saveRelativePath = '';
   let outputName = saveName;
+  let outputRelativePath = '';
 
   let metaEvent = null;
   let metaApplied = false;
@@ -3767,19 +4919,38 @@ async function handleIncomingSession(session) {
 
     if (!obj || typeof obj !== 'object' || obj.v !== 1) return;
 
+    const safePath = sanitizeRelativeTransferPath(obj.path);
     const safeName = sanitizeFileName(obj.name);
-    if (safeName) {
-      row.setTitle(safeName);
-      if (E2E_STATE) E2E_STATE.recvTitle = safeName;
+    const displayName = safePath || safeName;
+    if (displayName) {
+      row.setTitle(displayName);
+      ledgerEntry.title = `Inbound transfer · ${displayName}`;
+      updateTransferLedgerTransfer(ledgerTransfer, {
+        title: displayName,
+        detail: `Receiving ${displayName}`,
+      });
+      if (E2E_STATE) E2E_STATE.recvTitle = displayName;
       if (IS_E2E && E2E_STATE && Array.isArray(E2E_STATE.recvTitles)) {
-        E2E_STATE.recvTitles.push(safeName);
+        E2E_STATE.recvTitles.push(displayName);
       }
+    }
+
+    if (safePath && !writable) {
+      saveRelativePath = safePath;
+      const baseName = getTransferPathBasename(safePath);
+      if (baseName) saveName = baseName;
+    }
+
+    if (safeName) {
       // Only use the suggested name if we haven't opened the output file yet.
       if (!writable) saveName = safeName;
     }
 
     if (Number.isFinite(obj.size) && obj.size >= 0) {
       expectedBytes = Math.floor(obj.size);
+      updateTransferLedgerTransfer(ledgerTransfer, {
+        totalBytes: expectedBytes,
+      });
     }
   }
 
@@ -3799,6 +4970,10 @@ async function handleIncomingSession(session) {
     cancelled = true;
     row.setStatus('cancelling');
     addActivity('warn', `Inbound cancel requested: ${id.slice(0, 8)}`);
+    updateTransferLedgerTransfer(ledgerTransfer, {
+      state: 'cancelling',
+      detail: `Cancelling ${ledgerTransfer.title || id.slice(0, 8)}`,
+    });
     signalAbortOnce();
     try {
       if (writable) writable.abort();
@@ -3820,57 +4995,40 @@ async function handleIncomingSession(session) {
     await maybeApplyMeta();
 
     outputName = saveName || DEFAULT_NAME;
+    outputRelativePath = saveRelativePath || outputName;
 
     if (receiveDirHandle && typeof receiveDirHandle.getFileHandle === 'function') {
-      let fileName = sanitizeFileName(saveName || DEFAULT_NAME) || DEFAULT_NAME;
-
-      // Avoid overwriting existing files. If there's a collision, suffix with a short transfer id.
-      const exists = async (name) => {
-        try {
-          await receiveDirHandle.getFileHandle(name, { create: false });
-          return true;
-        } catch {
-          return false;
-        }
-      };
-
-      if (await exists(fileName)) {
-        const dot = fileName.lastIndexOf('.');
-        const base = dot > 0 ? fileName.slice(0, dot) : fileName;
-        const ext = dot > 0 ? fileName.slice(dot) : '';
-        const short = id.slice(0, 8);
-
-        let candidate = sanitizeFileName(`${base} (${short})${ext}`) || DEFAULT_NAME;
-        if (await exists(candidate)) {
-          for (let i = 2; i <= 50; i++) {
-            // eslint-disable-next-line no-await-in-loop
-            const next = sanitizeFileName(`${base} (${short}-${i})${ext}`) || DEFAULT_NAME;
-            // eslint-disable-next-line no-await-in-loop
-            if (!(await exists(next))) {
-              candidate = next;
-              break;
-            }
-          }
-        }
-
-        fileName = candidate;
-      }
-
-      outputName = fileName;
-      const fileHandle = await receiveDirHandle.getFileHandle(fileName, { create: true });
+      const target = await resolveReceiveWriteTarget(receiveDirHandle, id, {
+        relativePath: saveRelativePath,
+        fallbackName: saveName || DEFAULT_NAME,
+      });
+      outputName = target.fileName;
+      outputRelativePath = target.savedRelativePath || target.fileName;
+      const fileHandle = target.fileHandle;
       writable = await fileHandle.createWritable();
-      row.setTitle(fileName);
-      row.setStatus(aesKey ? `decrypting + saving: ${fileName}` : `saving: ${fileName}`);
-      row.setOutcome(`destination: ${buildReceiveDestinationPath(fileName)}`, { ok: true });
+      row.setTitle(outputRelativePath);
+      row.setStatus(aesKey ? `decrypting + saving: ${outputRelativePath}` : `saving: ${outputRelativePath}`);
+      row.setOutcome(`destination: ${buildReceiveDestinationPath(outputRelativePath)}`, { ok: true });
+      updateTransferLedgerTransfer(ledgerTransfer, {
+        title: outputRelativePath,
+        state: 'receiving',
+        detail: `Saving into ${buildReceiveDestinationPath(outputRelativePath)}`,
+      });
     } else {
       discard = true;
-      row.setStatus(aesKey ? 'decrypting + discarding (no receive folder)' : 'discarding (no receive folder)');
-      row.setOutcome(`destination: ${buildReceiveDestinationPath(outputName)}`, { warn: true });
+      row.setTitle(outputRelativePath || outputName);
+      row.setStatus(aesKey ? `decrypting + discarding: ${outputRelativePath}` : `discarding: ${outputRelativePath}`);
+      row.setOutcome(`destination: ${buildReceiveDestinationPath(outputRelativePath || outputName)}`, { warn: true });
+      updateTransferLedgerTransfer(ledgerTransfer, {
+        title: outputRelativePath || outputName,
+        state: 'receiving',
+        detail: `Discarding ${outputRelativePath || outputName} after verification`,
+      });
     }
 
     const modeLabel = discard
       ? (aesKey ? 'decrypting + discarding (no receive folder)' : 'discarding (no receive folder)')
-      : (aesKey ? `decrypting + saving: ${outputName}` : `saving: ${outputName}`);
+      : (aesKey ? `decrypting + saving: ${outputRelativePath}` : `saving: ${outputRelativePath}`);
 
     while (true) {
       const { done, value } = await reader.read();
@@ -3888,6 +5046,10 @@ async function handleIncomingSession(session) {
 
       bytes += out.byteLength;
       row.setBytes(bytes);
+      updateTransferLedgerTransfer(ledgerTransfer, {
+        bytes,
+        state: 'receiving',
+      });
       if (E2E_STATE) E2E_STATE.recvBytes = bytes;
       if (IS_E2E && E2E_STATE) E2E_STATE.recvTotalBytes += out.byteLength;
 
@@ -3931,20 +5093,33 @@ async function handleIncomingSession(session) {
       row.setStatus('cancelled');
       row.setOutcome('inbound cancelled before completion', { warn: true });
       addActivity('warn', `Inbound cancelled: ${id.slice(0, 8)}`);
+      updateTransferLedgerTransfer(ledgerTransfer, {
+        bytes,
+        state: 'cancelled',
+        detail: `Cancelled ${ledgerTransfer.title || id.slice(0, 8)}`,
+      });
       return;
     }
 
+    const finalLabel = outputRelativePath || outputName;
     const outcomeText = discard
-      ? `discarded -> ${outputName}`
-      : `saved -> ${buildReceiveDestinationPath(outputName)}`;
+      ? `discarded -> ${finalLabel}`
+      : `saved -> ${buildReceiveDestinationPath(finalLabel)}`;
 
     if (aesKey) {
       row.setStatus(discard ? 'received (decrypted, discarded)' : 'received (decrypted, saved)');
     } else {
       row.setStatus(discard ? 'received (discarded)' : 'received (saved)');
     }
+    updateTransferLedgerTransfer(ledgerTransfer, {
+      bytes,
+      state: discard ? 'received-discarded' : 'received-saved',
+      sink: discard ? 'discarded' : 'saved',
+      detail: outcomeText,
+      outcome: outcomeText,
+    });
     row.setOutcome(outcomeText, { ok: !discard, warn: discard });
-    addActivity('transfer', `Inbound complete: ${outputName} (${formatBytes(bytes)}) [${outcomeText}]`);
+    addActivity('transfer', `Inbound complete: ${finalLabel} (${formatBytes(bytes)}) [${outcomeText}]`);
     if (expectedBytes && expectedBytes > 0) row.setProgress(100);
     row.setSpeed('');
     sendReceipt(session.transferId, {
@@ -3970,6 +5145,14 @@ async function handleIncomingSession(session) {
     if (!cancelled && IS_E2E && E2E_STATE) E2E_STATE.recvAbortCount = (E2E_STATE.recvAbortCount || 0) + 1;
     if (!cancelled && E2E_STATE) E2E_STATE.error = err && err.message ? err.message : 'receive failed';
     if (E2E_STATE && !cancelled) E2E_STATE.lastInboundOutcome = 'inbound aborted';
+    updateTransferLedgerTransfer(ledgerTransfer, {
+      bytes,
+      state: cancelled ? 'cancelled' : 'aborted',
+      detail: cancelled
+        ? `Cancelled ${ledgerTransfer.title || id.slice(0, 8)}`
+        : `Aborted ${ledgerTransfer.title || id.slice(0, 8)}`,
+      outcome: err && err.message ? err.message : 'receive failed',
+    });
     addActivity('warn', `Inbound ${cancelled ? 'cancelled' : 'aborted'}: ${id.slice(0, 8)} (${err && err.message ? err.message : 'receive failed'})`);
   } finally {
     try { reader.releaseLock(); } catch {}
@@ -4047,7 +5230,7 @@ function cleanup() {
     ws = null;
   }
 
-  transferSection.hidden = true;
+  if (transferSection) transferSection.hidden = false;
   createRoomBtn.disabled = false;
   joinRoomBtn.disabled = false;
   disconnectBtn.disabled = true;
@@ -4080,6 +5263,21 @@ function cleanup() {
 }
 
 /* ---------- Events ---------- */
+
+if (clearTransferLedgerBtn) {
+  clearTransferLedgerBtn.onclick = () => {
+    const result = clearTransferLedger();
+    if (result.removed > 0 && result.activeKept > 0) {
+      addActivity('status', `Transfer ledger cleared (${result.removed} settled removed, ${result.activeKept} active retained)`);
+    } else if (result.removed > 0) {
+      addActivity('status', `Transfer ledger cleared (${result.removed} settled removed)`);
+    } else if (result.activeKept > 0) {
+      addActivity('status', `Transfer ledger unchanged (${result.activeKept} active in-flight)`);
+    } else {
+      addActivity('status', 'Transfer ledger already empty');
+    }
+  };
+}
 
 if (clearActivityBtn) {
   clearActivityBtn.onclick = () => {
@@ -4189,7 +5387,126 @@ if (downloadActivityJsonBtn) {
   };
 }
 
-fileInput.onchange = updateSendButton;
+function handleFileSelectionChange() {
+  const entries = buildOutboundEntriesFromInput(fileInput && fileInput.files ? fileInput.files : [], {
+    preferRelativePath: false,
+  });
+  setPendingOutboundEntries(entries, 'files');
+  if (folderInput) {
+    try { folderInput.value = ''; } catch {}
+  }
+  updateSendButton();
+}
+
+function handleFolderSelectionChange() {
+  const supportsFolderUpload = detectSenderFolderUploadCapable();
+  const entries = buildOutboundEntriesFromInput(folderInput && folderInput.files ? folderInput.files : [], {
+    preferRelativePath: supportsFolderUpload,
+  });
+  const source = inferOutboundSource(entries);
+  setPendingOutboundEntries(entries, source);
+
+  if (!supportsFolderUpload && entries.length > 0) {
+    setStatus('Folder upload metadata unavailable in this browser. Staged as regular files.');
+  } else if (supportsFolderUpload && source !== 'folder' && entries.length > 0) {
+    setStatus('Folder hierarchy metadata unavailable for this selection. Staged as regular files.');
+  }
+
+  if (fileInput) {
+    try { fileInput.value = ''; } catch {}
+  }
+  updateSendButton();
+}
+
+function isFileDragEvent(event) {
+  const dt = event && event.dataTransfer;
+  if (!dt) return false;
+  const types = Array.from(dt.types || []);
+  return types.includes('Files');
+}
+
+function handleSendDropDragEnter(event) {
+  if (!isFileDragEvent(event)) return;
+  event.preventDefault();
+  sendDropzoneDragDepth += 1;
+  renderSendDropzone();
+}
+
+function handleSendDropDragOver(event) {
+  if (!isFileDragEvent(event)) return;
+  event.preventDefault();
+  if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
+  if (sendDropzoneDragDepth < 1) sendDropzoneDragDepth = 1;
+  renderSendDropzone();
+}
+
+function handleSendDropDragLeave(event) {
+  if (!isFileDragEvent(event)) return;
+  event.preventDefault();
+  sendDropzoneDragDepth = Math.max(0, sendDropzoneDragDepth - 1);
+  renderSendDropzone();
+}
+
+async function handleSendDrop(event) {
+  if (!isFileDragEvent(event)) return;
+  event.preventDefault();
+  sendDropzoneDragDepth = 0;
+  renderSendDropzone();
+
+  let entries = [];
+  try {
+    entries = await buildOutboundEntriesFromDataTransfer(event.dataTransfer);
+  } catch {
+    entries = [];
+  }
+
+  if (!Array.isArray(entries) || entries.length < 1) {
+    setStatus('No dropped payloads detected. Use Choose Files or Choose Folder.');
+    return;
+  }
+
+  clearOutboundPickerValues();
+  const source = inferOutboundSource(entries);
+  setPendingOutboundEntries(entries, source);
+  updateSendButton();
+
+  const batchLabel = source === 'folder' ? 'folder payload(s)' : 'file payload(s)';
+  addActivity('transfer', `Payloads staged via drop: ${entries.length} ${batchLabel}`);
+  setStatus(`Staged ${entries.length} ${batchLabel} via drop`);
+}
+
+if (fileInput) fileInput.onchange = handleFileSelectionChange;
+if (folderInput) folderInput.onchange = handleFolderSelectionChange;
+
+if (pickSendFolderBtn) {
+  pickSendFolderBtn.onclick = () => {
+    if (!folderInput || !detectSenderFolderUploadCapable()) {
+      setStatus('Folder picker unavailable');
+      return;
+    }
+    try { folderInput.click(); } catch {}
+  };
+}
+
+if (sendDropzoneEl) {
+  sendDropzoneEl.addEventListener('dragenter', handleSendDropDragEnter);
+  sendDropzoneEl.addEventListener('dragover', handleSendDropDragOver);
+  sendDropzoneEl.addEventListener('dragleave', handleSendDropDragLeave);
+  sendDropzoneEl.addEventListener('drop', (event) => {
+    void handleSendDrop(event);
+  });
+  sendDropzoneEl.addEventListener('click', () => {
+    if (!fileInput) return;
+    try { fileInput.click(); } catch {}
+  });
+  sendDropzoneEl.addEventListener('keydown', (event) => {
+    const key = String(event && event.key ? event.key : '');
+    if (key !== 'Enter' && key !== ' ') return;
+    event.preventDefault();
+    if (!fileInput) return;
+    try { fileInput.click(); } catch {}
+  });
+}
 
 if (rotateRoomKeyBtn) {
   rotateRoomKeyBtn.onclick = () => {
@@ -4818,9 +6135,12 @@ if (transferAdvancedDetailsEl) {
 
 resetInvitePackageState();
 resetQrPairingUi();
+syncOutboundSelectionSummary();
+renderTransferLedger();
 
 // Initialize send gating + status strip before any user interaction.
 updateSendButton();
+initConsoleNav();
 addActivity('conn', 'App ready');
 
 /* ---------- E2E Automation (Test-Only) ---------- */

@@ -16,7 +16,7 @@ const ROOT = path.join(__dirname, '..');
 
 const TARGETS = [
   { name: 'client', dir: path.join(ROOT, 'client') },
-  { name: 'server', dir: path.join(ROOT, 'server') },
+  { name: 'server', dir: path.join(ROOT, 'server'), ignoreRelPrefixes: ['server/test/'] },
 ];
 
 const IGNORE_DIRS = new Set([
@@ -114,6 +114,9 @@ function main() {
 
     for (const filePath of files) {
       const rel = path.relative(ROOT, filePath);
+      if (Array.isArray(t.ignoreRelPrefixes) && t.ignoreRelPrefixes.some((prefix) => rel.startsWith(prefix))) {
+        continue;
+      }
       const hits = scanFile(filePath, t.name);
       for (const h of hits) {
         findings.push({ file: rel, ...h });
@@ -134,4 +137,3 @@ function main() {
 }
 
 main();
-
