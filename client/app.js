@@ -350,6 +350,19 @@ const workspaceBadgeEl = document.getElementById('workspace-badge');
 const workspaceSubtitleEl = document.getElementById('workspace-subtitle');
 const consoleNavEl = document.querySelector('.console-nav');
 const workspaceSideColumnEl = document.querySelector('.workspace-column-side');
+const workspaceSpotlightEl = document.getElementById('workspace-spotlight');
+const phaseStatePillEl = document.getElementById('phase-state-pill');
+const phaseBriefTitleEl = document.getElementById('phase-brief-title');
+const phaseBriefCopyEl = document.getElementById('phase-brief-copy');
+const phaseNextTitleEl = document.getElementById('phase-next-title');
+const phaseNextCopyEl = document.getElementById('phase-next-copy');
+const phaseNoteBoundaryEl = document.getElementById('phase-note-boundary');
+const phaseNoteActionEl = document.getElementById('phase-note-action');
+const phaseNoteUnlockEl = document.getElementById('phase-note-unlock');
+const phaseNodeOnboardingEl = document.getElementById('phase-node-onboarding');
+const phaseNodeSessionEl = document.getElementById('phase-node-session');
+const phaseNodeChannelEl = document.getElementById('phase-node-channel');
+const phaseNodeCockpitEl = document.getElementById('phase-node-cockpit');
 
 const roomIdInput = document.getElementById('room-id');
 const generateRoomIdBtn = document.getElementById('generate-room-id');
@@ -2763,6 +2776,14 @@ function renderProductMode(gate) {
   let showSide = !!inRoom;
   let showTransfer = channelLive;
   let showNav = channelLive;
+  let phaseState = 'Onboarding';
+  let briefTitle = 'Launch the boundary';
+  let briefCopy = 'Establish the room boundary first. Ephera only reveals the live transfer cockpit after the direct channel is real.';
+  let nextTitle = 'Host or join a room';
+  let nextCopy = 'Manual controls are still available below, but the product path stays explicit: room, P2P, readiness, then transfer.';
+  let noteBoundary = 'No payload leaves the peer path.';
+  let noteAction = 'Choose the host or join path to continue.';
+  let noteUnlock = 'Transfer bay stays hidden until direct transport exists.';
 
   if (inRoom && !transportOpen) {
     mode = 'session';
@@ -2773,6 +2794,19 @@ function renderProductMode(gate) {
       : 'Room context is retained locally. Waiting for signaling to recover before peer-to-peer negotiation resumes.';
     showLanding = false;
     showSide = true;
+    phaseState = signalingOpen ? 'Session Live' : 'Session Recovery';
+    briefTitle = signalingOpen ? 'Room is online' : 'Restore signaling';
+    briefCopy = signalingOpen
+      ? 'You have an active room boundary. The next meaningful event is peer arrival and direct channel negotiation.'
+      : 'The room context is still local, but signaling is down. Ephera will not expose the live cockpit until coordination returns.';
+    nextTitle = signalingOpen ? 'Wait for peer connection' : 'Recover the signaling edge';
+    nextCopy = signalingOpen
+      ? 'Share the invite package or join link. Once the peer arrives, the app transitions into direct-channel negotiation.'
+      : 'Keep the room open. When signaling reconnects, negotiation can resume without introducing storage.';
+    noteAction = signalingOpen
+      ? 'Distribute the invite package or join link.'
+      : 'Hold the session; do not tear down unless you intend to rotate.';
+    noteUnlock = 'Transfer bay remains suppressed until WebRTC transport opens.';
   } else if (channelLive && !cockpitReady) {
     mode = 'channel';
     title = 'Direct Channel Negotiation';
@@ -2782,6 +2816,14 @@ function renderProductMode(gate) {
     showSide = true;
     showTransfer = true;
     showNav = true;
+    phaseState = 'Negotiating';
+    briefTitle = 'Direct transport is up';
+    briefCopy = 'The session has crossed the trust boundary into direct peer transport. Ephera is now waiting on receiver readiness and crypto agreement.';
+    nextTitle = 'Verify readiness + crypto';
+    nextCopy = 'Receiver must choose save/discard mode, and both peers must agree on protocol and passphrase posture before the cockpit is fully armed.';
+    noteBoundary = 'Payload path is now direct WebRTC.';
+    noteAction = 'Complete receive readiness and protocol verification.';
+    noteUnlock = 'Send remains gated until readiness and crypto checks pass.';
   } else if (cockpitReady) {
     mode = 'cockpit';
     title = 'Transfer Cockpit';
@@ -2793,6 +2835,18 @@ function renderProductMode(gate) {
     showSide = true;
     showTransfer = true;
     showNav = true;
+    phaseState = g && g.fileCount > 0 ? 'Armed' : 'Verified';
+    briefTitle = g && g.fileCount > 0 ? 'Cockpit is armed' : 'Channel is verified';
+    briefCopy = g && g.fileCount > 0
+      ? 'The direct path is fully unlocked. Payload selection is staged, and the operator can stream immediately.'
+      : 'All transport and crypto gates are green. The remaining operator action is to choose files or a folder for transfer.';
+    nextTitle = g && g.fileCount > 0 ? 'Send the payload' : 'Choose payloads';
+    nextCopy = g && g.fileCount > 0
+      ? 'Use the transfer bay to stream now. Ledger and activity panels track the session locally without retention.'
+      : 'The cockpit is live, but nothing is selected yet. Use the transfer bay to arm the send path.';
+    noteBoundary = 'No relay or storage is in the payload path.';
+    noteAction = g && g.fileCount > 0 ? 'Press Send when the payload selection is correct.' : 'Choose files or a folder to arm the cockpit.';
+    noteUnlock = g && g.fileCount > 0 ? 'Send is already unlocked.' : 'Selecting payloads is the final operator gate.';
   }
 
   if (appRootEl) {
@@ -2807,6 +2861,14 @@ function renderProductMode(gate) {
   if (workspaceTitleEl) workspaceTitleEl.textContent = title;
   if (workspaceBadgeEl) workspaceBadgeEl.textContent = badge;
   if (workspaceSubtitleEl) workspaceSubtitleEl.textContent = subtitle;
+  if (phaseStatePillEl) phaseStatePillEl.textContent = phaseState;
+  if (phaseBriefTitleEl) phaseBriefTitleEl.textContent = briefTitle;
+  if (phaseBriefCopyEl) phaseBriefCopyEl.textContent = briefCopy;
+  if (phaseNextTitleEl) phaseNextTitleEl.textContent = nextTitle;
+  if (phaseNextCopyEl) phaseNextCopyEl.textContent = nextCopy;
+  if (phaseNoteBoundaryEl) phaseNoteBoundaryEl.textContent = noteBoundary;
+  if (phaseNoteActionEl) phaseNoteActionEl.textContent = noteAction;
+  if (phaseNoteUnlockEl) phaseNoteUnlockEl.textContent = noteUnlock;
 
   if (landingSectionEls && landingSectionEls.length > 0) {
     for (let i = 0; i < landingSectionEls.length; i++) {
@@ -2817,6 +2879,23 @@ function renderProductMode(gate) {
   if (consoleNavEl) consoleNavEl.hidden = !showNav;
   if (workspaceSideColumnEl) workspaceSideColumnEl.hidden = !showSide;
   if (transferSection) transferSection.hidden = !showTransfer;
+  if (workspaceSpotlightEl) {
+    workspaceSpotlightEl.classList.toggle('workspace-spotlight-live', mode === 'cockpit');
+    workspaceSpotlightEl.classList.toggle('workspace-spotlight-negotiation', mode === 'session' || mode === 'channel');
+  }
+
+  const phaseNodes = [
+    [phaseNodeOnboardingEl, mode === 'onboarding', mode !== 'onboarding'],
+    [phaseNodeSessionEl, mode === 'session', mode === 'channel' || mode === 'cockpit'],
+    [phaseNodeChannelEl, mode === 'channel', mode === 'cockpit'],
+    [phaseNodeCockpitEl, mode === 'cockpit', false],
+  ];
+  for (let i = 0; i < phaseNodes.length; i++) {
+    const [node, active, complete] = phaseNodes[i];
+    if (!node) continue;
+    node.classList.toggle('phase-node-active', !!active);
+    node.classList.toggle('phase-node-complete', !!complete);
+  }
 
   if (E2E_STATE) {
     E2E_STATE.productMode = mode;

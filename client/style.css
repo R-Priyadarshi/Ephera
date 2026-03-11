@@ -591,6 +591,206 @@ html {
   background: rgba(21, 111, 131, 0.1);
 }
 
+.workspace-spotlight {
+  display: grid;
+  grid-template-columns: minmax(0, 1.24fr) minmax(0, 1fr);
+  gap: 14px;
+  margin: 0 0 16px;
+}
+
+.spotlight-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: 24px;
+  border: 1px solid rgba(27, 27, 36, 0.14);
+  box-shadow: 0 18px 46px rgba(17, 30, 44, 0.1);
+  padding: 18px;
+  background:
+    linear-gradient(152deg, rgba(255, 255, 255, 0.93), rgba(250, 244, 235, 0.82)),
+    var(--panel);
+}
+
+.spotlight-card::after {
+  content: "";
+  position: absolute;
+  inset: auto -52px -74px auto;
+  width: 190px;
+  height: 190px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(21, 111, 131, 0.1), transparent 72%);
+  pointer-events: none;
+}
+
+.spotlight-card-phase {
+  background:
+    radial-gradient(circle at 0 0, rgba(21, 111, 131, 0.16), transparent 36%),
+    linear-gradient(152deg, rgba(255, 255, 255, 0.95), rgba(245, 250, 252, 0.84)),
+    var(--panel);
+}
+
+.spotlight-card-next {
+  background:
+    radial-gradient(circle at 100% 0, rgba(173, 79, 44, 0.12), transparent 34%),
+    linear-gradient(152deg, rgba(255, 255, 255, 0.94), rgba(252, 246, 239, 0.84)),
+    var(--panel);
+}
+
+.spotlight-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.spotlight-eyebrow {
+  margin: 0 0 6px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(12, 88, 102, 0.9);
+}
+
+.spotlight-head h3 {
+  margin: 0;
+  font-size: 1.22rem;
+  line-height: 1.08;
+  letter-spacing: -0.025em;
+}
+
+.spotlight-pill,
+.spotlight-quiet {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(27, 27, 36, 0.14);
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.spotlight-pill {
+  color: rgba(12, 88, 102, 0.96);
+  background: rgba(21, 111, 131, 0.12);
+  border-color: rgba(21, 111, 131, 0.24);
+}
+
+.spotlight-quiet {
+  color: rgba(27, 27, 36, 0.62);
+  background: rgba(255, 255, 255, 0.58);
+}
+
+.spotlight-copy {
+  margin: 10px 0 0;
+  color: rgba(27, 27, 36, 0.78);
+  max-width: 64ch;
+}
+
+.phase-rail {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.phase-node {
+  position: relative;
+  display: grid;
+  gap: 4px;
+  padding: 12px 12px 14px;
+  border-radius: 18px;
+  border: 1px solid rgba(27, 27, 36, 0.12);
+  background: rgba(255, 255, 255, 0.6);
+  transition:
+    transform 140ms ease,
+    border-color 140ms ease,
+    background 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.phase-node-index {
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(27, 27, 36, 0.54);
+}
+
+.phase-node-label {
+  font-size: 0.83rem;
+  font-weight: 700;
+  color: rgba(18, 35, 48, 0.92);
+}
+
+.phase-node-active {
+  transform: translateY(-1px);
+  border-color: rgba(21, 111, 131, 0.28);
+  background: rgba(21, 111, 131, 0.12);
+  box-shadow: 0 12px 28px rgba(17, 30, 44, 0.08);
+}
+
+.phase-node-active .phase-node-index,
+.phase-node-active .phase-node-label {
+  color: rgba(12, 88, 102, 0.98);
+}
+
+.phase-node-complete {
+  border-color: rgba(21, 111, 131, 0.22);
+  background: rgba(21, 111, 131, 0.08);
+}
+
+.phase-node-complete::after {
+  content: "complete";
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  font-size: 0.54rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(12, 88, 102, 0.72);
+}
+
+.spotlight-notes {
+  margin-top: 14px;
+  display: grid;
+  gap: 10px;
+}
+
+.spotlight-note {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 16px;
+  border: 1px solid rgba(27, 27, 36, 0.12);
+  background: rgba(255, 255, 255, 0.58);
+}
+
+.spotlight-note-label {
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(27, 27, 36, 0.56);
+}
+
+.spotlight-note strong {
+  font-size: 0.9rem;
+  color: rgba(16, 42, 58, 0.96);
+}
+
+.workspace-spotlight-negotiation .spotlight-card-phase {
+  border-color: rgba(173, 79, 44, 0.18);
+}
+
+.workspace-spotlight-live .spotlight-card-phase {
+  border-color: rgba(21, 111, 131, 0.2);
+  box-shadow: 0 20px 50px rgba(17, 30, 44, 0.11);
+}
+
 .workspace-command-deck {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -773,6 +973,12 @@ html {
   box-shadow: 0 24px 58px rgba(17, 30, 44, 0.12);
 }
 
+.app-mode-onboarding .workspace-spotlight {
+  max-width: 960px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
 .app-mode-session .workspace-layout {
   grid-template-columns: minmax(0, 1.14fr) minmax(300px, 0.82fr);
 }
@@ -791,6 +997,10 @@ html {
 .app-mode-channel #transfer-controls,
 .app-mode-cockpit #transfer-controls {
   animation: panel-reveal 260ms ease-out both;
+}
+
+.app-mode-cockpit .workspace-spotlight {
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
 }
 
 .header-top {

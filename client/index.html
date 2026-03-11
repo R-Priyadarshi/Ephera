@@ -122,6 +122,66 @@
       <a class="console-nav-link" data-console-link href="#activity-timeline">Activity</a>
     </nav>
 
+    <section class="workspace-spotlight" id="workspace-spotlight" aria-label="Session phase spotlight">
+      <article class="spotlight-card spotlight-card-phase">
+        <div class="spotlight-head">
+          <div>
+            <p class="spotlight-eyebrow">Session Phase</p>
+            <h3 id="phase-brief-title">Launch the boundary</h3>
+          </div>
+          <span id="phase-state-pill" class="spotlight-pill">Onboarding</span>
+        </div>
+        <p id="phase-brief-copy" class="spotlight-copy">
+          Establish the room boundary first. Ephera only reveals the live transfer cockpit after the direct channel is real.
+        </p>
+        <div class="phase-rail" aria-label="Product phase rail">
+          <div class="phase-node" id="phase-node-onboarding" data-phase-node>
+            <span class="phase-node-index">01</span>
+            <span class="phase-node-label">Onboarding</span>
+          </div>
+          <div class="phase-node" id="phase-node-session" data-phase-node>
+            <span class="phase-node-index">02</span>
+            <span class="phase-node-label">Session</span>
+          </div>
+          <div class="phase-node" id="phase-node-channel" data-phase-node>
+            <span class="phase-node-index">03</span>
+            <span class="phase-node-label">Channel</span>
+          </div>
+          <div class="phase-node" id="phase-node-cockpit" data-phase-node>
+            <span class="phase-node-index">04</span>
+            <span class="phase-node-label">Cockpit</span>
+          </div>
+        </div>
+      </article>
+
+      <article class="spotlight-card spotlight-card-next">
+        <div class="spotlight-head">
+          <div>
+            <p class="spotlight-eyebrow">What Unlocks Next</p>
+            <h3 id="phase-next-title">Host or join a room</h3>
+          </div>
+          <span class="spotlight-quiet">Deterministic progression</span>
+        </div>
+        <p id="phase-next-copy" class="spotlight-copy">
+          Manual controls are still available below, but the product path stays explicit: room, P2P, readiness, then transfer.
+        </p>
+        <div class="spotlight-notes">
+          <div class="spotlight-note">
+            <span class="spotlight-note-label">Trust boundary</span>
+            <strong id="phase-note-boundary">No payload leaves the peer path.</strong>
+          </div>
+          <div class="spotlight-note">
+            <span class="spotlight-note-label">Operator action</span>
+            <strong id="phase-note-action">Choose the host or join path to continue.</strong>
+          </div>
+          <div class="spotlight-note">
+            <span class="spotlight-note-label">Unlock condition</span>
+            <strong id="phase-note-unlock">Transfer bay stays hidden until direct transport exists.</strong>
+          </div>
+        </div>
+      </article>
+    </section>
+
     <section class="workspace-command-deck" aria-label="Live session overview">
       <article class="command-card command-card-runtime">
         <p class="command-card-eyebrow">Session Runtime</p>
