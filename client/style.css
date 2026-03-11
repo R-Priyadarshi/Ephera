@@ -145,6 +145,245 @@ html {
   display: grid;
 }
 
+.app-shell-dashboard {
+  max-width: 1680px;
+}
+
+.app-shell-dashboard::before {
+  background:
+    radial-gradient(780px 420px at 6% 10%, rgba(22, 130, 161, 0.18), transparent 72%),
+    radial-gradient(720px 400px at 94% 4%, rgba(231, 125, 73, 0.16), transparent 74%),
+    linear-gradient(180deg, rgba(9, 18, 26, 0.18), transparent 58%);
+  opacity: 1;
+  mask-image: none;
+}
+
+.app-shell-dashboard::after {
+  background:
+    radial-gradient(760px 360px at 16% 24%, rgba(15, 68, 90, 0.2), transparent 74%),
+    radial-gradient(860px 420px at 86% 78%, rgba(150, 71, 34, 0.14), transparent 76%);
+}
+
+.app-shell-dashboard .product-bar {
+  border-color: rgba(126, 215, 232, 0.12);
+  background:
+    linear-gradient(140deg, rgba(10, 23, 33, 0.88), rgba(15, 33, 46, 0.76)),
+    rgba(10, 23, 33, 0.82);
+  box-shadow:
+    0 24px 64px rgba(4, 10, 16, 0.42),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.app-shell-dashboard .product-brand-eyebrow {
+  color: rgba(150, 211, 228, 0.82);
+}
+
+.app-shell-dashboard .product-brand-title {
+  color: rgba(244, 248, 252, 0.96);
+}
+
+.app-shell-dashboard .product-bar-link {
+  color: rgba(229, 238, 245, 0.86);
+  border-color: rgba(126, 215, 232, 0.14);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.app-shell-dashboard .product-bar-link:hover {
+  border-color: rgba(126, 215, 232, 0.28);
+  background: rgba(126, 215, 232, 0.08);
+  box-shadow: 0 10px 24px rgba(3, 10, 15, 0.2);
+}
+
+.app-shell-dashboard .product-bar-chip {
+  border-color: rgba(126, 215, 232, 0.18);
+  background: rgba(126, 215, 232, 0.08);
+  color: rgba(190, 234, 245, 0.9);
+}
+
+.app-shell-dashboard .product-bar-chip-live {
+  border-color: rgba(231, 125, 73, 0.2);
+  background: rgba(231, 125, 73, 0.08);
+  color: rgba(255, 205, 179, 0.92);
+}
+
+.app-shell-dashboard .dashboard-shell {
+  gap: 20px;
+  padding: 22px;
+  border-radius: 32px;
+  border: 1px solid rgba(126, 215, 232, 0.1);
+  background:
+    linear-gradient(180deg, rgba(9, 18, 26, 0.82), rgba(12, 25, 36, 0.74)),
+    rgba(9, 18, 26, 0.76);
+  box-shadow:
+    0 32px 90px rgba(4, 10, 16, 0.42),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(24px) saturate(120%);
+  -webkit-backdrop-filter: blur(24px) saturate(120%);
+}
+
+.app-shell-dashboard .dashboard-shell .hint,
+.app-shell-dashboard .dashboard-shell label,
+.app-shell-dashboard .dashboard-shell .status,
+.app-shell-dashboard .dashboard-shell .subtitle,
+.app-shell-dashboard .dashboard-shell .section-copy,
+.app-shell-dashboard .dashboard-shell .transfer-action-copy,
+.app-shell-dashboard .dashboard-shell .transfer-stage-text,
+.app-shell-dashboard .dashboard-shell .spotlight-copy,
+.app-shell-dashboard .dashboard-shell .command-card-copy,
+.app-shell-dashboard .dashboard-shell .transfer-lock-text,
+.app-shell-dashboard .dashboard-shell .launchpad-head p,
+.app-shell-dashboard .dashboard-shell #invite-package-state,
+.app-shell-dashboard .dashboard-shell #flow-next,
+.app-shell-dashboard .dashboard-shell #preflight-fix {
+  color: rgba(196, 208, 219, 0.72);
+}
+
+.app-shell-dashboard .dashboard-shell h2,
+.app-shell-dashboard .dashboard-shell h3,
+.app-shell-dashboard .dashboard-shell h4,
+.app-shell-dashboard .dashboard-shell strong,
+.app-shell-dashboard .dashboard-shell .title,
+.app-shell-dashboard .dashboard-shell .spotlight-head h3,
+.app-shell-dashboard .dashboard-shell .command-card-title,
+.app-shell-dashboard .dashboard-shell .flow-step,
+.app-shell-dashboard .dashboard-shell .phase-node-label {
+  color: rgba(242, 246, 249, 0.97);
+}
+
+.app-shell-dashboard .dashboard-shell .header-chip,
+.app-shell-dashboard .dashboard-shell .phase-node-index,
+.app-shell-dashboard .dashboard-shell .spotlight-note-label,
+.app-shell-dashboard .dashboard-shell .launchpad-mode-kicker,
+.app-shell-dashboard .dashboard-shell .command-card-eyebrow,
+.app-shell-dashboard .dashboard-shell .spotlight-eyebrow {
+  color: rgba(150, 211, 228, 0.78);
+}
+
+.app-shell-dashboard .workspace-header,
+.app-shell-dashboard .console-nav,
+.app-shell-dashboard .spotlight-card,
+.app-shell-dashboard .command-card,
+.app-shell-dashboard .panel,
+.app-shell-dashboard .card,
+.app-shell-dashboard .launchpad,
+.app-shell-dashboard .launchpad-mode,
+.app-shell-dashboard .invite-workbench,
+.app-shell-dashboard .operator-console,
+.app-shell-dashboard .transfer-shell,
+.app-shell-dashboard .transfer-stream-card,
+.app-shell-dashboard .connection-detail-card,
+.app-shell-dashboard .transfer-contract,
+.app-shell-dashboard .workspace-column-side .panel,
+.app-shell-dashboard .transfer-advanced > .card {
+  border-color: rgba(126, 215, 232, 0.1);
+  background:
+    linear-gradient(170deg, rgba(12, 26, 37, 0.94), rgba(15, 31, 44, 0.86)),
+    rgba(12, 26, 37, 0.88);
+  box-shadow:
+    0 18px 46px rgba(2, 8, 13, 0.34),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.app-shell-dashboard .workspace-header {
+  background:
+    linear-gradient(135deg, rgba(17, 38, 52, 0.96), rgba(12, 25, 36, 0.9)),
+    rgba(12, 25, 36, 0.88);
+}
+
+.app-shell-dashboard .workspace-header::before {
+  background: linear-gradient(90deg, rgba(126, 215, 232, 0), rgba(126, 215, 232, 0.45), rgba(231, 125, 73, 0.32), rgba(231, 125, 73, 0));
+}
+
+.app-shell-dashboard .workspace-header::after {
+  background: radial-gradient(circle, rgba(126, 215, 232, 0.14), transparent 72%);
+}
+
+.app-shell-dashboard .header-badge,
+.app-shell-dashboard .command-card-badge,
+.app-shell-dashboard .command-pill,
+.app-shell-dashboard .authority-pill,
+.app-shell-dashboard .spotlight-pill,
+.app-shell-dashboard .spotlight-quiet,
+.app-shell-dashboard .launchpad-state,
+.app-shell-dashboard .transfer-lock-state,
+.app-shell-dashboard .transfer-lock-chip,
+.app-shell-dashboard .transfer-action-state,
+.app-shell-dashboard .preflight-pill,
+.app-shell-dashboard .state-chip,
+.app-shell-dashboard .ledger-summary-chip,
+.app-shell-dashboard .ledger-chip,
+.app-shell-dashboard .ledger-status {
+  border-color: rgba(126, 215, 232, 0.16);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(216, 230, 238, 0.88);
+}
+
+.app-shell-dashboard .console-nav {
+  border-color: rgba(126, 215, 232, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  box-shadow: 0 16px 34px rgba(2, 8, 13, 0.26);
+}
+
+.app-shell-dashboard .console-nav-link {
+  color: rgba(206, 217, 225, 0.72);
+  border-color: rgba(126, 215, 232, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.app-shell-dashboard .console-nav-link:hover,
+.app-shell-dashboard .console-nav-link-active {
+  color: rgba(238, 248, 252, 0.96);
+  border-color: rgba(126, 215, 232, 0.22);
+  background: rgba(126, 215, 232, 0.12);
+}
+
+.app-shell-dashboard .command-card-runtime {
+  background:
+    radial-gradient(circle at 10% 0%, rgba(126, 215, 232, 0.14), transparent 44%),
+    linear-gradient(155deg, rgba(9, 30, 42, 0.96), rgba(12, 45, 61, 0.9));
+}
+
+.app-shell-dashboard .command-card-flow {
+  background:
+    radial-gradient(circle at 100% 0%, rgba(231, 125, 73, 0.14), transparent 38%),
+    linear-gradient(160deg, rgba(17, 32, 44, 0.94), rgba(14, 27, 37, 0.88));
+}
+
+.app-shell-dashboard .command-card-authority,
+.app-shell-dashboard .spotlight-card-phase,
+.app-shell-dashboard .spotlight-card-next {
+  background:
+    linear-gradient(155deg, rgba(17, 31, 43, 0.94), rgba(13, 27, 38, 0.88)),
+    rgba(12, 26, 37, 0.88);
+}
+
+.app-shell-dashboard input[type="text"],
+.app-shell-dashboard input[type="password"],
+.app-shell-dashboard input[type="search"],
+.app-shell-dashboard textarea,
+.app-shell-dashboard input[type="file"],
+.app-shell-dashboard .diag,
+.app-shell-dashboard .receive-destination,
+.app-shell-dashboard .onboarding-hint,
+.app-shell-dashboard .preflight-row,
+.app-shell-dashboard .flow-step {
+  border-color: rgba(126, 215, 232, 0.1);
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(235, 241, 245, 0.92);
+}
+
+.app-shell-dashboard textarea::placeholder,
+.app-shell-dashboard input::placeholder {
+  color: rgba(196, 208, 219, 0.48);
+}
+
+.app-shell-dashboard .buttonlike,
+.app-shell-dashboard button,
+.app-shell-dashboard input[type="button"],
+.app-shell-dashboard input[type="submit"] {
+  box-shadow: none;
+}
+
 .product-bar {
   position: sticky;
   top: 16px;
@@ -1268,22 +1507,27 @@ html {
 }
 
 .app-shell-dashboard.app-mode-onboarding .workspace-command-deck {
-  display: none;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .app-shell-dashboard.app-mode-onboarding .workspace-spotlight,
 .app-shell-dashboard.app-mode-onboarding .console-nav,
 .app-shell-dashboard.app-mode-onboarding .workspace-column-side {
-  display: none;
+  display: grid;
+}
+
+.app-shell-dashboard.app-mode-onboarding .console-nav {
+  display: flex;
 }
 
 .app-shell-dashboard.app-mode-onboarding .workspace-header {
   margin: 0 0 18px;
   padding: 28px 30px;
   background:
-    linear-gradient(160deg, rgba(255, 255, 255, 0.9), rgba(247, 241, 233, 0.72)),
-    rgba(255, 255, 255, 0.72);
-  box-shadow: 0 28px 64px rgba(17, 30, 44, 0.14);
+    linear-gradient(160deg, rgba(14, 31, 43, 0.96), rgba(10, 22, 31, 0.9)),
+    rgba(12, 25, 36, 0.9);
+  box-shadow: 0 28px 64px rgba(2, 8, 13, 0.34);
 }
 
 .app-shell-dashboard.app-mode-onboarding .workspace-header .title {
@@ -1293,28 +1537,59 @@ html {
 .app-shell-dashboard.app-mode-onboarding .workspace-header .subtitle {
   max-width: 58ch;
   font-size: 1.02rem;
-  color: rgba(17, 33, 46, 0.74);
+  color: rgba(196, 208, 219, 0.76);
 }
 
 .app-shell-dashboard.app-mode-onboarding .workspace-layout {
-  grid-template-columns: minmax(0, 1fr);
-  max-width: 1120px;
-  margin: 0 auto;
-}
-
-.app-shell-dashboard.app-mode-onboarding .workspace-layout::before {
-  display: none;
+  grid-template-columns: minmax(0, 1.15fr) minmax(340px, 0.85fr);
+  max-width: none;
+  margin: 0;
 }
 
 .app-shell-dashboard.app-mode-onboarding #room-controls {
-  box-shadow: 0 30px 72px rgba(17, 30, 44, 0.16);
-  background:
-    linear-gradient(150deg, rgba(255, 255, 255, 0.98), rgba(247, 241, 233, 0.92)),
-    var(--panel);
+  box-shadow: 0 26px 60px rgba(2, 8, 13, 0.28);
 }
 
 .app-shell-dashboard.app-mode-onboarding .workspace-column-main {
-  gap: 0;
+  gap: 16px;
+}
+
+.app-shell-dashboard.app-mode-onboarding .workspace-column-side {
+  gap: 16px;
+}
+
+.app-shell-dashboard.app-mode-onboarding #transfer-controls {
+  margin-top: 0;
+}
+
+.app-shell-dashboard.app-mode-onboarding .side-panel,
+.app-shell-dashboard.app-mode-onboarding #transfer-controls,
+.app-shell-dashboard.app-mode-onboarding .command-card,
+.app-shell-dashboard.app-mode-onboarding .spotlight-card {
+  position: relative;
+}
+
+.app-shell-dashboard.app-mode-onboarding .side-panel::before,
+.app-shell-dashboard.app-mode-onboarding #transfer-controls::before {
+  content: "available now, unlocks progressively";
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  z-index: 2;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(126, 215, 232, 0.14);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(150, 211, 228, 0.76);
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.app-shell-dashboard.app-mode-onboarding .side-panel .panel-head,
+.app-shell-dashboard.app-mode-onboarding #transfer-controls .panel-head {
+  padding-top: 10px;
 }
 
 .app-mode-session .workspace-layout {

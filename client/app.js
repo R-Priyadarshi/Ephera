@@ -2839,9 +2839,9 @@ function renderProductMode(gate) {
   let subtitle = 'Establish the session boundary first. Host a room or hydrate one from an invite package before the transfer cockpit appears.';
   const showDashboard = renderShellView({ inRoom, channelLive, signalingOpen });
   let showLanding = !showDashboard;
-  let showSide = !!inRoom;
-  let showTransfer = channelLive;
-  let showNav = channelLive;
+  let showSide = !!showDashboard;
+  let showTransfer = !!showDashboard;
+  let showNav = !!showDashboard;
   let phaseState = 'Onboarding';
   let briefTitle = 'Launch the boundary';
   let briefCopy = 'Establish the room boundary first. Ephera only reveals the live transfer cockpit after the direct channel is real.';
@@ -2849,7 +2849,7 @@ function renderProductMode(gate) {
   let nextCopy = 'Manual controls are still available below, but the product path stays explicit: room, P2P, readiness, then transfer.';
   let noteBoundary = 'No payload leaves the peer path.';
   let noteAction = 'Choose the host or join path to continue.';
-  let noteUnlock = 'Transfer bay stays hidden until direct transport exists.';
+  let noteUnlock = 'Transfer bay stays visible but locked until direct transport exists.';
 
   if (inRoom && !transportOpen) {
     mode = 'session';
@@ -2872,7 +2872,7 @@ function renderProductMode(gate) {
     noteAction = signalingOpen
       ? 'Distribute the invite package or join link.'
       : 'Hold the session; do not tear down unless you intend to rotate.';
-    noteUnlock = 'Transfer bay remains suppressed until WebRTC transport opens.';
+    noteUnlock = 'Transfer bay remains visible, but WebRTC transport must open before send can unlock.';
   } else if (channelLive && !cockpitReady) {
     mode = 'channel';
     title = 'Direct Channel Negotiation';
@@ -2889,7 +2889,7 @@ function renderProductMode(gate) {
     nextCopy = 'Receiver must choose save/discard mode, and both peers must agree on protocol and passphrase posture before the cockpit is fully armed.';
     noteBoundary = 'Payload path is now direct WebRTC.';
     noteAction = 'Complete receive readiness and protocol verification.';
-    noteUnlock = 'Send remains gated until readiness and crypto checks pass.';
+    noteUnlock = 'Dashboard modules remain visible; send stays gated until readiness and crypto checks pass.';
   } else if (cockpitReady) {
     mode = 'cockpit';
     title = 'Transfer Cockpit';
