@@ -1198,6 +1198,49 @@ html {
   box-shadow: 0 14px 28px rgba(17, 30, 44, 0.12);
 }
 
+.send-toolbar {
+  align-items: stretch;
+}
+
+.buttonlike,
+.input-proxy {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  padding: 10px 13px;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(27, 27, 36, 0.16);
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--ink);
+  font-weight: 560;
+  cursor: pointer;
+  transition:
+    transform 120ms ease,
+    border-color 120ms ease,
+    background 120ms ease,
+    box-shadow 120ms ease;
+}
+
+.buttonlike:hover,
+.input-proxy:hover {
+  transform: translateY(-1px);
+  border-color: var(--hair-strong);
+  box-shadow: 0 4px 10px rgba(17, 30, 44, 0.08);
+}
+
+#file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .transfer-action-live {
   border-color: rgba(21, 111, 131, 0.24);
 }
@@ -1276,7 +1319,7 @@ h3 {
 }
 
 .launchpad {
-  margin-bottom: 12px;
+  margin-bottom: 0;
   border-color: rgba(21, 111, 131, 0.28);
   background:
     linear-gradient(152deg, rgba(21, 111, 131, 0.13), rgba(21, 111, 131, 0.04)),
@@ -1288,11 +1331,79 @@ h3 {
   align-items: baseline;
   justify-content: space-between;
   gap: 10px;
-  margin-bottom: 6px;
+  margin-bottom: 10px;
 }
 
 .launchpad-head h3 {
   margin: 0;
+}
+
+.launchpad-mode-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.launchpad-mode,
+.invite-workbench {
+  border-radius: 18px;
+  border: 1px solid rgba(27, 27, 36, 0.14);
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.88), rgba(249, 243, 234, 0.82)),
+    rgba(255, 255, 255, 0.74);
+  padding: 14px;
+}
+
+.launchpad-mode-host {
+  background:
+    radial-gradient(circle at 0% 0%, rgba(21, 111, 131, 0.12), transparent 34%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.9), rgba(248, 242, 233, 0.86));
+}
+
+.launchpad-mode-join {
+  background:
+    radial-gradient(circle at 100% 0%, rgba(173, 79, 44, 0.1), transparent 34%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.9), rgba(248, 242, 233, 0.86));
+}
+
+.launchpad-mode-kicker {
+  margin: 0 0 6px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: rgba(12, 88, 102, 0.86);
+}
+
+.launchpad-mode h4,
+.invite-workbench h4 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: rgba(17, 30, 42, 0.96);
+}
+
+.launchpad-mode .hint {
+  margin: 8px 0 0;
+}
+
+.launchpad-mode-actions {
+  margin-top: 14px;
+}
+
+.invite-workbench {
+  margin-top: 12px;
+}
+
+.invite-workbench-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
 }
 
 .launchpad-state {
@@ -1324,33 +1435,61 @@ h3 {
 }
 
 .invite-package-actions {
-  margin-top: 2px;
+  margin-top: 6px;
 }
 
 #invite-package-input {
   min-height: 96px;
 }
 
-.connection-manual,
-.runtime-overview {
-  margin-bottom: 12px;
+.operator-console {
+  margin-top: 12px;
+  padding: 0;
+  overflow: hidden;
+  background:
+    linear-gradient(145deg, rgba(17, 79, 105, 0.06), rgba(255, 255, 255, 0.92)),
+    var(--panel-strong);
 }
 
-.connection-layout {
+.operator-console-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  list-style: none;
+  cursor: pointer;
+  font-size: 0.73rem;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: rgba(12, 88, 102, 0.94);
+}
+
+.operator-console-summary::-webkit-details-marker {
+  display: none;
+}
+
+.operator-console-summary::after {
+  content: "Expand";
+  font-size: 0.62rem;
+  letter-spacing: 0.12em;
+  color: rgba(27, 27, 36, 0.62);
+}
+
+.operator-console[open] .operator-console-summary::after {
+  content: "Collapse";
+}
+
+.operator-console-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.3fr) minmax(260px, 0.78fr);
+  grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.95fr);
   gap: 12px;
-  align-items: start;
+  padding: 0 16px 16px;
 }
 
-.connection-primary,
-.connection-secondary {
+.operator-console-side {
   display: grid;
   gap: 12px;
-}
-
-.connection-secondary {
-  align-content: start;
 }
 
 .connection-detail-card {
@@ -1377,6 +1516,14 @@ h3 {
 
 .qr-pairing {
   margin-top: 8px;
+}
+
+.qr-pairing-inline {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border-radius: 18px;
+  border: 1px solid rgba(27, 27, 36, 0.14);
+  background: rgba(255, 255, 255, 0.62);
 }
 
 .invite-qr-canvas {
@@ -2235,7 +2382,8 @@ button:disabled {
 
   .workspace-command-deck,
   .workspace-column-side,
-  .connection-layout,
+  .launchpad-mode-grid,
+  .operator-console-grid,
   .transfer-support-grid {
     grid-template-columns: 1fr;
   }
@@ -2260,6 +2408,10 @@ button:disabled {
 
   .command-card {
     padding: 16px;
+  }
+
+  .operator-console-grid {
+    padding: 0 14px 14px;
   }
 
   .transfer-action-stage {
@@ -2287,6 +2439,12 @@ button:disabled {
 
   .workspace-command-deck {
     gap: 10px;
+  }
+
+  .invite-workbench-head,
+  .launchpad-head {
+    flex-direction: column;
+    align-items: flex-start;
   }
 
   .console-nav {
@@ -2350,6 +2508,10 @@ button:disabled {
   .receive-destination .row button,
   .connection-detail-card .row button {
     width: auto;
+  }
+
+  .send-toolbar .input-proxy {
+    width: 100%;
   }
 
   .header-chip {

@@ -170,53 +170,83 @@
               <p class="section-copy">Bring the room online, package the invite, and hold the session boundary before any payload is staged.</p>
             </div>
           </div>
-          <div class="connection-layout">
-            <div class="connection-primary">
-              <div class="launchpad card" id="launchpad">
-                <div class="launchpad-head">
-                  <h3>Launchpad</h3>
-                  <span id="launchpad-state" class="launchpad-state">Idle</span>
-                </div>
-                <p id="launchpad-hint" class="hint">Start by hosting a secure session or join an existing invite package.</p>
-                <div class="row launchpad-actions">
+          <div class="launchpad card" id="launchpad">
+            <div class="launchpad-head">
+              <div>
+                <h3>Session Workbench</h3>
+                <p id="launchpad-hint" class="hint">Start by hosting a secure session or hydrate one from an invite package.</p>
+              </div>
+              <span id="launchpad-state" class="launchpad-state">Idle</span>
+            </div>
+
+            <div class="launchpad-mode-grid">
+              <article class="launchpad-mode launchpad-mode-host">
+                <p class="launchpad-mode-kicker">Host</p>
+                <h4>Open a secure room</h4>
+                <p class="hint">Create a room, mint the invite package in memory, and hand the peer a session boundary with no storage fallback.</p>
+                <div class="row launchpad-actions launchpad-mode-actions">
                   <button id="launchpad-host" type="button">Host Secure Session</button>
-                  <button id="launchpad-join" type="button">Join Existing Session</button>
                   <button id="copy-invite-package" type="button" disabled>Copy Invite Package</button>
                 </div>
-                <div class="row">
-                  <textarea
-                    id="invite-package-input"
-                    rows="3"
-                    placeholder="Paste invite package text or join link"
-                    spellcheck="false"
-                  ></textarea>
-                </div>
-                <div class="row launchpad-actions invite-package-actions">
-                  <button id="paste-invite-package" type="button">Paste Package</button>
-                  <button id="apply-invite-package" type="button">Apply Package</button>
-                  <button id="apply-join-invite-package" type="button">Apply + Join</button>
-                </div>
-                <p id="invite-package-state" class="hint">Accepts full invite package text, JSON payload, or join link.</p>
-                <details class="details qr-pairing" id="qr-pairing-panel">
-                  <summary class="hint">QR Pairing</summary>
-                  <div class="row">
-                    <button id="show-invite-qr" type="button">Show Invite QR</button>
-                    <button id="clear-invite-qr" type="button" disabled>Clear QR</button>
-                    <button id="scan-qr-image" type="button">Scan QR Image</button>
-                    <input id="scan-qr-image-input" type="file" accept="image/*" hidden>
-                  </div>
-                  <div class="row">
-                    <button id="start-qr-camera" type="button">Start Camera Scan</button>
-                    <button id="stop-qr-camera" type="button" disabled>Stop Camera</button>
-                  </div>
-                  <canvas id="invite-qr-canvas" class="invite-qr-canvas" hidden></canvas>
-                  <video id="qr-camera-preview" class="qr-camera-preview" hidden playsinline muted></video>
-                  <p id="qr-pairing-state" class="hint">QR pairing idle.</p>
-                  <p class="hint">QR contains invite secrets. Scan only on trusted devices.</p>
-                </details>
-                <p class="hint">Invite package includes room ID, room auth key, join link, and passphrase snapshot (if set).</p>
-              </div>
+              </article>
 
+              <article class="launchpad-mode launchpad-mode-join">
+                <p class="launchpad-mode-kicker">Join</p>
+                <h4>Enter from invite package</h4>
+                <p class="hint">Join from pasted package text or join link. Ephera reconstructs room metadata locally and keeps payload flow outside the server path.</p>
+                <div class="row launchpad-actions launchpad-mode-actions">
+                  <button id="launchpad-join" type="button">Join Existing Session</button>
+                  <button id="paste-invite-package" type="button">Paste Package</button>
+                </div>
+              </article>
+            </div>
+
+            <div class="invite-workbench">
+              <div class="invite-workbench-head">
+                <div>
+                  <p class="launchpad-mode-kicker">Invite Package</p>
+                  <h4>Package Studio</h4>
+                </div>
+                <span class="hint">Plain text, JSON payload, or join link</span>
+              </div>
+              <div class="row">
+                <textarea
+                  id="invite-package-input"
+                  rows="3"
+                  placeholder="Paste invite package text or join link"
+                  spellcheck="false"
+                ></textarea>
+              </div>
+              <div class="row launchpad-actions invite-package-actions">
+                <button id="apply-invite-package" type="button">Apply Package</button>
+                <button id="apply-join-invite-package" type="button">Apply + Join</button>
+              </div>
+              <p id="invite-package-state" class="hint">Accepts full invite package text, JSON payload, or join link.</p>
+            </div>
+
+            <details class="details qr-pairing qr-pairing-inline" id="qr-pairing-panel">
+              <summary class="hint">QR Pairing</summary>
+              <div class="row">
+                <button id="show-invite-qr" type="button">Show Invite QR</button>
+                <button id="clear-invite-qr" type="button" disabled>Clear QR</button>
+                <button id="scan-qr-image" type="button">Scan QR Image</button>
+                <input id="scan-qr-image-input" type="file" accept="image/*" hidden>
+              </div>
+              <div class="row">
+                <button id="start-qr-camera" type="button">Start Camera Scan</button>
+                <button id="stop-qr-camera" type="button" disabled>Stop Camera</button>
+              </div>
+              <canvas id="invite-qr-canvas" class="invite-qr-canvas" hidden></canvas>
+              <video id="qr-camera-preview" class="qr-camera-preview" hidden playsinline muted></video>
+              <p id="qr-pairing-state" class="hint">QR pairing idle.</p>
+              <p class="hint">QR contains invite secrets. Scan only on trusted devices.</p>
+            </details>
+            <p class="hint">Invite package includes room ID, room auth key, join link, and passphrase snapshot (if set).</p>
+          </div>
+
+          <details class="details card operator-console" id="operator-console">
+            <summary class="operator-console-summary">Operator Console</summary>
+            <div class="operator-console-grid">
               <div class="card connection-manual">
                 <div class="panel-head panel-head-inline">
                   <h3>Manual Session Controls</h3>
@@ -249,38 +279,42 @@
                   </label>
                 </div>
               </div>
-            </div>
 
-            <div class="connection-secondary">
-              <details class="details card connection-detail-card">
-                <summary class="hint">Advanced network (ICE/TURN)</summary>
-                <div class="row">
-                  <textarea id="ice-servers-json" rows="4" placeholder='ICE servers JSON (optional). Example: [{"urls":"stun:stun.l.google.com:19302"}]' spellcheck="false"></textarea>
+              <div class="operator-console-side">
+                <div class="card connection-detail-card">
+                  <div class="panel-head panel-head-inline">
+                    <h3>Advanced network (ICE/TURN)</h3>
+                  </div>
+                  <div class="row">
+                    <textarea id="ice-servers-json" rows="4" placeholder='ICE servers JSON (optional). Example: [{"urls":"stun:stun.l.google.com:19302"}]' spellcheck="false"></textarea>
+                  </div>
+                  <div class="row">
+                    <label class="hint">
+                      <input type="checkbox" id="ice-relay-only">
+                      Force TURN relay only (may fail without TURN)
+                    </label>
+                  </div>
+                  <p id="ice-state" class="hint"></p>
+                  <p class="hint">If you use TURN credentials, avoid URLs unless necessary. Prefer sharing secrets out-of-band.</p>
                 </div>
-                <div class="row">
-                  <label class="hint">
-                    <input type="checkbox" id="ice-relay-only">
-                    Force TURN relay only (may fail without TURN)
-                  </label>
-                </div>
-                <p id="ice-state" class="hint"></p>
-                <p class="hint">If you use TURN credentials, avoid URLs unless necessary. Prefer sharing secrets out-of-band.</p>
-              </details>
 
-              <details class="details card connection-detail-card">
-                <summary class="hint">Diagnostics (local only)</summary>
-                <div class="row">
-                  <label class="hint">
-                    <input type="checkbox" id="enable-diagnostics">
-                    Enable
-                  </label>
-                  <button id="copy-diagnostics" type="button" disabled>Copy</button>
+                <div class="card connection-detail-card">
+                  <div class="panel-head panel-head-inline">
+                    <h3>Diagnostics (local only)</h3>
+                  </div>
+                  <div class="row">
+                    <label class="hint">
+                      <input type="checkbox" id="enable-diagnostics">
+                      Enable
+                    </label>
+                    <button id="copy-diagnostics" type="button" disabled>Copy</button>
+                  </div>
+                  <pre id="diagnostics" class="diag"></pre>
+                  <p class="hint">Shows local connection stats. Nothing is sent anywhere.</p>
                 </div>
-                <pre id="diagnostics" class="diag"></pre>
-                <p class="hint">Shows local connection stats. Nothing is sent anywhere.</p>
-              </details>
+              </div>
             </div>
-          </div>
+          </details>
         </section>
 
         <section class="panel transfer-shell transfer-shell-locked" id="transfer-controls">
@@ -379,7 +413,8 @@
                   Stage payloads directly in the transfer bay. You can drop before the room fully unlocks; Send still stays gated until the session is ready.
                 </p>
               </div>
-              <div class="row">
+              <div class="row send-toolbar">
+                <label for="file-input" class="buttonlike input-proxy">Choose Files</label>
                 <input type="file" id="file-input" multiple>
                 <input type="file" id="folder-input" webkitdirectory multiple hidden>
                 <button id="pick-send-folder" type="button">Choose Folder</button>
