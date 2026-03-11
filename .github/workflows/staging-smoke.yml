@@ -25,17 +25,17 @@ jobs:
       STAGING_SIGNAL_URL: ${{ inputs.staging_signal_url }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 20
           cache: npm
 
       - name: Setup Chrome
         id: chrome
-        uses: browser-actions/setup-chrome@v1
+        uses: browser-actions/setup-chrome@v2
 
       - name: Export Chrome path
         run: echo "CHROME_PATH=${{ steps.chrome.outputs.chrome-path }}" >> "$GITHUB_ENV"
@@ -106,7 +106,7 @@ jobs:
 
       - name: Upload staging smoke summary artifact
         if: ${{ always() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: staging-smoke-summary-${{ github.run_id }}
           path: ${{ env.STAGING_SMOKE_SUMMARY_PATH }}
