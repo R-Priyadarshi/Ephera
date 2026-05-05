@@ -52,18 +52,76 @@ function safeResolve(urlPath) {
   return full;
 }
 
+function setSecurityHeaders(res) {
+  res.setHeader('Cache-Control', 'no-store');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Referrer-Policy', 'no-referrer');
+}
+
+function writeJson(res, statusCode, obj) {
+  setSecurityHeaders(res);
+  res.statusCode = statusCode;
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  try {
+    res.end(JSON.stringify(obj));
+  } catch {
+    res.end('{}');
+  }
+}
+
 let stopping = false;
 let signaling = null;
 
 const server = http.createServer((req, res) => {
-  const filePath = safeResolve(req.url || '/');
+  const pathname = (() => {
+    try {
+      return decodeURIComponent((req.url || '/').split('?')[0] || '/');
+    } catch {
+      return null;
+    }
+  })();
+
+  if (!pathname) {
+    res.statusCode = 400;
+    setSecurityHeaders(res);
+    res.end('Bad Request');
+    return;
+  }
+
+  if (pathname === '/healthz') {
+    writeJson(res, 200, {
+      ok: true,
+      service: 'ephera-dev',
+      signalingReady: true,
+      stopping: !!stopping,
+    });
+    return;
+  }
+
+  if (pathname === '/readyz') {
+    writeJson(res, stopping ? 503 : 200, {
+      ok: !stopping,
+      signalingReady: true,
+      stopping: !!stopping,
+    });
+    return;
+  }
+
+  if (pathname === '/runtime-config') {
+    writeJson(res, 200, { v: 1 });
+    return;
+  }
+
+  const filePath = safeResolve(pathname);
   if (!filePath) {
     res.statusCode = 400;
+    setSecurityHeaders(res);
     res.end('Bad Request');
     return;
   }
 
   fs.readFile(filePath, (err, data) => {
+    setSecurityHeaders(res);
     if (err) {
       res.statusCode = 404;
       res.end('Not Found');
@@ -72,8 +130,6 @@ const server = http.createServer((req, res) => {
 
     res.statusCode = 200;
     res.setHeader('Content-Type', contentType(filePath));
-    res.setHeader('Cache-Control', 'no-store');
-    res.setHeader('X-Content-Type-Options', 'nosniff');
     res.end(data);
   });
 });
@@ -135,4 +191,3 @@ process.on('SIGINT', () => {
 process.on('SIGTERM', () => {
   shutdown(0).catch(() => process.exit(1));
 });
-

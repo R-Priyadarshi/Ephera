@@ -1,0 +1,64 @@
+@tailwind components;
+@tailwind utilities;
+
+#landing-react-root,
+#landing-react-root * {
+  box-sizing: border-box;
+}
+
+#landing-react-root {
+  min-height: 100svh;
+  color-scheme: dark;
+}
+
+#landing-react-root button,
+#landing-react-root input,
+#landing-react-root textarea,
+#landing-react-root a {
+  font: inherit;
+}
+
+#landing-react-root button {
+  appearance: none;
+}
+
+#landing-react-root ::selection {
+  background: rgba(69, 215, 255, 0.22);
+  color: #f4fbff;
+}
+
+.ephera-premium-landing {
+  font-family:
+    "Sora",
+    "Plus Jakarta Sans",
+    "Avenir Next",
+    "Segoe UI",
+    sans-serif;
+  isolation: isolate;
+}
+
+.ephera-premium-landing .text-shadow-soft {
+  text-shadow: 0 14px 36px rgba(0, 0, 0, 0.35);
+}
+
+.ephera-premium-landing .border-grid {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+.ephera-premium-landing .landing-grid {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+  background-size: 84px 84px;
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.65), transparent 85%);
+}
+
+.ephera-premium-landing .landing-noise {
+  background-image: radial-gradient(rgba(255, 255, 255, 0.065) 0.5px, transparent 0.5px);
+  background-size: 6px 6px;
+  opacity: 0.035;
+  mix-blend-mode: screen;
+}

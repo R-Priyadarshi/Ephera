@@ -345,9 +345,11 @@ const ICE_POLICY = (() => {
 const appRootEl = document.querySelector('.app');
 const landingShellEl = document.getElementById('landing-shell');
 const dashboardShellEl = document.getElementById('dashboard-shell');
-const landingSectionEls = Array.from(document.querySelectorAll('.landing-hero, .landing-principles, .landing-flow'));
+const landingSectionEls = Array.from(document.querySelectorAll('[data-landing-section]'));
 const openDashboardEls = Array.from(document.querySelectorAll('[data-open-dashboard]'));
 const returnLandingEls = Array.from(document.querySelectorAll('[data-return-landing]'));
+const productSignalLabelEl = document.getElementById('product-signal-label');
+const productSignalMetaEl = document.getElementById('product-signal-meta');
 const workspaceHeaderEl = document.querySelector('.workspace-header');
 const workspaceTitleEl = document.getElementById('workspace-title');
 const workspaceBadgeEl = document.getElementById('workspace-badge');
@@ -497,6 +499,7 @@ const preflightClipboardStateEl = document.getElementById('preflight-clipboard-s
 const preflightFixEl = document.getElementById('preflight-fix');
 const transferQuickSummaryEl = document.getElementById('transfer-quick-summary');
 const transferAdvancedDetailsEl = document.getElementById('transfer-advanced');
+const operatorConsoleDetailsEl = document.getElementById('operator-console');
 const roleOnboardingHintEl = document.getElementById('role-onboarding-hint');
 const flowCurrentEl = document.getElementById('flow-current');
 const flowNextEl = document.getElementById('flow-next');
@@ -2838,69 +2841,75 @@ function renderProductMode(gate) {
   );
 
   let mode = 'onboarding';
-  let title = 'Session Onboarding';
-  let badge = 'Zero-Retention Launch';
-  let subtitle = 'Establish the session boundary first. Host a room or hydrate one from an invite package before the transfer cockpit appears.';
+  let title = 'Operations Dashboard';
+  let badge = 'Launch Sequence';
+  let subtitle = 'Bring the room online, verify the direct path, and step into the transfer cockpit.';
   const showDashboard = renderShellView({ inRoom, channelLive, signalingOpen });
   let showLanding = !showDashboard;
   let showSide = !!showDashboard;
   let showTransfer = !!showDashboard;
   let showNav = !!showDashboard;
   let phaseState = 'Onboarding';
-  let briefTitle = 'Launch the boundary';
-  let briefCopy = 'Establish the room boundary first. Ephera only reveals the live transfer cockpit after the direct channel is real.';
-  let nextTitle = 'Host or join a room';
-  let nextCopy = 'Manual controls are still available below, but the product path stays explicit: room, P2P, readiness, then transfer.';
+  let briefTitle = 'Establish the room boundary';
+  let briefCopy = 'Start with the room boundary, bring in a peer, and hold the line until the direct path opens.';
+  let nextTitle = 'Open or join a room';
+  let nextCopy = 'Direct transfer stays gated until room, P2P, readiness, and crypto align.';
   let noteBoundary = 'No payload leaves the peer path.';
   let noteAction = 'Choose the host or join path to continue.';
-  let noteUnlock = 'Transfer bay stays visible but locked until direct transport exists.';
+  let noteUnlock = 'Transfer and telemetry stay visible, but transport remains locked until direct path exists.';
+  let productSignalLabel = 'Boundary Offline';
+  let productSignalMeta = 'Room offline · direct path closed';
 
   if (inRoom && !transportOpen) {
     mode = 'session';
-    title = 'Session Negotiation';
+    title = 'Room Control Live';
     badge = signalingOpen ? 'Awaiting Direct Channel' : 'Reconnecting Signaling';
     subtitle = signalingOpen
-      ? 'The room boundary is live. Share the invite package or join link and wait for the direct peer channel to come up.'
-      : 'Room context is retained locally. Waiting for signaling to recover before peer-to-peer negotiation resumes.';
+      ? 'The room boundary is live. Share the invite package or join link and wait for the direct peer channel.'
+      : 'Room context is retained locally. Waiting for signaling recovery before peer-to-peer negotiation resumes.';
     showLanding = false;
     showSide = true;
     phaseState = signalingOpen ? 'Session Live' : 'Session Recovery';
     briefTitle = signalingOpen ? 'Room is online' : 'Restore signaling';
     briefCopy = signalingOpen
-      ? 'You have an active room boundary. The next meaningful event is peer arrival and direct channel negotiation.'
-      : 'The room context is still local, but signaling is down. Ephera will not expose the live cockpit until coordination returns.';
+      ? 'The room boundary is active. The next event is peer arrival and direct channel negotiation.'
+      : 'The room context is still local, but signaling is down. The cockpit stays gated until coordination returns.';
     nextTitle = signalingOpen ? 'Wait for peer connection' : 'Recover the signaling edge';
     nextCopy = signalingOpen
-      ? 'Share the invite package or join link. Once the peer arrives, the app transitions into direct-channel negotiation.'
-      : 'Keep the room open. When signaling reconnects, negotiation can resume without introducing storage.';
+      ? 'Share the invite package or join link. Once the peer arrives, the app steps into direct-channel negotiation.'
+      : 'Keep the room open. Once signaling reconnects, negotiation resumes without introducing storage.';
     noteAction = signalingOpen
       ? 'Distribute the invite package or join link.'
       : 'Hold the session; do not tear down unless you intend to rotate.';
     noteUnlock = 'Transfer bay remains visible, but WebRTC transport must open before send can unlock.';
+    productSignalLabel = signalingOpen ? 'Room Boundary Live' : 'Room Recovery';
+    productSignalMeta = signalingOpen ? 'Invite path open · direct channel pending' : 'Local room retained · signaling recovering';
   } else if (channelLive && !cockpitReady) {
     mode = 'channel';
-    title = 'Direct Channel Negotiation';
+    title = 'Transport Negotiation';
     badge = 'P2P Online';
-    subtitle = 'The peer-to-peer channel is live. Finish receive readiness and crypto verification to unlock the transfer cockpit completely.';
+    subtitle = 'The peer-to-peer channel is live. Finish receive readiness and crypto verification to fully arm the cockpit.';
     showLanding = false;
     showSide = true;
     showTransfer = true;
     showNav = true;
     phaseState = 'Negotiating';
     briefTitle = 'Direct transport is up';
-    briefCopy = 'The session has crossed the trust boundary into direct peer transport. Ephera is now waiting on receiver readiness and crypto agreement.';
+    briefCopy = 'The session has crossed into direct peer transport. Ephera is now waiting on receiver readiness and crypto agreement.';
     nextTitle = 'Verify readiness + crypto';
-    nextCopy = 'Receiver must choose save/discard mode, and both peers must agree on protocol and passphrase posture before the cockpit is fully armed.';
+    nextCopy = 'Receiver must choose save or discard mode, and both peers must agree on protocol and passphrase posture before the cockpit arms.';
     noteBoundary = 'Payload path is now direct WebRTC.';
     noteAction = 'Complete receive readiness and protocol verification.';
     noteUnlock = 'Dashboard modules remain visible; send stays gated until readiness and crypto checks pass.';
+    productSignalLabel = 'Direct Channel Live';
+    productSignalMeta = 'Peer path active · readiness and crypto verifying';
   } else if (cockpitReady) {
     mode = 'cockpit';
     title = 'Transfer Cockpit';
     badge = g && g.fileCount > 0 ? 'Ready To Send' : 'Channel Verified';
     subtitle = g && g.fileCount > 0
-      ? 'Direct transport is online. Stage outbound payloads, monitor the ledger, and operate the session without introducing retention.'
-      : 'Direct transport is online and verified. Choose files or a folder to arm the send path and begin streaming.';
+      ? 'Direct transport is online. Stage payloads, monitor the ledger, and operate without introducing retention.'
+      : 'Direct transport is online and verified. Choose files or a folder to arm the send path.';
     showLanding = false;
     showSide = true;
     showTransfer = true;
@@ -2908,15 +2917,17 @@ function renderProductMode(gate) {
     phaseState = g && g.fileCount > 0 ? 'Armed' : 'Verified';
     briefTitle = g && g.fileCount > 0 ? 'Cockpit is armed' : 'Channel is verified';
     briefCopy = g && g.fileCount > 0
-      ? 'The direct path is fully unlocked. Payload selection is staged, and the operator can stream immediately.'
-      : 'All transport and crypto gates are green. The remaining operator action is to choose files or a folder for transfer.';
+      ? 'The direct path is unlocked. Payload staging is complete and the operator can stream immediately.'
+      : 'All transport and crypto gates are green. The remaining action is to choose files or a folder.';
     nextTitle = g && g.fileCount > 0 ? 'Send the payload' : 'Choose payloads';
     nextCopy = g && g.fileCount > 0
-      ? 'Use the transfer bay to stream now. Ledger and activity panels track the session locally without retention.'
+      ? 'Use the transfer bay to stream now. Ledger and activity stay local without retention.'
       : 'The cockpit is live, but nothing is selected yet. Use the transfer bay to arm the send path.';
     noteBoundary = 'No relay or storage is in the payload path.';
     noteAction = g && g.fileCount > 0 ? 'Press Send when the payload selection is correct.' : 'Choose files or a folder to arm the cockpit.';
     noteUnlock = g && g.fileCount > 0 ? 'Send is already unlocked.' : 'Selecting payloads is the final operator gate.';
+    productSignalLabel = g && g.fileCount > 0 ? 'Cockpit Armed' : 'Transfer Verified';
+    productSignalMeta = g && g.fileCount > 0 ? 'Payload staged · direct stream ready to fire' : 'Direct path green · waiting for payload selection';
   }
 
   if (appRootEl) {
@@ -2931,6 +2942,8 @@ function renderProductMode(gate) {
   if (workspaceTitleEl) workspaceTitleEl.textContent = title;
   if (workspaceBadgeEl) workspaceBadgeEl.textContent = badge;
   if (workspaceSubtitleEl) workspaceSubtitleEl.textContent = subtitle;
+  if (productSignalLabelEl) productSignalLabelEl.textContent = productSignalLabel;
+  if (productSignalMetaEl) productSignalMetaEl.textContent = productSignalMeta;
   if (phaseStatePillEl) phaseStatePillEl.textContent = phaseState;
   if (phaseBriefTitleEl) phaseBriefTitleEl.textContent = briefTitle;
   if (phaseBriefCopyEl) phaseBriefCopyEl.textContent = briefCopy;
@@ -5644,6 +5657,14 @@ for (let i = 0; i < returnLandingEls.length; i++) {
   });
 }
 
+window.addEventListener('ephera:open-dashboard', () => {
+  requestDashboardView();
+});
+
+window.addEventListener('ephera:return-landing', () => {
+  requestLandingView();
+});
+
 function handleFileSelectionChange() {
   const entries = buildOutboundEntriesFromInput(fileInput && fileInput.files ? fileInput.files : [], {
     preferRelativePath: false,
@@ -6384,7 +6405,12 @@ if (openReceiveFolderBtn) {
   };
 }
 
+if (operatorConsoleDetailsEl) {
+  operatorConsoleDetailsEl.open = !IS_E2E;
+}
+
 if (transferAdvancedDetailsEl) {
+  transferAdvancedDetailsEl.open = !IS_E2E;
   transferAdvancedDetailsEl.ontoggle = () => {
     renderStateStrip();
   };

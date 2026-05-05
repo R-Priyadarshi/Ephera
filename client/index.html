@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Ephera</title>
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="premium-shell.css">
+  <link rel="stylesheet" href="landing-react/landing-react.css">
 </head>
 <body>
   <main class="app">
@@ -16,8 +18,15 @@
           <strong class="product-brand-title">Ephera</strong>
         </div>
       </div>
+      <div class="product-signal" aria-label="System state">
+        <span class="product-signal-dot" aria-hidden="true"></span>
+        <div class="product-signal-copy">
+          <p class="product-signal-label" id="product-signal-label">Boundary Offline</p>
+          <p class="product-signal-meta" id="product-signal-meta">Room offline · direct path closed</p>
+        </div>
+      </div>
       <div class="product-bar-actions">
-        <a class="product-bar-link" href="#landing-principles">Trust Model</a>
+        <a class="product-bar-link" href="#trust">Trust Model</a>
         <button class="product-bar-link product-bar-button" id="open-dashboard" type="button" data-open-dashboard>Launch Dashboard</button>
         <button class="product-bar-link product-bar-button" id="return-landing" type="button" data-return-landing hidden>Back to Landing</button>
         <span class="product-bar-chip">Direct P2P</span>
@@ -26,121 +35,101 @@
     </header>
 
     <section class="landing-shell" id="landing-shell">
-    <section class="landing-hero" id="landing">
-      <div class="landing-hero-grid">
-        <div class="landing-copy">
-          <p class="landing-eyebrow">Zero-memory data movement infrastructure</p>
-          <h1 class="landing-title">Move sensitive data peer-to-peer. Leave no retained trace.</h1>
-          <p class="landing-subtitle">
-            Ephera is not cloud storage. It is a live transport engine that streams encrypted payloads directly between peers and does not preserve transfer history.
-          </p>
-          <div class="landing-actions">
-            <button class="landing-button landing-button-primary" id="hero-open-dashboard" type="button" data-open-dashboard>Launch Dashboard</button>
-            <a class="landing-button landing-button-secondary" href="#landing-principles">Explore Trust Model</a>
-          </div>
-          <div class="landing-metrics" aria-label="Core operating signals">
-            <div class="landing-metric">
-              <span class="landing-metric-value">0</span>
-              <span class="landing-metric-label">retained payload bytes</span>
-            </div>
-            <div class="landing-metric">
-              <span class="landing-metric-value">P2P</span>
-              <span class="landing-metric-label">direct DataChannel transport</span>
-            </div>
-            <div class="landing-metric">
-              <span class="landing-metric-value">Deterministic</span>
-              <span class="landing-metric-label">explicit START/CHUNK/END lifecycle</span>
-            </div>
-          </div>
-        </div>
-        <aside class="landing-protocol-card" aria-label="Protocol snapshot">
-          <h2>Protocol Snapshot</h2>
-          <div class="protocol-row"><span>Signaling</span><strong>stateless WebSocket relay</strong></div>
-          <div class="protocol-row"><span>Transport</span><strong>WebRTC DataChannel (encrypted)</strong></div>
-          <div class="protocol-row"><span>Persistence</span><strong>none by design</strong></div>
-          <div class="protocol-row"><span>Abort Model</span><strong>terminal and isolated</strong></div>
-          <div class="protocol-row"><span>Concurrency</span><strong>session-scoped routing</strong></div>
-          <p class="hint">Server only coordinates connection setup. File payload does not pass through application storage.</p>
-          <div class="protocol-stage" aria-hidden="true">
-            <span class="protocol-node protocol-node-a"></span>
-            <span class="protocol-node protocol-node-b"></span>
-            <span class="protocol-node protocol-node-c"></span>
-            <span class="protocol-link protocol-link-a"></span>
-            <span class="protocol-link protocol-link-b"></span>
-            <span class="protocol-link protocol-link-c"></span>
-            <span class="protocol-pulse protocol-pulse-a"></span>
-            <span class="protocol-pulse protocol-pulse-b"></span>
-            <div class="protocol-stage-label protocol-stage-label-a">sender</div>
-            <div class="protocol-stage-label protocol-stage-label-b">signal</div>
-            <div class="protocol-stage-label protocol-stage-label-c">receiver</div>
-          </div>
-        </aside>
-      </div>
-    </section>
-
-    <section class="landing-principles" id="landing-principles">
-      <article class="landing-principle">
-        <h2>Zero-Memory Core</h2>
-        <p>No DB writes, no file cache, no transfer history. Session data exists only while the runtime is alive.</p>
-      </article>
-      <article class="landing-principle">
-        <h2>Trust-Minimized Path</h2>
-        <p>Data flows directly between peers. Signaling only introduces endpoints and then steps out of the payload path.</p>
-      </article>
-      <article class="landing-principle">
-        <h2>Abort-Safe Semantics</h2>
-        <p>Abort is explicit and terminal. Partial completion is not misreported as success.</p>
-      </article>
-      <article class="landing-principle">
-        <h2>Concurrency Discipline</h2>
-        <p>Transfers are isolated by session IDs with deterministic routing and bounded memory behavior.</p>
-      </article>
-    </section>
-
-    <section class="landing-flow">
-      <h2>How Ephera Operates</h2>
-      <ol class="landing-flow-list">
-        <li>
-          <strong>1. Session Initiation</strong>
-          Host creates a room and issues an invite package (link, key, and optional passphrase snapshot).
-        </li>
-        <li>
-          <strong>2. Peer Handshake</strong>
-          Receiver joins, signaling coordinates WebRTC negotiation, and peers establish direct channel.
-        </li>
-        <li>
-          <strong>3. Streamed Transfer</strong>
-          Sender streams chunks under backpressure control. Receiver chooses save folder or discard mode.
-        </li>
-        <li>
-          <strong>4. Deterministic Teardown</strong>
-          END/ABORT finalizes session lifecycle; no persistent transfer state remains in Ephera.
-        </li>
-      </ol>
-    </section>
+      <div id="landing-react-root" aria-label="Ephera landing page"></div>
     </section>
 
     <section class="dashboard-shell" id="dashboard-shell">
     <header class="header workspace-header">
-      <div class="header-top">
-        <h2 class="title" id="workspace-title">Operations Dashboard</h2>
-        <span class="header-badge" id="workspace-badge">Live Session Control Plane</span>
-      </div>
-      <p class="subtitle" id="workspace-subtitle">Operate rooms, unlock direct transport, enforce security posture, and manage live transfer telemetry from a dedicated control surface.</p>
-      <div class="header-chips" aria-label="Core guarantees">
-        <span class="header-chip">Session orchestration</span>
-        <span class="header-chip">Direct transfer cockpit</span>
-        <span class="header-chip">Security posture</span>
-        <span class="header-chip">Session-local telemetry</span>
+      <div class="workspace-hero-grid">
+        <div class="workspace-hero-copy">
+          <div class="header-top">
+            <h2 class="title" id="workspace-title">Operations Dashboard</h2>
+            <span class="header-badge" id="workspace-badge">Live Session Control Plane</span>
+          </div>
+          <p class="subtitle" id="workspace-subtitle">Launch the room, verify the direct path, and operate the live transfer cockpit.</p>
+          <div class="header-chips" aria-label="Core guarantees">
+            <span class="header-chip">Session orchestration</span>
+            <span class="header-chip">Direct transfer cockpit</span>
+            <span class="header-chip">Security posture</span>
+            <span class="header-chip">Session-local telemetry</span>
+          </div>
+          <div class="hero-stat-grid" aria-label="Core dashboard signals">
+            <article class="hero-stat-card">
+              <span class="hero-stat-label">Retention</span>
+              <strong class="hero-stat-value">0 bytes</strong>
+              <p class="hero-stat-copy">payload persisted</p>
+            </article>
+            <article class="hero-stat-card">
+              <span class="hero-stat-label">Transport</span>
+              <strong class="hero-stat-value">Direct P2P</strong>
+              <p class="hero-stat-copy">DataChannel path</p>
+            </article>
+            <article class="hero-stat-card">
+              <span class="hero-stat-label">Lifecycle</span>
+              <strong class="hero-stat-value">Deterministic</strong>
+              <p class="hero-stat-copy">room → channel → transfer</p>
+            </article>
+          </div>
+        </div>
+
+        <aside class="workspace-hero-visual" aria-label="Session state visual">
+          <div class="hero-visual-head">
+            <div>
+              <p class="hero-visual-kicker">Transport state</p>
+              <h3>Live pathway</h3>
+            </div>
+            <span class="hero-visual-chip">zero retention</span>
+          </div>
+          <div class="hero-visual-map" aria-hidden="true">
+            <span class="hero-node hero-node-room"></span>
+            <span class="hero-node hero-node-channel"></span>
+            <span class="hero-node hero-node-peer"></span>
+            <span class="hero-node hero-node-crypto"></span>
+            <span class="hero-node hero-node-transfer"></span>
+            <span class="hero-link hero-link-room"></span>
+            <span class="hero-link hero-link-channel"></span>
+            <span class="hero-link hero-link-peer"></span>
+            <span class="hero-link hero-link-crypto"></span>
+            <span class="hero-node-label hero-node-label-room">room</span>
+            <span class="hero-node-label hero-node-label-channel">channel</span>
+            <span class="hero-node-label hero-node-label-peer">peer</span>
+            <span class="hero-node-label hero-node-label-crypto">crypto</span>
+            <span class="hero-node-label hero-node-label-transfer">transfer</span>
+          </div>
+          <div class="hero-pipeline">
+            <span class="hero-pipeline-chip">room</span>
+            <span class="hero-pipeline-chip">channel</span>
+            <span class="hero-pipeline-chip">peer</span>
+            <span class="hero-pipeline-chip">crypto</span>
+            <span class="hero-pipeline-chip">transfer</span>
+          </div>
+          <div class="hero-trace">
+            <div class="hero-trace-bars" aria-hidden="true">
+              <span></span>
+              <span></span>
+              <span></span>
+              <span></span>
+              <span></span>
+              <span></span>
+              <span></span>
+              <span></span>
+              <span></span>
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
+            <p class="hero-trace-copy">Session-local telemetry. No relay payloads. No recovery archive.</p>
+          </div>
+        </aside>
       </div>
     </header>
 
     <nav class="console-nav" aria-label="Console navigation">
-      <a class="console-nav-link" data-console-link href="#room-controls">Session</a>
-      <a class="console-nav-link" data-console-link href="#transfer-controls">Transfer</a>
-      <a class="console-nav-link" data-console-link href="#transfer-advanced">Security</a>
-      <a class="console-nav-link" data-console-link href="#preflight-panel">Network</a>
-      <a class="console-nav-link" data-console-link href="#activity-timeline">Activity</a>
+      <a class="console-nav-link" data-console-link href="#room-controls"><span class="console-nav-icon console-nav-icon-session" aria-hidden="true"></span><span>Session</span></a>
+      <a class="console-nav-link" data-console-link href="#transfer-controls"><span class="console-nav-icon console-nav-icon-transfer" aria-hidden="true"></span><span>Transfer</span></a>
+      <a class="console-nav-link" data-console-link href="#transfer-advanced"><span class="console-nav-icon console-nav-icon-security" aria-hidden="true"></span><span>Security</span></a>
+      <a class="console-nav-link" data-console-link href="#preflight-panel"><span class="console-nav-icon console-nav-icon-network" aria-hidden="true"></span><span>Network</span></a>
+      <a class="console-nav-link" data-console-link href="#activity-timeline"><span class="console-nav-icon console-nav-icon-activity" aria-hidden="true"></span><span>Activity</span></a>
     </nav>
 
     <section class="workspace-spotlight" id="workspace-spotlight" aria-label="Session phase spotlight">
@@ -247,15 +236,18 @@
         <section class="panel" id="room-controls">
           <div class="panel-head section-heading">
             <div>
-              <h2>Connection</h2>
-              <p class="section-copy">Bring the room online, package the invite, and hold the session boundary before any payload is staged.</p>
+              <div class="section-label-row">
+                <span class="section-icon section-icon-session" aria-hidden="true"></span>
+                <h2>Connection</h2>
+              </div>
+              <p class="section-copy">Launch the room, mint the invite, and hold the boundary.</p>
             </div>
           </div>
           <div class="launchpad card" id="launchpad">
             <div class="launchpad-head">
               <div>
                 <h3>Session Workbench</h3>
-                <p id="launchpad-hint" class="hint">Start by hosting a secure session or hydrate one from an invite package.</p>
+                <p id="launchpad-hint" class="hint">Host a room or enter from a package.</p>
               </div>
               <span id="launchpad-state" class="launchpad-state">Idle</span>
             </div>
@@ -264,7 +256,7 @@
               <article class="launchpad-mode launchpad-mode-host">
                 <p class="launchpad-mode-kicker">Host</p>
                 <h4>Open a secure room</h4>
-                <p class="hint">Create a room, mint the invite package in memory, and hand the peer a session boundary with no storage fallback.</p>
+                <p class="hint">Create a room and mint the invite in memory.</p>
                 <div class="row launchpad-actions launchpad-mode-actions">
                   <button id="launchpad-host" type="button">Host Secure Session</button>
                   <button id="copy-invite-package" type="button" disabled>Copy Invite Package</button>
@@ -274,7 +266,7 @@
               <article class="launchpad-mode launchpad-mode-join">
                 <p class="launchpad-mode-kicker">Join</p>
                 <h4>Enter from invite package</h4>
-                <p class="hint">Join from pasted package text or join link. Ephera reconstructs room metadata locally and keeps payload flow outside the server path.</p>
+                <p class="hint">Join from a package or link. Payloads stay off the server path.</p>
                 <div class="row launchpad-actions launchpad-mode-actions">
                   <button id="launchpad-join" type="button">Join Existing Session</button>
                   <button id="paste-invite-package" type="button">Paste Package</button>
@@ -288,7 +280,7 @@
                   <p class="launchpad-mode-kicker">Invite Package</p>
                   <h4>Package Studio</h4>
                 </div>
-                <span class="hint">Plain text, JSON payload, or join link</span>
+                <span class="hint">Package text or join link</span>
               </div>
               <div class="row">
                 <textarea
@@ -302,7 +294,7 @@
                 <button id="apply-invite-package" type="button">Apply Package</button>
                 <button id="apply-join-invite-package" type="button">Apply + Join</button>
               </div>
-              <p id="invite-package-state" class="hint">Accepts full invite package text, JSON payload, or join link.</p>
+              <p id="invite-package-state" class="hint">Accepts package text or join link.</p>
             </div>
 
             <details class="details qr-pairing qr-pairing-inline" id="qr-pairing-panel">
@@ -322,11 +314,11 @@
               <p id="qr-pairing-state" class="hint">QR pairing idle.</p>
               <p class="hint">QR contains invite secrets. Scan only on trusted devices.</p>
             </details>
-            <p class="hint">Invite package includes room ID, room auth key, join link, and passphrase snapshot (if set).</p>
+            <p class="hint">Contains room ID, auth key, join link, and optional passphrase snapshot.</p>
           </div>
 
-          <details class="details card operator-console" id="operator-console">
-            <summary class="operator-console-summary">Operator Console</summary>
+          <details class="details card operator-console" id="operator-console" open>
+            <summary class="operator-console-summary">Operator Console + Room Authority</summary>
             <div class="operator-console-grid">
               <div class="card connection-manual">
                 <div class="panel-head panel-head-inline">
@@ -376,7 +368,7 @@
                     </label>
                   </div>
                   <p id="ice-state" class="hint"></p>
-                  <p class="hint">If you use TURN credentials, avoid URLs unless necessary. Prefer sharing secrets out-of-band.</p>
+                  <p class="hint">If TURN secrets are needed, share them out-of-band.</p>
                 </div>
 
                 <div class="card connection-detail-card">
@@ -391,7 +383,7 @@
                     <button id="copy-diagnostics" type="button" disabled>Copy</button>
                   </div>
                   <pre id="diagnostics" class="diag"></pre>
-                  <p class="hint">Shows local connection stats. Nothing is sent anywhere.</p>
+                  <p class="hint">Local stats only. Nothing is sent anywhere.</p>
                 </div>
               </div>
             </div>
@@ -401,8 +393,11 @@
         <section class="panel transfer-shell transfer-shell-locked" id="transfer-controls">
           <div class="panel-head section-heading">
             <div>
-              <h2>Transfer Bay</h2>
-              <p class="section-copy">Stage outbound payloads early, arm the receive policy locally, and let the transport gate decide when sending becomes legal.</p>
+              <div class="section-label-row">
+                <span class="section-icon section-icon-transfer" aria-hidden="true"></span>
+                <h2>Transfer Bay</h2>
+              </div>
+              <p class="section-copy">Stage payloads, arm receive policy, and let the transport gate unlock send.</p>
             </div>
           </div>
           <div class="card transfer-lock-banner" id="transfer-lock-banner">
@@ -410,7 +405,7 @@
               <h3>Transport gate</h3>
               <span class="transfer-lock-state" id="transfer-lock-state">Locked</span>
             </div>
-            <p id="transfer-lock-text" class="transfer-lock-text">Create or join a room to unlock direct transfer controls.</p>
+            <p id="transfer-lock-text" class="transfer-lock-text">Open or join a room to unlock direct transfer controls.</p>
             <div class="transfer-lock-chips">
               <span class="transfer-lock-chip">1. Room</span>
               <span class="transfer-lock-chip">2. P2P channel</span>
@@ -424,7 +419,7 @@
               <div class="transfer-action-head">
                 <div>
                   <h3>Receive</h3>
-                  <p id="receive-action-copy" class="transfer-action-copy">Choose how this device should handle incoming payloads before the peer starts streaming.</p>
+                  <p id="receive-action-copy" class="transfer-action-copy">Set how this device handles inbound payloads.</p>
                 </div>
                 <span id="receive-action-state" class="transfer-action-state">Standby</span>
               </div>
@@ -436,7 +431,7 @@
                 </div>
                 <div class="transfer-action-stage-copy">
                   <strong id="receive-stage-title" class="transfer-stage-title">Choose local receive policy</strong>
-                  <p id="receive-stage-text" class="transfer-stage-text">Pick a folder to save received files, or switch to discard mode to verify and drop payloads in memory.</p>
+                  <p id="receive-stage-text" class="transfer-stage-text">Pick a save path or switch to discard mode for in-memory verification.</p>
                 </div>
               </div>
               <div class="row">
@@ -451,16 +446,16 @@
                   <button id="open-receive-folder" type="button" disabled>Open Folder</button>
                 </div>
               </div>
-              <p class="hint">Receive mode is peer-local: sender cannot force save path.</p>
+              <p class="hint">Receive policy is local. Sender cannot force the save path.</p>
               <p id="peer-state" class="status"></p>
-              <p class="hint">Pick a folder to save received files, or signal ready in discard mode to receive without saving.</p>
+              <p class="hint">Choose save or discard, then wait for the peer to stream.</p>
             </div>
 
             <div class="card transfer-action transfer-action-send" id="send-card">
               <div class="transfer-action-head">
                 <div>
                   <h3>Send Files</h3>
-                  <p id="send-action-copy" class="transfer-action-copy">Sender controls stay visible, but the transport gate remains closed until the live session is fully negotiated.</p>
+                  <p id="send-action-copy" class="transfer-action-copy">Stage send controls early; the gate opens only when the session is ready.</p>
                 </div>
                 <span id="send-action-state" class="transfer-action-state">Locked</span>
               </div>
@@ -473,7 +468,7 @@
                 </div>
                 <div class="transfer-action-stage-copy">
                   <strong id="send-stage-title" class="transfer-stage-title">Waiting for live room</strong>
-                  <p id="send-stage-text" class="transfer-stage-text">Create or join a room first. Ephera only unlocks transfer after the direct channel and peer-ready signal are present.</p>
+                  <p id="send-stage-text" class="transfer-stage-text">Open or join a room first. Transfer unlocks only after direct channel and peer-ready state are present.</p>
                 </div>
               </div>
               <div class="send-progress" aria-label="Send unlock progression">
@@ -491,7 +486,7 @@
               >
                 <strong id="send-dropzone-title" class="send-dropzone-title">Drop files or folders here</strong>
                 <p id="send-dropzone-hint" class="send-dropzone-hint">
-                  Stage payloads directly in the transfer bay. You can drop before the room fully unlocks; Send still stays gated until the session is ready.
+                  Stage payloads here early. Send stays gated until the live session is fully ready.
                 </p>
               </div>
               <div class="row send-toolbar">
@@ -503,7 +498,7 @@
               </div>
               <p id="send-selection-summary" class="hint send-selection-summary">No payload selected.</p>
               <p id="send-gate-reason" class="hint send-gate-reason"></p>
-              <p class="hint">Send is enabled only when the peer signals “ready”. Selected payloads are sent as concurrent transfers.</p>
+              <p class="hint">Send unlocks only when the peer signals ready. Selected payloads stream concurrently.</p>
             </div>
           </div>
 
@@ -511,15 +506,15 @@
             <div class="card transfer-contract">
               <h3>Receive Behavior</h3>
               <ul class="transfer-contract-list">
-                <li><strong>Pick Receive Folder</strong> means files are saved to that folder on this device.</li>
-                <li><strong>Ready (Discard)</strong> means files are received and verified in memory, then discarded.</li>
-                <li>Ephera does not keep transfer history; local saved files are outside Ephera trust boundary.</li>
-                <li><strong>Sender path today</strong> supports file batches and folder-file batches. File hierarchy is preserved when relative paths are available; empty directories are not transferred.</li>
+                <li><strong>Pick Receive Folder</strong> saves inbound files to that device path.</li>
+                <li><strong>Ready (Discard)</strong> verifies in memory, then discards.</li>
+                <li>Ephera keeps no transfer history; local saved files sit outside the trust boundary.</li>
+                <li><strong>Sender path today</strong> supports file batches and folder-file batches with relative paths preserved when available.</li>
               </ul>
             </div>
 
-            <details class="details transfer-advanced card" id="transfer-advanced">
-              <summary class="hint">Advanced transfer controls</summary>
+            <details class="details transfer-advanced card" id="transfer-advanced" open>
+              <summary class="hint">Security + Scheduling</summary>
               <div class="transfer-advanced-grid">
                 <div class="card">
                   <h3>Scheduler</h3>
@@ -528,7 +523,7 @@
                     <input type="range" id="send-weight" min="1" max="10" value="1">
                     <span id="send-weight-value" class="hint">1</span>
                   </div>
-                  <p class="hint">Higher priority gets more early send turns when transfers run concurrently.</p>
+                  <p class="hint">Higher priority gets more early send turns under concurrency.</p>
                 </div>
 
                 <div class="card">
@@ -547,7 +542,7 @@
                     </label>
                   </div>
                   <p id="crypto-state" class="status"></p>
-                  <p class="hint">If set, each payload chunk is encrypted with AES-256-GCM using a key derived from this passphrase. Ephera does not store it.</p>
+                  <p class="hint">Each payload chunk is encrypted with AES-256-GCM from this passphrase. Ephera does not store it.</p>
                 </div>
               </div>
             </details>
@@ -558,7 +553,7 @@
               <h3>Live Transfers</h3>
               <span class="hint">Session-local stream view</span>
             </div>
-            <p class="hint">This list shows active and recently completed transfers for the current page session only.</p>
+            <p class="hint">Current session stream view.</p>
             <div id="transfers" class="transfers"></div>
           </div>
         </section>
@@ -567,7 +562,10 @@
       <aside class="workspace-column workspace-column-side">
         <section class="panel side-panel" id="flow-guide">
           <div class="flow-guide-head">
-            <h3>Transfer Flow</h3>
+            <div class="section-label-row">
+              <span class="section-icon section-icon-flow" aria-hidden="true"></span>
+              <h3>Transfer Flow</h3>
+            </div>
           </div>
           <ol class="flow-list">
             <li id="flow-step-room" class="flow-step">Create or join room</li>
@@ -581,7 +579,10 @@
 
         <section class="panel side-panel preflight" id="preflight-panel">
           <div class="preflight-head">
-            <h3>Environment Preflight</h3>
+            <div class="section-label-row">
+              <span class="section-icon section-icon-network" aria-hidden="true"></span>
+              <h3>Environment Preflight</h3>
+            </div>
             <span id="preflight-summary" class="preflight-summary">Checking...</span>
           </div>
           <div class="preflight-list">
@@ -607,10 +608,13 @@
 
         <section class="panel side-panel">
           <div class="panel-head panel-head-inline">
-            <h3>Transfer Ledger</h3>
+            <div class="section-label-row">
+              <span class="section-icon section-icon-ledger" aria-hidden="true"></span>
+              <h3>Transfer Ledger</h3>
+            </div>
             <button id="clear-transfer-ledger" type="button">Clear</button>
           </div>
-          <p class="hint">Operator view of transfer batches and receipts. Local only and cleared on refresh.</p>
+          <p class="hint">Transfer batches and receipts. Local only.</p>
           <div class="ledger-summary" aria-label="Transfer ledger summary">
             <span id="transfer-ledger-active-count" class="ledger-summary-chip">active 0</span>
             <span id="transfer-ledger-complete-count" class="ledger-summary-chip">complete 0</span>
@@ -621,10 +625,13 @@
 
         <section class="panel side-panel">
           <div class="panel-head panel-head-inline">
-            <h3>Activity Timeline</h3>
+            <div class="section-label-row">
+              <span class="section-icon section-icon-activity" aria-hidden="true"></span>
+              <h3>Activity Timeline</h3>
+            </div>
             <button id="clear-activity" type="button">Clear</button>
           </div>
-          <p class="hint">Local only. Stored in memory for this page session and cleared on refresh.</p>
+          <p class="hint">Local only. Stored for this page session.</p>
           <div class="activity-controls">
             <input type="search" id="activity-search" placeholder="Search activity">
             <div class="activity-kinds">
@@ -649,7 +656,7 @@
     </div>
 
     <footer class="footer">
-      <p class="hint">Ephera is transport-only. Any local saving is a user action, outside the trust boundary.</p>
+      <p class="hint">Ephera is transport-only. Local saving is a user action outside the trust boundary.</p>
       <p class="hint">No cloud storage fallback is performed by this app.</p>
     </footer>
     </section>
@@ -657,6 +664,7 @@
 
   <script src="vendor/qrcode-generator.js"></script>
   <script src="vendor/jsQR.js"></script>
+  <script type="module" src="landing-react/landing-react.js"></script>
   <script type="module" src="app.js"></script>
 </body>
 </html>

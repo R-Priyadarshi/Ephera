@@ -1,0 +1,107 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --prototype-font-sans:
+      "Inter",
+      "Avenir Next",
+      "Segoe UI",
+      "Helvetica Neue",
+      Arial,
+      sans-serif;
+    color-scheme: dark;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  html,
+  body,
+  #root {
+    min-height: 100%;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    margin: 0;
+    font-family: var(--prototype-font-sans);
+    background:
+      radial-gradient(circle at 10% 12%, rgba(38, 127, 177, 0.24), transparent 28%),
+      radial-gradient(circle at 88% 10%, rgba(63, 152, 255, 0.2), transparent 26%),
+      radial-gradient(circle at 52% 120%, rgba(59, 239, 192, 0.08), transparent 34%),
+      linear-gradient(180deg, #030710 0%, #050d18 100%);
+    color: #f2f8ff;
+    overflow-x: hidden;
+  }
+
+  button,
+  input,
+  textarea,
+  a {
+    font: inherit;
+  }
+
+  ::selection {
+    background: rgba(69, 215, 255, 0.22);
+    color: #f4fbff;
+  }
+
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background:
+      radial-gradient(circle at 50% 12%, rgba(255, 255, 255, 0.04), transparent 18%),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent 24%);
+    z-index: -2;
+  }
+
+  body::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background-image:
+      linear-gradient(rgba(255, 255, 255, 0.018) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.018) 1px, transparent 1px);
+    background-size: 72px 72px;
+    mask-image: radial-gradient(circle at center, black 30%, transparent 88%);
+    opacity: 0.45;
+    z-index: -1;
+  }
+}
+
+@layer utilities {
+  .text-shadow-soft {
+    text-shadow: 0 14px 36px rgba(0, 0, 0, 0.35);
+  }
+
+  .border-grid {
+    background-image:
+      linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+    background-size: 32px 32px;
+  }
+
+  .landing-grid {
+    background-image:
+      linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+    background-size: 84px 84px;
+    mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.65), transparent 85%);
+  }
+
+  .landing-noise {
+    background-image: radial-gradient(rgba(255, 255, 255, 0.065) 0.5px, transparent 0.5px);
+    background-size: 6px 6px;
+    opacity: 0.035;
+    mix-blend-mode: screen;
+  }
+}

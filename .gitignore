@@ -4,3 +4,6 @@ dist
 .DS_Store
 .ephera-dev-tls
 artifacts
+.playwright-cli
+.playwright-mcp
+ephera-*.png

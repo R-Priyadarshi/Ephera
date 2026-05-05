@@ -1,0 +1,3919 @@
+:root {
+  --premium-font-sans:
+    "Inter",
+    "Avenir Next",
+    "Segoe UI",
+    "Helvetica Neue",
+    Arial,
+    sans-serif;
+  --premium-font-display:
+    "SF Pro Display",
+    "Inter",
+    "Avenir Next",
+    "Segoe UI",
+    "Helvetica Neue",
+    Arial,
+    sans-serif;
+  --premium-font-mono:
+    "SF Mono",
+    "JetBrains Mono",
+    "Cascadia Mono",
+    "IBM Plex Mono",
+    "Consolas",
+    monospace;
+  --premium-bg: #040b12;
+  --premium-bg-soft: #091521;
+  --premium-panel: rgba(11, 22, 33, 0.88);
+  --premium-panel-strong: rgba(8, 18, 29, 0.96);
+  --premium-panel-soft: rgba(14, 28, 41, 0.74);
+  --premium-border: rgba(129, 174, 206, 0.14);
+  --premium-border-strong: rgba(104, 191, 255, 0.22);
+  --premium-copy: rgba(196, 216, 233, 0.78);
+  --premium-copy-soft: rgba(162, 186, 206, 0.58);
+  --premium-title: #f4fbff;
+  --premium-cyan: #63dafb;
+  --premium-sky: #4fb5ff;
+  --premium-mint: #5ef1c0;
+  --premium-warm: #ffb47a;
+  --premium-shadow:
+    0 24px 80px rgba(0, 0, 0, 0.32),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+body {
+  font-family: var(--premium-font-sans);
+}
+
+body.app-shell-dashboard-ready,
+.app.app-shell-dashboard {
+  background:
+    radial-gradient(circle at 12% 10%, rgba(57, 132, 191, 0.22), transparent 22%),
+    radial-gradient(circle at 86% 10%, rgba(48, 145, 237, 0.18), transparent 24%),
+    radial-gradient(circle at 50% 115%, rgba(74, 240, 193, 0.08), transparent 28%),
+    linear-gradient(180deg, #040b12 0%, #07111a 48%, #07131d 100%);
+}
+
+.app.app-shell-landing .product-signal {
+  display: none;
+}
+
+.app.app-shell-dashboard {
+  position: relative;
+  width: min(1860px, calc(100vw - 32px));
+  margin: 0 auto;
+  padding: 16px 0 56px;
+  color: var(--premium-title);
+}
+
+.app.app-shell-dashboard::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.028) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.028) 1px, transparent 1px);
+  background-size: 64px 64px;
+  opacity: 0.22;
+  mix-blend-mode: screen;
+}
+
+.app.app-shell-dashboard::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 22% 18%, rgba(88, 201, 255, 0.06), transparent 18%),
+    radial-gradient(circle at 76% 8%, rgba(69, 137, 255, 0.07), transparent 18%);
+}
+
+.app.app-shell-dashboard .landing-shell {
+  display: none;
+}
+
+.app.app-shell-dashboard .product-bar {
+  position: relative;
+  top: auto;
+  z-index: 20;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 24px;
+  min-height: 78px;
+  padding: 0 18px 0 14px;
+  border-radius: 22px;
+  border: 1px solid var(--premium-border);
+  background:
+    linear-gradient(180deg, rgba(10, 20, 30, 0.84), rgba(8, 16, 25, 0.94)),
+    radial-gradient(circle at 14% 50%, rgba(86, 185, 255, 0.12), transparent 18%);
+  box-shadow: var(--premium-shadow);
+  backdrop-filter: blur(18px) saturate(140%);
+}
+
+.app.app-shell-dashboard .product-brand {
+  gap: 12px;
+}
+
+.app.app-shell-dashboard .product-brand-mark {
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
+  border: 1px solid rgba(110, 196, 255, 0.22);
+  background: linear-gradient(180deg, rgba(58, 168, 231, 0.36), rgba(26, 80, 113, 0.76));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.app.app-shell-dashboard .product-brand-eyebrow {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.58rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--premium-copy-soft);
+}
+
+.app.app-shell-dashboard .product-brand-title {
+  font-size: 1rem;
+  letter-spacing: -0.03em;
+  color: var(--premium-title);
+}
+
+.app.app-shell-dashboard .product-signal {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  padding: 0 16px;
+  border-radius: 16px;
+  border: 1px solid rgba(125, 164, 192, 0.12);
+  background:
+    linear-gradient(180deg, rgba(14, 26, 39, 0.82), rgba(10, 18, 29, 0.92));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.app.app-shell-dashboard .product-signal-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(255, 183, 124, 0.96);
+  box-shadow:
+    0 0 0 0 rgba(255, 183, 124, 0.26),
+    0 0 18px rgba(255, 183, 124, 0.45);
+  animation: productPulseWarm 1.8s ease-in-out infinite;
+}
+
+.app.app-shell-dashboard .product-signal-copy {
+  display: grid;
+  gap: 3px;
+}
+
+.app.app-shell-dashboard .product-signal-label {
+  margin: 0;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.63rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(237, 245, 251, 0.9);
+}
+
+.app.app-shell-dashboard .product-signal-meta {
+  margin: 0;
+  font-size: 0.76rem;
+  line-height: 1.4;
+  color: var(--premium-copy-soft);
+}
+
+.app.app-shell-dashboard .product-bar-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.app.app-shell-dashboard .product-bar-link,
+.app.app-shell-dashboard .product-bar-chip {
+  min-height: 38px;
+  padding: 0 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(138, 166, 190, 0.12);
+  background: rgba(255, 255, 255, 0.025);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.65rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(234, 244, 255, 0.82);
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease,
+    color 160ms ease,
+    transform 160ms ease;
+}
+
+.app.app-shell-dashboard .product-bar-link:hover {
+  border-color: rgba(97, 201, 255, 0.28);
+  background: rgba(92, 203, 255, 0.08);
+  color: #f8fcff;
+  transform: translateY(-1px);
+}
+
+.app.app-shell-dashboard .product-bar-chip {
+  background: rgba(82, 171, 255, 0.06);
+  color: rgba(161, 227, 255, 0.92);
+}
+
+.app.app-shell-dashboard .product-bar-chip-live {
+  border-color: rgba(255, 155, 99, 0.18);
+  background: rgba(255, 154, 94, 0.08);
+  color: rgba(255, 204, 178, 0.94);
+}
+
+.app.app-shell-dashboard .dashboard-shell {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 24px;
+  align-items: start;
+  margin-top: 22px;
+}
+
+.app.app-shell-dashboard .workspace-header,
+.app.app-shell-dashboard .console-nav,
+.app.app-shell-dashboard .workspace-spotlight,
+.app.app-shell-dashboard .workspace-command-deck,
+.app.app-shell-dashboard #room-controls,
+.app.app-shell-dashboard #transfer-controls,
+.app.app-shell-dashboard .workspace-column-side > .panel,
+.app.app-shell-dashboard .workspace-column-side > .side-panel,
+.app.app-shell-dashboard .workspace-column-side > section,
+.app.app-shell-dashboard .footer {
+  position: relative;
+  overflow: hidden;
+  border-radius: 24px;
+  border: 1px solid var(--premium-border);
+  background:
+    linear-gradient(180deg, rgba(10, 21, 31, 0.9), rgba(7, 15, 24, 0.96));
+  box-shadow: var(--premium-shadow);
+}
+
+.app.app-shell-dashboard .console-nav,
+.app.app-shell-dashboard .workspace-spotlight,
+.app.app-shell-dashboard .workspace-command-deck {
+  overflow: visible;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.app.app-shell-dashboard .workspace-header::before,
+.app.app-shell-dashboard .workspace-header::after,
+.app.app-shell-dashboard .workspace-spotlight::before,
+.app.app-shell-dashboard .workspace-spotlight::after,
+.app.app-shell-dashboard .workspace-command-deck::before,
+.app.app-shell-dashboard .workspace-command-deck::after,
+.app.app-shell-dashboard .panel::before,
+.app.app-shell-dashboard .panel::after,
+.app.app-shell-dashboard .side-panel::before,
+.app.app-shell-dashboard .side-panel::after {
+  content: none !important;
+  display: none !important;
+}
+
+.app.app-shell-dashboard .workspace-header {
+  grid-column: 1 / span 9;
+  min-height: 256px;
+  padding: 32px 34px 36px;
+  background:
+    radial-gradient(circle at 18% 22%, rgba(96, 214, 255, 0.12), transparent 24%),
+    linear-gradient(180deg, rgba(11, 23, 35, 0.94), rgba(8, 17, 28, 0.98));
+}
+
+.app.app-shell-dashboard .workspace-hero-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(340px, 0.85fr);
+  gap: 26px;
+  align-items: stretch;
+}
+
+.app.app-shell-dashboard .workspace-hero-copy,
+.app.app-shell-dashboard .workspace-hero-visual {
+  min-width: 0;
+}
+
+.app.app-shell-dashboard .workspace-header .header-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.app.app-shell-dashboard .workspace-header .title {
+  max-width: 11ch;
+  margin: 0;
+  font-family: 'Sora', 'Plus Jakarta Sans', sans-serif;
+  font-size: clamp(3rem, 5vw, 4.7rem);
+  font-weight: 700;
+  letter-spacing: -0.07em;
+  line-height: 0.94;
+  color: var(--premium-title);
+}
+
+.app.app-shell-dashboard .workspace-header .subtitle {
+  max-width: 54ch;
+  margin-top: 22px;
+  font-size: 1rem;
+  line-height: 1.7;
+  color: var(--premium-copy);
+}
+
+.app.app-shell-dashboard .header-badge {
+  align-self: flex-start;
+  min-height: 34px;
+  padding: 0 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(106, 205, 255, 0.2);
+  background: rgba(87, 197, 255, 0.08);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.64rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(181, 235, 255, 0.94);
+}
+
+.app.app-shell-dashboard .header-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 22px;
+}
+
+.app.app-shell-dashboard .hero-stat-grid {
+  display: grid;
+  grid-template-columns: 1.35fr 1fr 1fr;
+  gap: 12px;
+  margin-top: 22px;
+}
+
+.app.app-shell-dashboard .hero-stat-card {
+  padding: 16px 16px 18px;
+  border-radius: 18px;
+  border: 1px solid rgba(123, 162, 188, 0.12);
+  background: rgba(255, 255, 255, 0.025);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.app.app-shell-dashboard .hero-stat-label,
+.app.app-shell-dashboard .hero-visual-kicker {
+  display: block;
+  margin: 0;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.58rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(149, 218, 255, 0.7);
+}
+
+.app.app-shell-dashboard .hero-stat-value {
+  display: block;
+  margin-top: 12px;
+  font-family: 'Sora', 'Plus Jakarta Sans', sans-serif;
+  font-size: 1.45rem;
+  letter-spacing: -0.05em;
+  color: var(--premium-title);
+}
+
+.app.app-shell-dashboard .hero-stat-copy,
+.app.app-shell-dashboard .hero-trace-copy {
+  margin: 8px 0 0;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: var(--premium-copy-soft);
+}
+
+.app.app-shell-dashboard .workspace-hero-visual {
+  padding: 20px 22px;
+  border-radius: 22px;
+  border: 1px solid rgba(125, 164, 192, 0.12);
+  background:
+    radial-gradient(circle at 18% 18%, rgba(88, 199, 255, 0.14), transparent 22%),
+    linear-gradient(180deg, rgba(8, 22, 34, 0.98), rgba(5, 14, 22, 1));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 16px 40px rgba(0, 0, 0, 0.2);
+}
+
+.app.app-shell-dashboard .hero-visual-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.app.app-shell-dashboard .hero-visual-head h3 {
+  margin: 4px 0 0;
+  font-family: 'Sora', 'Plus Jakarta Sans', sans-serif;
+  font-size: 1.32rem;
+  letter-spacing: -0.04em;
+  color: var(--premium-title);
+}
+
+.app.app-shell-dashboard .hero-visual-chip {
+  min-height: 30px;
+  padding: 0 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(97, 201, 255, 0.16);
+  background: rgba(88, 199, 255, 0.08);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.56rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(181, 235, 255, 0.92);
+}
+
+.app.app-shell-dashboard .hero-visual-map {
+  position: relative;
+  min-height: 184px;
+  margin-top: 18px;
+  border-radius: 20px;
+  border: 1px solid rgba(124, 164, 192, 0.12);
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(180deg, rgba(11, 28, 41, 0.92), rgba(7, 17, 27, 0.98));
+  background-size: 36px 36px, 36px 36px, auto;
+}
+
+.app.app-shell-dashboard .hero-node,
+.app.app-shell-dashboard .hero-link,
+.app.app-shell-dashboard .hero-node-label {
+  position: absolute;
+}
+
+.app.app-shell-dashboard .hero-node {
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  box-shadow: 0 0 18px currentColor;
+}
+
+.app.app-shell-dashboard .hero-node-room { top: 118px; left: 36px; color: #68d7ff; background: #68d7ff; }
+.app.app-shell-dashboard .hero-node-channel { top: 58px; left: 118px; color: #7aaeff; background: #7aaeff; }
+.app.app-shell-dashboard .hero-node-peer { top: 122px; left: 198px; color: #63efc2; background: #63efc2; }
+.app.app-shell-dashboard .hero-node-crypto { top: 44px; left: 246px; color: #b3a3ff; background: #b3a3ff; }
+.app.app-shell-dashboard .hero-node-transfer { top: 112px; right: 34px; color: #ffb478; background: #ffb478; }
+
+.app.app-shell-dashboard .hero-link {
+  height: 2px;
+  transform-origin: left center;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(104, 215, 255, 0.58), rgba(99, 239, 194, 0.5));
+}
+
+.app.app-shell-dashboard .hero-link-room { top: 124px; left: 48px; width: 96px; transform: rotate(-34deg); }
+.app.app-shell-dashboard .hero-link-channel { top: 66px; left: 130px; width: 88px; transform: rotate(34deg); }
+.app.app-shell-dashboard .hero-link-peer { top: 126px; left: 210px; width: 62px; transform: rotate(-42deg); }
+.app.app-shell-dashboard .hero-link-crypto { top: 118px; left: 264px; width: 92px; transform: rotate(8deg); }
+
+.app.app-shell-dashboard .hero-node-label {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.52rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(195, 217, 233, 0.56);
+}
+
+.app.app-shell-dashboard .hero-node-label-room { top: 140px; left: 26px; }
+.app.app-shell-dashboard .hero-node-label-channel { top: 34px; left: 94px; }
+.app.app-shell-dashboard .hero-node-label-peer { top: 144px; left: 182px; }
+.app.app-shell-dashboard .hero-node-label-crypto { top: 20px; left: 220px; }
+.app.app-shell-dashboard .hero-node-label-transfer { top: 136px; right: 6px; }
+
+.app.app-shell-dashboard .hero-pipeline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.app.app-shell-dashboard .hero-pipeline-chip {
+  min-height: 30px;
+  padding: 0 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(126, 166, 193, 0.12);
+  background: rgba(255, 255, 255, 0.03);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.58rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(207, 224, 237, 0.72);
+}
+
+.app.app-shell-dashboard .hero-trace {
+  margin-top: 18px;
+}
+
+.app.app-shell-dashboard .hero-trace-bars {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  align-items: end;
+  gap: 6px;
+  height: 62px;
+}
+
+.app.app-shell-dashboard .hero-trace-bars span {
+  display: block;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(99, 239, 194, 0.96), rgba(79, 181, 255, 0.86));
+  animation: traceBars 2.8s ease-in-out infinite;
+}
+
+.app.app-shell-dashboard .hero-trace-bars span:nth-child(1) { height: 18px; animation-delay: 0.05s; }
+.app.app-shell-dashboard .hero-trace-bars span:nth-child(2) { height: 28px; animation-delay: 0.1s; }
+.app.app-shell-dashboard .hero-trace-bars span:nth-child(3) { height: 24px; animation-delay: 0.15s; }
+.app.app-shell-dashboard .hero-trace-bars span:nth-child(4) { height: 38px; animation-delay: 0.2s; }
+.app.app-shell-dashboard .hero-trace-bars span:nth-child(5) { height: 30px; animation-delay: 0.25s; }
+.app.app-shell-dashboard .hero-trace-bars span:nth-child(6) { height: 48px; animation-delay: 0.3s; }
+.app.app-shell-dashboard .hero-trace-bars span:nth-child(7) { height: 34px; animation-delay: 0.35s; }
+.app.app-shell-dashboard .hero-trace-bars span:nth-child(8) { height: 54px; animation-delay: 0.4s; }
+.app.app-shell-dashboard .hero-trace-bars span:nth-child(9) { height: 42px; animation-delay: 0.45s; }
+.app.app-shell-dashboard .hero-trace-bars span:nth-child(10) { height: 58px; animation-delay: 0.5s; }
+.app.app-shell-dashboard .hero-trace-bars span:nth-child(11) { height: 36px; animation-delay: 0.55s; }
+.app.app-shell-dashboard .hero-trace-bars span:nth-child(12) { height: 46px; animation-delay: 0.6s; }
+
+.app.app-shell-dashboard .header-chip {
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(126, 166, 193, 0.12);
+  background: rgba(255, 255, 255, 0.025);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.62rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(198, 217, 232, 0.72);
+}
+
+.app.app-shell-dashboard .console-nav {
+  grid-column: 10 / span 3;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  align-content: start;
+  min-height: 100%;
+  padding: 0;
+}
+
+.app.app-shell-dashboard .console-nav-link {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  min-height: 62px;
+  padding: 0 18px 0 22px;
+  border-radius: 18px;
+  border: 1px solid rgba(124, 161, 188, 0.12);
+  background: rgba(255, 255, 255, 0.02);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.66rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(208, 225, 237, 0.7);
+  position: relative;
+  transition:
+    transform 160ms ease,
+    border-color 160ms ease,
+    background-color 160ms ease,
+    color 160ms ease;
+}
+
+.app.app-shell-dashboard .console-nav-link::before {
+  content: '';
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  width: 3px;
+  height: 24px;
+  border-radius: 999px;
+  background: rgba(99, 218, 251, 0.22);
+  transform: translateY(-50%);
+  transition:
+    background-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.app.app-shell-dashboard .console-nav-link:hover,
+.app.app-shell-dashboard .console-nav-link-active {
+  border-color: rgba(100, 203, 255, 0.24);
+  background: linear-gradient(180deg, rgba(74, 188, 255, 0.14), rgba(74, 188, 255, 0.06));
+  color: #f5fbff;
+  transform: translateY(-1px);
+}
+
+.app.app-shell-dashboard .console-nav-link:hover::before,
+.app.app-shell-dashboard .console-nav-link-active::before {
+  background: rgba(99, 218, 251, 0.94);
+  box-shadow: 0 0 16px rgba(99, 218, 251, 0.35);
+}
+
+.app.app-shell-dashboard .workspace-spotlight {
+  grid-column: 1 / span 7;
+  display: grid;
+  grid-template-columns: 1.45fr 0.95fr;
+  gap: 18px;
+  padding: 0;
+}
+
+.app.app-shell-dashboard .workspace-spotlight .spotlight-card {
+  padding: 22px 24px 24px;
+  border-radius: 22px;
+  border: 1px solid rgba(130, 166, 194, 0.12);
+  background:
+    linear-gradient(180deg, rgba(13, 28, 41, 0.94), rgba(9, 18, 29, 0.98));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 16px 36px rgba(0, 0, 0, 0.18);
+}
+
+.app.app-shell-dashboard .spotlight-head h3,
+.app.app-shell-dashboard .command-card-title,
+.app.app-shell-dashboard .panel-head h2,
+.app.app-shell-dashboard .panel-head h3,
+.app.app-shell-dashboard .launchpad-mode h4,
+.app.app-shell-dashboard .transfer-action-head h3 {
+  font-family: 'Sora', 'Plus Jakarta Sans', sans-serif;
+  letter-spacing: -0.04em;
+  color: var(--premium-title);
+}
+
+.app.app-shell-dashboard .spotlight-eyebrow,
+.app.app-shell-dashboard .spotlight-note-label,
+.app.app-shell-dashboard .command-card-eyebrow,
+.app.app-shell-dashboard .launchpad-mode-kicker,
+.app.app-shell-dashboard .panel h2,
+.app.app-shell-dashboard .panel h3,
+.app.app-shell-dashboard .flow-guide-head h3 {
+  font-family: 'IBM Plex Mono', monospace;
+  text-transform: uppercase;
+}
+
+.app.app-shell-dashboard .spotlight-eyebrow,
+.app.app-shell-dashboard .spotlight-note-label,
+.app.app-shell-dashboard .command-card-eyebrow,
+.app.app-shell-dashboard .launchpad-mode-kicker {
+  font-size: 0.62rem;
+  letter-spacing: 0.16em;
+  color: rgba(126, 208, 248, 0.72);
+}
+
+.app.app-shell-dashboard .spotlight-copy,
+.app.app-shell-dashboard .workspace-header .subtitle,
+.app.app-shell-dashboard .section-copy,
+.app.app-shell-dashboard .hint,
+.app.app-shell-dashboard .status,
+.app.app-shell-dashboard .transfer-action-copy,
+.app.app-shell-dashboard .transfer-stage-text,
+.app.app-shell-dashboard .launchpad-head p,
+.app.app-shell-dashboard #invite-package-state,
+.app.app-shell-dashboard #flow-next,
+.app.app-shell-dashboard #preflight-fix,
+.app.app-shell-dashboard #role-onboarding-hint {
+  color: var(--premium-copy);
+}
+
+.app.app-shell-dashboard .spotlight-pill,
+.app.app-shell-dashboard .spotlight-quiet,
+.app.app-shell-dashboard .state-chip,
+.app.app-shell-dashboard .quick-summary,
+.app.app-shell-dashboard .authority-pill,
+.app.app-shell-dashboard .launchpad-state,
+.app.app-shell-dashboard .transfer-action-state,
+.app.app-shell-dashboard .transfer-lock-state,
+.app.app-shell-dashboard .preflight-pill,
+.app.app-shell-dashboard .ledger-summary-chip,
+.app.app-shell-dashboard .activity-kind-toggle {
+  min-height: 30px;
+  padding: 0 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(127, 164, 191, 0.12);
+  background: rgba(255, 255, 255, 0.03);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.6rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.app.app-shell-dashboard .workspace-command-deck {
+  grid-column: 8 / span 5;
+  display: grid;
+  grid-template-columns: 1.08fr 0.92fr;
+  grid-template-areas:
+    "runtime flow"
+    "runtime authority";
+  gap: 18px;
+  padding: 0;
+}
+
+.app.app-shell-dashboard .command-card {
+  min-height: 166px;
+  padding: 20px 20px 22px;
+  border-radius: 22px;
+  border: 1px solid rgba(130, 166, 194, 0.12);
+  background:
+    linear-gradient(180deg, rgba(12, 26, 39, 0.94), rgba(8, 17, 27, 0.98));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 16px 36px rgba(0, 0, 0, 0.18);
+}
+
+.app.app-shell-dashboard .command-card-runtime {
+  grid-area: runtime;
+  min-height: 240px;
+  background:
+    radial-gradient(circle at 14% 22%, rgba(88, 199, 255, 0.12), transparent 24%),
+    linear-gradient(180deg, rgba(12, 28, 41, 0.94), rgba(8, 17, 27, 0.98));
+}
+
+.app.app-shell-dashboard .command-card-flow {
+  grid-area: flow;
+  background:
+    radial-gradient(circle at 82% 18%, rgba(125, 167, 255, 0.12), transparent 24%),
+    linear-gradient(180deg, rgba(12, 26, 39, 0.94), rgba(8, 17, 27, 0.98));
+}
+
+.app.app-shell-dashboard .command-card-authority {
+  grid-area: authority;
+  background:
+    radial-gradient(circle at 16% 24%, rgba(95, 241, 192, 0.1), transparent 24%),
+    linear-gradient(180deg, rgba(12, 26, 39, 0.94), rgba(8, 17, 27, 0.98));
+}
+
+.app.app-shell-dashboard .command-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.app.app-shell-dashboard .command-card-title {
+  margin: 4px 0 0;
+  font-size: 1.06rem;
+}
+
+.app.app-shell-dashboard .command-card-copy,
+.app.app-shell-dashboard .command-card-status,
+.app.app-shell-dashboard .flow-current {
+  font-size: 0.84rem;
+  line-height: 1.55;
+}
+
+.app.app-shell-dashboard .state-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.app.app-shell-dashboard .command-card-runtime .state-strip {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.app.app-shell-dashboard .workspace-layout {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 24px;
+  align-items: start;
+}
+
+.app.app-shell-dashboard .workspace-column-main {
+  display: contents;
+}
+
+.app.app-shell-dashboard #room-controls {
+  grid-column: 1 / span 4;
+  background:
+    radial-gradient(circle at 18% 12%, rgba(80, 184, 255, 0.08), transparent 24%),
+    linear-gradient(180deg, rgba(10, 21, 31, 0.9), rgba(7, 15, 24, 0.96));
+}
+
+.app.app-shell-dashboard #transfer-controls {
+  grid-column: 5 / span 5;
+  background:
+    radial-gradient(circle at 86% 10%, rgba(94, 241, 192, 0.07), transparent 22%),
+    linear-gradient(180deg, rgba(10, 21, 31, 0.92), rgba(7, 15, 24, 0.98));
+}
+
+.app.app-shell-dashboard .workspace-column-side {
+  grid-column: 10 / span 3;
+  display: grid;
+  gap: 24px;
+}
+
+.app.app-shell-dashboard #room-controls,
+.app.app-shell-dashboard #transfer-controls,
+.app.app-shell-dashboard .workspace-column-side > * {
+  padding: 18px;
+}
+
+.app.app-shell-dashboard .section-heading {
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(125, 164, 192, 0.12);
+  margin-bottom: 14px;
+}
+
+.app.app-shell-dashboard .panel h2 {
+  margin: 0;
+  font-size: 0.74rem;
+  letter-spacing: 0.18em;
+  color: rgba(150, 219, 255, 0.82);
+}
+
+.app.app-shell-dashboard .panel h3 {
+  margin: 0;
+  font-size: 1.18rem;
+  letter-spacing: -0.03em;
+  color: var(--premium-title);
+}
+
+.app.app-shell-dashboard .section-copy {
+  margin-top: 8px;
+  max-width: 46ch;
+  font-size: 0.84rem;
+  line-height: 1.55;
+}
+
+.app.app-shell-dashboard .panel-head h2 {
+  opacity: 0.92;
+}
+
+.app.app-shell-dashboard .launchpad,
+.app.app-shell-dashboard .operator-console,
+.app.app-shell-dashboard .transfer-lock-banner,
+.app.app-shell-dashboard .transfer-action,
+.app.app-shell-dashboard .transfer-contract,
+.app.app-shell-dashboard .transfer-stream-card,
+.app.app-shell-dashboard .side-panel,
+.app.app-shell-dashboard .connection-detail-card,
+.app.app-shell-dashboard .receive-destination,
+.app.app-shell-dashboard .send-dropzone,
+.app.app-shell-dashboard .operator-console-grid > *,
+.app.app-shell-dashboard .transfer-advanced-grid > * {
+  border-radius: 18px;
+  border: 1px solid rgba(125, 164, 192, 0.12);
+  background: linear-gradient(180deg, rgba(11, 23, 35, 0.96), rgba(7, 15, 24, 0.98));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 18px 44px rgba(0, 0, 0, 0.2);
+}
+
+.app.app-shell-dashboard .transfer-lock-banner,
+.app.app-shell-dashboard .transfer-action,
+.app.app-shell-dashboard .transfer-contract,
+.app.app-shell-dashboard .transfer-stream-card {
+  background:
+    linear-gradient(180deg, rgba(11, 24, 35, 0.98), rgba(7, 15, 24, 0.98));
+}
+
+.app.app-shell-dashboard .launchpad {
+  padding: 16px;
+}
+
+.app.app-shell-dashboard .launchpad-mode-grid,
+.app.app-shell-dashboard .operator-console-grid,
+.app.app-shell-dashboard .transfer-grid,
+.app.app-shell-dashboard .transfer-support-grid,
+.app.app-shell-dashboard .transfer-advanced-grid {
+  display: grid;
+  gap: 16px;
+}
+
+.app.app-shell-dashboard .launchpad-mode-grid,
+.app.app-shell-dashboard .operator-console-grid,
+.app.app-shell-dashboard .transfer-advanced-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.app.app-shell-dashboard .transfer-grid {
+  grid-template-columns: 0.92fr 1.08fr;
+}
+
+.app.app-shell-dashboard .transfer-support-grid {
+  grid-template-columns: 0.96fr 1.04fr;
+}
+
+.app.app-shell-dashboard .transfer-advanced {
+  margin: 0;
+  padding: 18px;
+}
+
+.app.app-shell-dashboard .operator-console > summary,
+.app.app-shell-dashboard .transfer-advanced > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 42px;
+  margin: -2px 0 14px;
+  padding: 0 2px;
+  list-style: none;
+  cursor: pointer;
+  user-select: none;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(234, 244, 252, 0.92);
+}
+
+.app.app-shell-dashboard .operator-console > summary::after,
+.app.app-shell-dashboard .transfer-advanced > summary::after {
+  content: 'Visible';
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(96, 196, 255, 0.18);
+  background: rgba(96, 196, 255, 0.08);
+  font-size: 0.6rem;
+  letter-spacing: 0.14em;
+  color: rgba(173, 226, 255, 0.94);
+}
+
+.app.app-shell-dashboard .operator-console > summary::-webkit-details-marker,
+.app.app-shell-dashboard .transfer-advanced > summary::-webkit-details-marker {
+  display: none;
+}
+
+.app.app-shell-dashboard .operator-console:not([open]) > summary::after,
+.app.app-shell-dashboard .transfer-advanced:not([open]) > summary::after {
+  content: 'Hidden';
+}
+
+.app.app-shell-dashboard .launchpad-mode,
+.app.app-shell-dashboard .invite-workbench,
+.app.app-shell-dashboard .connection-manual,
+.app.app-shell-dashboard .connection-detail-card,
+.app.app-shell-dashboard .transfer-action,
+.app.app-shell-dashboard .transfer-contract {
+  padding: 16px;
+}
+
+.app.app-shell-dashboard .invite-workbench textarea,
+.app.app-shell-dashboard input[type='text'],
+.app.app-shell-dashboard input[type='password'],
+.app.app-shell-dashboard input[type='search'],
+.app.app-shell-dashboard textarea,
+.app.app-shell-dashboard .diag {
+  width: 100%;
+  border-radius: 14px;
+  border: 1px solid rgba(125, 164, 192, 0.12);
+  background: rgba(255, 255, 255, 0.035);
+  color: #f4fbff;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.app.app-shell-dashboard button,
+.app.app-shell-dashboard .buttonlike {
+  min-height: 38px;
+  padding: 0 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(126, 164, 190, 0.14);
+  background: rgba(255, 255, 255, 0.035);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.66rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(244, 251, 255, 0.86);
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease,
+    color 160ms ease,
+    transform 160ms ease;
+}
+
+.app.app-shell-dashboard button:hover:not(:disabled),
+.app.app-shell-dashboard .buttonlike:hover {
+  border-color: rgba(100, 203, 255, 0.3);
+  background: rgba(92, 203, 255, 0.11);
+  color: #fff;
+  transform: translateY(-1px);
+}
+
+.app.app-shell-dashboard button:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+}
+
+.app.app-shell-dashboard #launchpad-host,
+.app.app-shell-dashboard #send-file,
+.app.app-shell-dashboard #pick-receive-folder,
+.app.app-shell-dashboard #generate-room-id,
+.app.app-shell-dashboard #generate-room-join-key,
+.app.app-shell-dashboard #generate-passphrase,
+.app.app-shell-dashboard #apply-invite-package,
+.app.app-shell-dashboard #copy-invite-package {
+  border-color: rgba(92, 203, 255, 0.24);
+  background: linear-gradient(180deg, rgba(87, 197, 255, 0.16), rgba(87, 197, 255, 0.08));
+}
+
+.app.app-shell-dashboard #ready-discard,
+.app.app-shell-dashboard #launchpad-join,
+.app.app-shell-dashboard #clear-passphrase,
+.app.app-shell-dashboard #close-room {
+  border-color: rgba(255, 168, 104, 0.18);
+  background: rgba(255, 168, 104, 0.08);
+  color: rgba(255, 212, 183, 0.92);
+}
+
+.app.app-shell-dashboard .send-dropzone {
+  border-style: solid;
+  border-color: rgba(91, 201, 255, 0.16);
+  background: linear-gradient(180deg, rgba(12, 28, 42, 0.86), rgba(9, 19, 29, 0.98));
+}
+
+.app.app-shell-dashboard .transfer-lock-banner {
+  background:
+    radial-gradient(circle at 86% 18%, rgba(79, 181, 255, 0.08), transparent 20%),
+    linear-gradient(180deg, rgba(11, 24, 35, 0.98), rgba(7, 15, 24, 0.98));
+}
+
+.app.app-shell-dashboard .side-panel {
+  padding: 16px;
+}
+
+.app.app-shell-dashboard .transfer-action-visual,
+.app.app-shell-dashboard .transfer-action-core,
+.app.app-shell-dashboard .transfer-action-beam,
+.app.app-shell-dashboard .transfer-action-orbit {
+  filter: saturate(120%);
+}
+
+.app.app-shell-dashboard .state-chip,
+.app.app-shell-dashboard .send-progress-chip,
+.app.app-shell-dashboard .preflight-pill,
+.app.app-shell-dashboard .ledger-summary-chip {
+  backdrop-filter: blur(10px);
+}
+
+.app.app-shell-dashboard.app-mode-session .product-signal-dot,
+.app.app-shell-dashboard.app-mode-channel .product-signal-dot {
+  background: rgba(99, 218, 251, 0.96);
+  box-shadow:
+    0 0 0 0 rgba(99, 218, 251, 0.22),
+    0 0 20px rgba(99, 218, 251, 0.42);
+  animation: productPulseCyan 1.6s ease-in-out infinite;
+}
+
+.app.app-shell-dashboard.app-mode-cockpit .product-signal-dot {
+  background: rgba(94, 241, 192, 0.96);
+  box-shadow:
+    0 0 0 0 rgba(94, 241, 192, 0.2),
+    0 0 20px rgba(94, 241, 192, 0.4);
+  animation: productPulseMint 1.4s ease-in-out infinite;
+}
+
+.app.app-shell-dashboard.app-mode-channel .hero-pipeline-chip:nth-child(-n + 4),
+.app.app-shell-dashboard.app-mode-cockpit .hero-pipeline-chip {
+  border-color: rgba(95, 241, 192, 0.16);
+  background: rgba(95, 241, 192, 0.08);
+  color: rgba(207, 255, 238, 0.92);
+}
+
+.app.app-shell-dashboard.app-mode-session .hero-pipeline-chip:nth-child(1),
+.app.app-shell-dashboard.app-mode-cockpit .hero-pipeline-chip:nth-child(1),
+.app.app-shell-dashboard.app-mode-channel .hero-pipeline-chip:nth-child(1) {
+  border-color: rgba(99, 218, 251, 0.2);
+  background: rgba(99, 218, 251, 0.08);
+}
+
+.app.app-shell-dashboard.app-mode-session .hero-pipeline-chip:nth-child(2),
+.app.app-shell-dashboard.app-mode-channel .hero-pipeline-chip:nth-child(2),
+.app.app-shell-dashboard.app-mode-cockpit .hero-pipeline-chip:nth-child(2) {
+  border-color: rgba(122, 174, 255, 0.2);
+  background: rgba(122, 174, 255, 0.08);
+}
+
+.app.app-shell-dashboard .flow-list,
+.app.app-shell-dashboard .activity-kinds,
+.app.app-shell-dashboard .ledger-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.app.app-shell-dashboard .flow-step,
+.app.app-shell-dashboard .preflight-row,
+.app.app-shell-dashboard .transfer-ledger-item,
+.app.app-shell-dashboard .activity-item {
+  border-radius: 16px;
+  border: 1px solid rgba(125, 164, 192, 0.1);
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.app.app-shell-dashboard .activity {
+  min-height: 220px;
+}
+
+.app.app-shell-dashboard .transfer-lock-chips {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.app.app-shell-dashboard .transfer-lock-chip {
+  min-height: 34px;
+  padding: 0 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(126, 166, 193, 0.1);
+  background: rgba(255, 255, 255, 0.02);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.56rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(198, 217, 232, 0.62);
+}
+
+.app.app-shell-dashboard .receive-destination,
+.app.app-shell-dashboard .connection-detail-card,
+.app.app-shell-dashboard .transfer-contract,
+.app.app-shell-dashboard .operator-console-grid > *,
+.app.app-shell-dashboard .transfer-advanced-grid > * {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.app.app-shell-dashboard .launchpad-head p,
+.app.app-shell-dashboard .transfer-action-copy,
+.app.app-shell-dashboard .transfer-stage-text,
+.app.app-shell-dashboard .hint,
+.app.app-shell-dashboard .status {
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.app.app-shell-dashboard .activity-controls {
+  display: grid;
+  gap: 12px;
+}
+
+.app.app-shell-dashboard .activity-controls .row {
+  gap: 8px;
+}
+
+.app.app-shell-dashboard .footer {
+  grid-column: 1 / -1;
+  padding: 16px 4px 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--premium-copy-soft);
+  display: grid;
+  gap: 6px;
+  opacity: 0.72;
+}
+
+@media (max-width: 1500px) {
+  .app.app-shell-dashboard {
+    width: calc(100vw - 24px);
+  }
+
+  .app.app-shell-dashboard .workspace-header {
+    grid-column: 1 / span 8;
+  }
+
+  .app.app-shell-dashboard .console-nav {
+    grid-column: 9 / span 4;
+  }
+
+  .app.app-shell-dashboard .workspace-spotlight {
+    grid-column: 1 / span 7;
+  }
+
+  .app.app-shell-dashboard .workspace-command-deck {
+    grid-column: 8 / span 5;
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "runtime"
+      "flow"
+      "authority";
+  }
+
+  .app.app-shell-dashboard .workspace-hero-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .app.app-shell-dashboard #room-controls {
+    grid-column: 1 / span 5;
+  }
+
+  .app.app-shell-dashboard #transfer-controls {
+    grid-column: 6 / span 7;
+  }
+
+  .app.app-shell-dashboard .workspace-column-side {
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1180px) {
+  .app.app-shell-dashboard .product-bar {
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
+
+  .app.app-shell-dashboard .product-bar-actions {
+    justify-content: flex-start;
+  }
+
+  .app.app-shell-dashboard .product-signal {
+    width: 100%;
+  }
+
+  .app.app-shell-dashboard .dashboard-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .app.app-shell-dashboard .workspace-header,
+  .app.app-shell-dashboard .console-nav,
+  .app.app-shell-dashboard .workspace-spotlight,
+  .app.app-shell-dashboard .workspace-command-deck,
+  .app.app-shell-dashboard .workspace-layout,
+  .app.app-shell-dashboard .footer {
+    grid-column: 1 / -1;
+  }
+
+  .app.app-shell-dashboard .workspace-spotlight,
+  .app.app-shell-dashboard .workspace-command-deck,
+  .app.app-shell-dashboard .hero-stat-grid,
+  .app.app-shell-dashboard .workspace-layout,
+  .app.app-shell-dashboard .workspace-column-side,
+  .app.app-shell-dashboard .transfer-lock-chips,
+  .app.app-shell-dashboard .launchpad-mode-grid,
+  .app.app-shell-dashboard .transfer-grid,
+  .app.app-shell-dashboard .transfer-support-grid,
+  .app.app-shell-dashboard .operator-console-grid,
+  .app.app-shell-dashboard .transfer-advanced-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .app.app-shell-dashboard #room-controls,
+  .app.app-shell-dashboard #transfer-controls,
+  .app.app-shell-dashboard .workspace-column-side {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 720px) {
+  .app.app-shell-dashboard {
+    width: calc(100vw - 16px);
+    padding-top: 8px;
+  }
+
+  .app.app-shell-dashboard .workspace-header {
+    min-height: auto;
+    padding: 24px 20px 26px;
+  }
+
+  .app.app-shell-dashboard .workspace-header .header-top {
+    flex-direction: column;
+  }
+
+  .app.app-shell-dashboard .workspace-hero-visual {
+    padding: 18px 16px;
+  }
+
+  .app.app-shell-dashboard .hero-visual-map {
+    min-height: 156px;
+  }
+
+  .app.app-shell-dashboard .hero-node-room { top: 102px; left: 20px; }
+  .app.app-shell-dashboard .hero-node-channel { top: 44px; left: 78px; }
+  .app.app-shell-dashboard .hero-node-peer { top: 106px; left: 142px; }
+  .app.app-shell-dashboard .hero-node-crypto { top: 32px; left: 184px; }
+  .app.app-shell-dashboard .hero-node-transfer { top: 98px; right: 18px; }
+
+  .app.app-shell-dashboard .hero-link-room { top: 108px; left: 30px; width: 70px; }
+  .app.app-shell-dashboard .hero-link-channel { top: 52px; left: 90px; width: 60px; }
+  .app.app-shell-dashboard .hero-link-peer { top: 110px; left: 152px; width: 42px; }
+  .app.app-shell-dashboard .hero-link-crypto { top: 104px; left: 196px; width: 52px; }
+
+  .app.app-shell-dashboard .hero-node-label-room { top: 124px; left: 10px; }
+  .app.app-shell-dashboard .hero-node-label-channel { top: 20px; left: 54px; }
+  .app.app-shell-dashboard .hero-node-label-peer { top: 126px; left: 124px; }
+  .app.app-shell-dashboard .hero-node-label-crypto { top: 8px; left: 156px; }
+  .app.app-shell-dashboard .hero-node-label-transfer { top: 122px; right: -4px; }
+
+  .app.app-shell-dashboard .workspace-header .title {
+    max-width: none;
+    font-size: clamp(2.5rem, 14vw, 3.4rem);
+  }
+
+  .app.app-shell-dashboard .workspace-spotlight,
+  .app.app-shell-dashboard .workspace-command-deck,
+  .app.app-shell-dashboard #room-controls,
+  .app.app-shell-dashboard #transfer-controls,
+  .app.app-shell-dashboard .workspace-column-side > *,
+  .app.app-shell-dashboard .footer {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .app.app-shell-dashboard .product-bar-link,
+  .app.app-shell-dashboard .product-bar-chip,
+  .app.app-shell-dashboard .product-signal,
+  .app.app-shell-dashboard button,
+  .app.app-shell-dashboard .buttonlike {
+    width: 100%;
+  }
+}
+
+@keyframes productPulseWarm {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 183, 124, 0.18), 0 0 16px rgba(255, 183, 124, 0.34); }
+  50% { box-shadow: 0 0 0 8px rgba(255, 183, 124, 0), 0 0 24px rgba(255, 183, 124, 0.42); }
+}
+
+/* Final premium polish override block */
+.app.app-shell-dashboard .workspace-spotlight {
+  grid-column: 10 / span 3;
+  grid-template-columns: 1fr;
+  gap: 14px;
+}
+
+.app.app-shell-dashboard .workspace-command-deck {
+  grid-column: 1 / span 9;
+  grid-template-columns: 1.18fr 1fr 1fr;
+  grid-template-areas: "runtime flow authority";
+}
+
+.app.app-shell-dashboard .command-card-runtime {
+  min-height: 208px;
+}
+
+.app.app-shell-dashboard .command-card-title {
+  font-size: 1rem;
+}
+
+.app.app-shell-dashboard .command-card-copy,
+.app.app-shell-dashboard .command-card-status,
+.app.app-shell-dashboard .flow-current,
+.app.app-shell-dashboard .section-copy {
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.app.app-shell-dashboard .panel h3 {
+  font-size: 1.06rem;
+}
+
+.app.app-shell-dashboard .launchpad,
+.app.app-shell-dashboard .operator-console,
+.app.app-shell-dashboard .transfer-lock-banner,
+.app.app-shell-dashboard .transfer-action,
+.app.app-shell-dashboard .transfer-contract,
+.app.app-shell-dashboard .transfer-stream-card,
+.app.app-shell-dashboard .side-panel,
+.app.app-shell-dashboard .connection-detail-card,
+.app.app-shell-dashboard .receive-destination,
+.app.app-shell-dashboard .send-dropzone,
+.app.app-shell-dashboard .operator-console-grid > *,
+.app.app-shell-dashboard .transfer-advanced-grid > * {
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.app.app-shell-dashboard .launchpad:hover,
+.app.app-shell-dashboard .operator-console:hover,
+.app.app-shell-dashboard .transfer-lock-banner:hover,
+.app.app-shell-dashboard .transfer-action:hover,
+.app.app-shell-dashboard .transfer-contract:hover,
+.app.app-shell-dashboard .transfer-stream-card:hover,
+.app.app-shell-dashboard .side-panel:hover,
+.app.app-shell-dashboard .connection-detail-card:hover,
+.app.app-shell-dashboard .receive-destination:hover,
+.app.app-shell-dashboard .send-dropzone:hover,
+.app.app-shell-dashboard .operator-console-grid > *:hover,
+.app.app-shell-dashboard .transfer-advanced-grid > *:hover {
+  transform: translateY(-2px);
+  border-color: rgba(110, 201, 255, 0.22);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 26px 52px rgba(0, 0, 0, 0.24);
+}
+
+.app.app-shell-dashboard .panel-head p,
+.app.app-shell-dashboard .spotlight-copy,
+.app.app-shell-dashboard .command-card-copy,
+.app.app-shell-dashboard .flow-current {
+  color: rgba(188, 211, 228, 0.64);
+}
+
+.app.app-shell-dashboard .spotlight-copy,
+.app.app-shell-dashboard .command-card-copy,
+.app.app-shell-dashboard .flow-current,
+.app.app-shell-dashboard .transfer-stage-text,
+.app.app-shell-dashboard .transfer-action-copy {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+}
+
+.app.app-shell-dashboard .spotlight-copy,
+.app.app-shell-dashboard .command-card-copy {
+  -webkit-line-clamp: 3;
+}
+
+.app.app-shell-dashboard .flow-current,
+.app.app-shell-dashboard .transfer-stage-text,
+.app.app-shell-dashboard .transfer-action-copy {
+  -webkit-line-clamp: 2;
+}
+
+.app.app-shell-dashboard .send-progress,
+.app.app-shell-dashboard .ledger-summary,
+.app.app-shell-dashboard .activity-kinds,
+.app.app-shell-dashboard .activity-controls .row {
+  gap: 8px;
+}
+
+.app.app-shell-dashboard .activity-controls .row {
+  flex-wrap: wrap;
+}
+
+.app.app-shell-dashboard .send-progress-chip,
+.app.app-shell-dashboard .transfer-lock-chip {
+  backdrop-filter: blur(8px);
+}
+
+.app.app-shell-dashboard .footer {
+  opacity: 0.56;
+}
+
+@media (max-width: 1500px) {
+  .app.app-shell-dashboard .workspace-spotlight {
+    grid-column: 1 / span 8;
+    grid-template-columns: 1.2fr 1fr;
+  }
+
+  .app.app-shell-dashboard .workspace-command-deck {
+    grid-column: 1 / span 8;
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "runtime"
+      "flow"
+      "authority";
+  }
+}
+
+@keyframes productPulseCyan {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(99, 218, 251, 0.18), 0 0 16px rgba(99, 218, 251, 0.32); }
+  50% { box-shadow: 0 0 0 8px rgba(99, 218, 251, 0), 0 0 24px rgba(99, 218, 251, 0.44); }
+}
+
+@keyframes productPulseMint {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(94, 241, 192, 0.18), 0 0 16px rgba(94, 241, 192, 0.32); }
+  50% { box-shadow: 0 0 0 8px rgba(94, 241, 192, 0), 0 0 24px rgba(94, 241, 192, 0.44); }
+}
+
+@keyframes traceBars {
+  0%, 100% { opacity: 0.68; transform: scaleY(0.86); }
+  50% { opacity: 1; transform: scaleY(1.08); }
+}
+
+@keyframes premiumSweep {
+  0% { transform: translateX(-130%); opacity: 0; }
+  18% { opacity: 0.42; }
+  100% { transform: translateX(160%); opacity: 0; }
+}
+
+@keyframes ambientFloat {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(0, -8px, 0) scale(1.012); }
+}
+
+@keyframes panelPulse {
+  0%, 100% { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 18px 44px rgba(0, 0, 0, 0.2); }
+  50% { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 24px 54px rgba(0, 0, 0, 0.24); }
+}
+
+/* Landing art direction override */
+.app.app-shell-landing {
+  width: min(1860px, calc(100vw - 32px));
+  margin: 0 auto;
+  padding: 16px 0 56px;
+  color: var(--premium-title);
+  background:
+    radial-gradient(circle at 14% 12%, rgba(65, 153, 221, 0.16), transparent 22%),
+    radial-gradient(circle at 86% 14%, rgba(84, 241, 192, 0.08), transparent 24%),
+    linear-gradient(180deg, #040b12 0%, #07111a 48%, #07131d 100%);
+}
+
+.app.app-shell-landing .product-bar {
+  position: sticky;
+  top: 12px;
+  z-index: 20;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 24px;
+  min-height: 78px;
+  padding: 0 18px 0 14px;
+  border-radius: 22px;
+  border: 1px solid rgba(129, 174, 206, 0.14);
+  background:
+    linear-gradient(180deg, rgba(10, 20, 30, 0.74), rgba(8, 16, 25, 0.9)),
+    radial-gradient(circle at 14% 50%, rgba(86, 185, 255, 0.1), transparent 18%);
+  box-shadow: var(--premium-shadow);
+  backdrop-filter: blur(18px) saturate(140%);
+}
+
+.app.app-shell-landing .landing-stage-title {
+  background: linear-gradient(180deg, rgba(247, 252, 255, 0.98), rgba(166, 220, 245, 0.78));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-wrap: balance;
+}
+
+.app.app-shell-landing .landing-stage-subtitle,
+.app.app-shell-landing .landing-architecture-card p,
+.app.app-shell-landing .landing-command-card p,
+.app.app-shell-landing .landing-sequence-list span {
+  color: rgba(196, 216, 233, 0.72);
+}
+
+.app.app-shell-landing .landing-stage,
+.app.app-shell-landing .landing-architecture-card,
+.app.app-shell-landing .landing-command-card,
+.app.app-shell-landing .landing-visual-shell {
+  border-color: rgba(129, 174, 206, 0.14);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 24px 58px rgba(0, 0, 0, 0.24);
+}
+
+.app.app-shell-landing .landing-stage,
+.app.app-shell-landing .landing-visual-shell {
+  animation: ambientFloat 10s ease-in-out infinite;
+}
+
+.app.app-shell-landing .landing-visual-shell {
+  position: relative;
+  overflow: hidden;
+}
+
+.app.app-shell-landing .landing-visual-shell::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 0%, rgba(128, 225, 255, 0.14) 48%, transparent 100%);
+  transform: translateX(-130%);
+  animation: premiumSweep 6.8s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.app.app-shell-landing .landing-signal-card,
+.app.app-shell-landing .landing-architecture-card,
+.app.app-shell-landing .landing-command-card {
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.app.app-shell-landing .landing-signal-card:hover,
+.app.app-shell-landing .landing-architecture-card:hover,
+.app.app-shell-landing .landing-command-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(99, 218, 251, 0.22);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 28px 62px rgba(0, 0, 0, 0.28);
+}
+
+.app.app-shell-landing .landing-bandwidth-graph span {
+  box-shadow:
+    0 0 32px rgba(99, 218, 251, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+/* Dashboard iconography and micro-motion */
+.app.app-shell-dashboard .console-nav-link,
+.app.app-shell-dashboard .section-label-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.app.app-shell-dashboard .console-nav-icon,
+.app.app-shell-dashboard .section-icon {
+  position: relative;
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  border-radius: 6px;
+  border: 1px solid rgba(122, 174, 205, 0.16);
+  background: linear-gradient(180deg, rgba(86, 185, 255, 0.14), rgba(86, 185, 255, 0.04));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.app.app-shell-dashboard .console-nav-icon::before,
+.app.app-shell-dashboard .console-nav-icon::after,
+.app.app-shell-dashboard .section-icon::before,
+.app.app-shell-dashboard .section-icon::after {
+  content: '';
+  position: absolute;
+}
+
+.app.app-shell-dashboard .console-nav-icon-session::before,
+.app.app-shell-dashboard .section-icon-session::before {
+  inset: 4px 3px 3px;
+  border-radius: 3px;
+  border: 1.4px solid rgba(230, 244, 255, 0.84);
+}
+
+.app.app-shell-dashboard .console-nav-icon-session::after,
+.app.app-shell-dashboard .section-icon-session::after {
+  left: 5px;
+  right: 5px;
+  top: 5px;
+  height: 2px;
+  border-radius: 999px;
+  background: rgba(99, 218, 251, 0.92);
+}
+
+.app.app-shell-dashboard .console-nav-icon-transfer::before,
+.app.app-shell-dashboard .section-icon-transfer::before,
+.app.app-shell-dashboard .section-icon-flow::before {
+  left: 4px;
+  right: 7px;
+  top: 8px;
+  height: 2px;
+  border-radius: 999px;
+  background: rgba(94, 241, 192, 0.94);
+}
+
+.app.app-shell-dashboard .console-nav-icon-transfer::after,
+.app.app-shell-dashboard .section-icon-transfer::after,
+.app.app-shell-dashboard .section-icon-flow::after {
+  right: 4px;
+  top: 6px;
+  width: 5px;
+  height: 5px;
+  border-top: 2px solid rgba(230, 244, 255, 0.9);
+  border-right: 2px solid rgba(230, 244, 255, 0.9);
+  transform: rotate(45deg);
+}
+
+.app.app-shell-dashboard .console-nav-icon-security::before,
+.app.app-shell-dashboard .section-icon-security::before {
+  left: 5px;
+  right: 5px;
+  top: 3px;
+  bottom: 4px;
+  border-radius: 0 0 6px 6px;
+  border: 1.4px solid rgba(230, 244, 255, 0.88);
+  clip-path: polygon(50% 0%, 100% 16%, 88% 78%, 50% 100%, 12% 78%, 0% 16%);
+}
+
+.app.app-shell-dashboard .console-nav-icon-network::before,
+.app.app-shell-dashboard .section-icon-network::before {
+  left: 4px;
+  top: 4px;
+  width: 3px;
+  height: 3px;
+  border-radius: 999px;
+  background: rgba(99, 218, 251, 0.96);
+  box-shadow:
+    7px 2px 0 rgba(230, 244, 255, 0.88),
+    2px 8px 0 rgba(94, 241, 192, 0.92);
+}
+
+.app.app-shell-dashboard .console-nav-icon-network::after,
+.app.app-shell-dashboard .section-icon-network::after {
+  left: 6px;
+  top: 7px;
+  width: 8px;
+  height: 1.5px;
+  background: rgba(230, 244, 255, 0.82);
+  transform: rotate(-26deg);
+  box-shadow: -3px 6px 0 rgba(230, 244, 255, 0.72);
+}
+
+.app.app-shell-dashboard .console-nav-icon-activity::before,
+.app.app-shell-dashboard .section-icon-activity::before,
+.app.app-shell-dashboard .section-icon-ledger::before {
+  left: 4px;
+  bottom: 4px;
+  width: 2px;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(99, 218, 251, 0.96);
+  box-shadow:
+    4px -2px 0 rgba(230, 244, 255, 0.88),
+    8px -5px 0 rgba(94, 241, 192, 0.92);
+}
+
+.app.app-shell-dashboard .console-nav-icon-activity::after,
+.app.app-shell-dashboard .section-icon-activity::after,
+.app.app-shell-dashboard .section-icon-ledger::after {
+  left: 3px;
+  right: 3px;
+  bottom: 3px;
+  height: 1px;
+  background: rgba(230, 244, 255, 0.48);
+}
+
+.app.app-shell-dashboard .hero-stat-card,
+.app.app-shell-dashboard .spotlight-card,
+.app.app-shell-dashboard .command-card {
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.app.app-shell-dashboard .hero-stat-card:hover,
+.app.app-shell-dashboard .spotlight-card:hover,
+.app.app-shell-dashboard .command-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(99, 218, 251, 0.22);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 24px 48px rgba(0, 0, 0, 0.24);
+}
+
+.app.app-shell-dashboard .hero-stat-card {
+  animation: panelPulse 6.5s ease-in-out infinite;
+}
+
+.app.app-shell-dashboard .workspace-column-side .side-panel {
+  background:
+    linear-gradient(180deg, rgba(11, 23, 35, 0.98), rgba(7, 15, 24, 0.98)),
+    radial-gradient(circle at 100% 0%, rgba(96, 214, 255, 0.05), transparent 24%);
+}
+
+.app.app-shell-dashboard .transfer-stream-card,
+.app.app-shell-dashboard .transfer-contract,
+.app.app-shell-dashboard .operator-console {
+  background:
+    linear-gradient(180deg, rgba(11, 23, 35, 0.98), rgba(7, 15, 24, 0.98)),
+    radial-gradient(circle at 0% 0%, rgba(94, 241, 192, 0.04), transparent 24%);
+}
+
+/* Readability and alignment correction pass */
+body {
+  scroll-padding-top: 28px;
+}
+
+.app.app-shell-dashboard {
+  --premium-copy: rgba(212, 227, 239, 0.9);
+  --premium-copy-soft: rgba(189, 209, 226, 0.78);
+}
+
+.app.app-shell-dashboard #room-controls,
+.app.app-shell-dashboard #transfer-controls,
+.app.app-shell-dashboard #flow-guide,
+.app.app-shell-dashboard #preflight-panel,
+.app.app-shell-dashboard #operator-console,
+.app.app-shell-dashboard #transfer-advanced {
+  scroll-margin-top: 28px;
+}
+
+.app.app-shell-dashboard .workspace-header,
+.app.app-shell-dashboard #room-controls,
+.app.app-shell-dashboard #transfer-controls,
+.app.app-shell-dashboard .workspace-column-side > *,
+.app.app-shell-dashboard .launchpad,
+.app.app-shell-dashboard .operator-console,
+.app.app-shell-dashboard .transfer-stream-card,
+.app.app-shell-dashboard .transfer-contract,
+.app.app-shell-dashboard .side-panel,
+.app.app-shell-dashboard .connection-detail-card,
+.app.app-shell-dashboard .receive-destination,
+.app.app-shell-dashboard .send-dropzone,
+.app.app-shell-dashboard .operator-console-grid > *,
+.app.app-shell-dashboard .transfer-advanced-grid > * {
+  overflow: visible;
+}
+
+.app.app-shell-dashboard .panel h2,
+.app.app-shell-dashboard .section-heading h2,
+.app.app-shell-dashboard .command-card-eyebrow,
+.app.app-shell-dashboard .launchpad-mode-kicker,
+.app.app-shell-dashboard .spotlight-eyebrow,
+.app.app-shell-dashboard .spotlight-note-label,
+.app.app-shell-dashboard .hero-stat-label,
+.app.app-shell-dashboard .hero-visual-kicker,
+.app.app-shell-dashboard .product-brand-eyebrow,
+.app.app-shell-dashboard .product-signal-label {
+  font-size: 0.72rem;
+  letter-spacing: 0.16em;
+}
+
+.app.app-shell-dashboard .product-signal-meta,
+.app.app-shell-dashboard .panel-head p,
+.app.app-shell-dashboard .section-copy,
+.app.app-shell-dashboard .hint,
+.app.app-shell-dashboard .status,
+.app.app-shell-dashboard .launchpad-head p,
+.app.app-shell-dashboard .transfer-action-copy,
+.app.app-shell-dashboard .transfer-stage-text,
+.app.app-shell-dashboard .hero-stat-copy,
+.app.app-shell-dashboard .hero-trace-copy,
+.app.app-shell-dashboard .command-card-copy,
+.app.app-shell-dashboard .command-card-status,
+.app.app-shell-dashboard .flow-current,
+.app.app-shell-dashboard .send-dropzone-hint,
+.app.app-shell-dashboard .send-selection-summary,
+.app.app-shell-dashboard .send-gate-reason,
+.app.app-shell-dashboard .transfer-contract-list li,
+.app.app-shell-dashboard .activity-item,
+.app.app-shell-dashboard .preflight-row,
+.app.app-shell-dashboard .transfer-ledger-item {
+  color: var(--premium-copy);
+  font-size: 0.88rem;
+  line-height: 1.6;
+}
+
+.app.app-shell-dashboard .panel h3,
+.app.app-shell-dashboard .panel-head h3,
+.app.app-shell-dashboard .launchpad h3,
+.app.app-shell-dashboard .launchpad h4,
+.app.app-shell-dashboard .command-card-title,
+.app.app-shell-dashboard .spotlight-head h3,
+.app.app-shell-dashboard .transfer-action-head h3 {
+  font-size: 1.22rem;
+  line-height: 1.2;
+}
+
+.app.app-shell-dashboard .state-chip,
+.app.app-shell-dashboard .send-progress-chip,
+.app.app-shell-dashboard .ledger-summary-chip,
+.app.app-shell-dashboard .preflight-pill,
+.app.app-shell-dashboard .activity-kind-toggle,
+.app.app-shell-dashboard .launchpad-state,
+.app.app-shell-dashboard .authority-pill,
+.app.app-shell-dashboard .spotlight-pill,
+.app.app-shell-dashboard .spotlight-quiet,
+.app.app-shell-dashboard .transfer-lock-state,
+.app.app-shell-dashboard .transfer-action-state {
+  font-size: 0.68rem;
+}
+
+.app.app-shell-dashboard .product-bar-link,
+.app.app-shell-dashboard .product-bar-chip,
+.app.app-shell-dashboard button,
+.app.app-shell-dashboard .buttonlike {
+  font-size: 0.72rem;
+}
+
+.app.app-shell-dashboard .console-nav-link {
+  font-size: 0.72rem;
+}
+
+.app.app-shell-dashboard .spotlight-copy,
+.app.app-shell-dashboard .command-card-copy,
+.app.app-shell-dashboard .flow-current,
+.app.app-shell-dashboard .transfer-stage-text,
+.app.app-shell-dashboard .transfer-action-copy {
+  display: block;
+  overflow: visible;
+  -webkit-line-clamp: unset;
+  -webkit-box-orient: unset;
+}
+
+.app.app-shell-dashboard .operator-console-grid,
+.app.app-shell-dashboard .transfer-support-grid,
+.app.app-shell-dashboard .transfer-advanced-grid {
+  grid-template-columns: 1fr !important;
+}
+
+.app.app-shell-dashboard .transfer-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.app.app-shell-dashboard .transfer-support-grid,
+.app.app-shell-dashboard .operator-console-grid,
+.app.app-shell-dashboard .transfer-advanced-grid,
+.app.app-shell-dashboard .launchpad-mode-grid,
+.app.app-shell-dashboard .transfer-grid {
+  align-items: start;
+}
+
+.app.app-shell-dashboard .transfer-contract-list {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding-left: 18px;
+}
+
+.app.app-shell-dashboard .transfer-contract-list strong,
+.app.app-shell-dashboard .transfer-stage-title,
+.app.app-shell-dashboard .receive-destination-state,
+.app.app-shell-dashboard .product-brand-title,
+.app.app-shell-dashboard .product-signal-meta,
+.app.app-shell-dashboard .hero-stat-value,
+.app.app-shell-dashboard .section-heading h2,
+.app.app-shell-dashboard .panel h3 {
+  color: var(--premium-title);
+}
+
+.app.app-shell-dashboard .receive-destination,
+.app.app-shell-dashboard .connection-detail-card,
+.app.app-shell-dashboard .transfer-contract,
+.app.app-shell-dashboard .operator-console-grid > *,
+.app.app-shell-dashboard .transfer-advanced-grid > * {
+  padding: 18px;
+}
+
+.app.app-shell-dashboard .activity,
+.app.app-shell-dashboard .transfer-ledger,
+.app.app-shell-dashboard .diag {
+  min-height: 180px;
+}
+
+.app.app-shell-dashboard ::selection {
+  background: rgba(96, 196, 255, 0.92);
+  color: #031018;
+}
+
+.app.app-shell-dashboard .activity {
+  min-height: 220px;
+  max-height: 420px;
+  padding-right: 4px;
+}
+
+.app.app-shell-dashboard .activity-item {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  color: var(--premium-title);
+}
+
+.app.app-shell-dashboard .activity-time {
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: rgba(178, 225, 255, 0.98);
+  white-space: nowrap;
+}
+
+.app.app-shell-dashboard .activity-kind {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 8px;
+  border-radius: 8px;
+  border: 1px solid rgba(103, 194, 255, 0.22);
+  background: rgba(71, 146, 255, 0.16);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: #dff3ff;
+  white-space: nowrap;
+}
+
+.app.app-shell-dashboard .activity-kind-conn {
+  background: rgba(71, 146, 255, 0.16);
+  border-color: rgba(104, 176, 255, 0.24);
+}
+
+.app.app-shell-dashboard .activity-kind-transfer {
+  background: rgba(95, 241, 192, 0.14);
+  border-color: rgba(95, 241, 192, 0.22);
+  color: #d9fff0;
+}
+
+.app.app-shell-dashboard .activity-kind-receipt {
+  background: rgba(187, 153, 255, 0.16);
+  border-color: rgba(187, 153, 255, 0.24);
+  color: #efe7ff;
+}
+
+.app.app-shell-dashboard .activity-kind-warn {
+  background: rgba(255, 182, 108, 0.16);
+  border-color: rgba(255, 182, 108, 0.24);
+  color: #ffe9d1;
+}
+
+.app.app-shell-dashboard .activity-kind-status {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: #f4fbff;
+}
+
+.app.app-shell-dashboard .activity-msg {
+  min-width: 0;
+  font-size: 0.88rem;
+  line-height: 1.55;
+  color: rgba(226, 237, 245, 0.98);
+  word-break: break-word;
+}
+
+.app.app-shell-dashboard .activity-kind-toggle {
+  color: rgba(228, 240, 248, 0.94);
+}
+
+.app.app-shell-dashboard .activity-kind-toggle input {
+  accent-color: #58c7ff;
+}
+
+.app.app-shell-dashboard .activity-controls {
+  gap: 14px;
+}
+
+.app.app-shell-dashboard .workspace-column-side > * {
+  min-height: auto;
+}
+
+@media (min-width: 1501px) {
+  .app.app-shell-dashboard .workspace-command-deck {
+    grid-column: 1 / span 8;
+    grid-template-columns: 1.25fr 1fr;
+    grid-template-areas:
+      "runtime flow"
+      "runtime authority";
+  }
+
+  .app.app-shell-dashboard .workspace-spotlight {
+    grid-column: 9 / span 4;
+    grid-template-columns: 1fr;
+  }
+
+  .app.app-shell-dashboard #room-controls {
+    grid-column: 1 / span 5;
+  }
+
+  .app.app-shell-dashboard #transfer-controls {
+    grid-column: 6 / span 5;
+  }
+
+  .app.app-shell-dashboard .workspace-column-side {
+    grid-column: 11 / span 2;
+  }
+}
+
+/* Whole-app contrast and readability hardening */
+.app.app-shell-dashboard {
+  --premium-copy: rgba(229, 239, 247, 0.96);
+  --premium-copy-soft: rgba(203, 218, 230, 0.88);
+  --premium-border: rgba(144, 190, 222, 0.18);
+  --premium-border-strong: rgba(112, 205, 255, 0.3);
+}
+
+.app.app-shell-dashboard,
+.app.app-shell-dashboard .panel,
+.app.app-shell-dashboard .side-panel,
+.app.app-shell-dashboard .spotlight-card,
+.app.app-shell-dashboard .command-card,
+.app.app-shell-dashboard .launchpad,
+.app.app-shell-dashboard .operator-console,
+.app.app-shell-dashboard .transfer-lock-banner,
+.app.app-shell-dashboard .transfer-action,
+.app.app-shell-dashboard .transfer-contract,
+.app.app-shell-dashboard .transfer-stream-card,
+.app.app-shell-dashboard .receive-destination,
+.app.app-shell-dashboard .send-dropzone,
+.app.app-shell-dashboard .connection-detail-card,
+.app.app-shell-dashboard .operator-console-grid > *,
+.app.app-shell-dashboard .transfer-advanced-grid > * {
+  color: var(--premium-title);
+}
+
+.app.app-shell-dashboard .product-brand-eyebrow,
+.app.app-shell-dashboard .hero-stat-label,
+.app.app-shell-dashboard .hero-visual-kicker,
+.app.app-shell-dashboard .spotlight-eyebrow,
+.app.app-shell-dashboard .spotlight-note-label,
+.app.app-shell-dashboard .command-card-eyebrow,
+.app.app-shell-dashboard .launchpad-mode-kicker,
+.app.app-shell-dashboard .panel h2,
+.app.app-shell-dashboard .panel h3,
+.app.app-shell-dashboard .flow-guide-head h3,
+.app.app-shell-dashboard .header-chip,
+.app.app-shell-dashboard .hero-pipeline-chip,
+.app.app-shell-dashboard .transfer-lock-chip,
+.app.app-shell-dashboard .product-bar-chip,
+.app.app-shell-dashboard .product-bar-link,
+.app.app-shell-dashboard .state-chip,
+.app.app-shell-dashboard .send-progress-chip,
+.app.app-shell-dashboard .ledger-summary-chip,
+.app.app-shell-dashboard .preflight-pill,
+.app.app-shell-dashboard .launchpad-state,
+.app.app-shell-dashboard .authority-pill,
+.app.app-shell-dashboard .spotlight-pill,
+.app.app-shell-dashboard .spotlight-quiet,
+.app.app-shell-dashboard .transfer-action-state,
+.app.app-shell-dashboard .transfer-lock-state,
+.app.app-shell-dashboard .activity-kind-toggle {
+  color: rgba(240, 247, 252, 0.96);
+}
+
+.app.app-shell-dashboard .section-copy,
+.app.app-shell-dashboard .hint,
+.app.app-shell-dashboard .status,
+.app.app-shell-dashboard .panel-head p,
+.app.app-shell-dashboard .launchpad-head p,
+.app.app-shell-dashboard .transfer-action-copy,
+.app.app-shell-dashboard .transfer-stage-text,
+.app.app-shell-dashboard .command-card-copy,
+.app.app-shell-dashboard .command-card-status,
+.app.app-shell-dashboard .flow-current,
+.app.app-shell-dashboard .hero-stat-copy,
+.app.app-shell-dashboard .hero-trace-copy,
+.app.app-shell-dashboard .product-signal-meta,
+.app.app-shell-dashboard .send-dropzone-hint,
+.app.app-shell-dashboard .send-selection-summary,
+.app.app-shell-dashboard .send-gate-reason,
+.app.app-shell-dashboard .transfer-contract-list li,
+.app.app-shell-dashboard .preflight-row,
+.app.app-shell-dashboard .transfer-ledger-item,
+.app.app-shell-dashboard #activity-count {
+  color: var(--premium-copy) !important;
+}
+
+.app.app-shell-dashboard .hint,
+.app.app-shell-dashboard .status,
+.app.app-shell-dashboard .panel-head p,
+.app.app-shell-dashboard .launchpad-head p,
+.app.app-shell-dashboard .transfer-action-copy,
+.app.app-shell-dashboard .transfer-stage-text,
+.app.app-shell-dashboard .command-card-copy,
+.app.app-shell-dashboard .command-card-status,
+.app.app-shell-dashboard .flow-current,
+.app.app-shell-dashboard .hero-stat-copy,
+.app.app-shell-dashboard .hero-trace-copy,
+.app.app-shell-dashboard .product-signal-meta,
+.app.app-shell-dashboard .send-dropzone-hint,
+.app.app-shell-dashboard .send-selection-summary,
+.app.app-shell-dashboard .send-gate-reason,
+.app.app-shell-dashboard .transfer-contract-list li,
+.app.app-shell-dashboard .activity-msg,
+.app.app-shell-dashboard .receive-destination-state {
+  font-size: 0.92rem;
+  line-height: 1.65;
+}
+
+.app.app-shell-dashboard input[type='text'],
+.app.app-shell-dashboard input[type='password'],
+.app.app-shell-dashboard input[type='search'],
+.app.app-shell-dashboard textarea,
+.app.app-shell-dashboard .diag {
+  color: rgba(246, 250, 255, 0.98);
+  border-color: rgba(119, 196, 247, 0.2);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.app.app-shell-dashboard input::placeholder,
+.app.app-shell-dashboard textarea::placeholder {
+  color: rgba(190, 210, 225, 0.72);
+  opacity: 1;
+}
+
+.app.app-shell-dashboard button,
+.app.app-shell-dashboard .buttonlike {
+  color: rgba(247, 251, 255, 0.97);
+  border-color: rgba(129, 189, 226, 0.2);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.app.app-shell-dashboard button:disabled,
+.app.app-shell-dashboard .buttonlike[aria-disabled='true'] {
+  opacity: 0.6;
+  color: rgba(220, 231, 239, 0.72);
+}
+
+.app.app-shell-dashboard .activity-item,
+.app.app-shell-dashboard .transfer-ledger-item,
+.app.app-shell-dashboard .preflight-row,
+.app.app-shell-dashboard .flow-step {
+  border-color: rgba(139, 188, 220, 0.14);
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.app.app-shell-dashboard .activity-msg,
+.app.app-shell-dashboard .transfer-ledger-item,
+.app.app-shell-dashboard .preflight-row,
+.app.app-shell-dashboard .flow-step,
+.app.app-shell-dashboard .activity-time,
+.app.app-shell-dashboard .ledger-meta,
+.app.app-shell-dashboard .ledger-name,
+.app.app-shell-dashboard .ledger-detail,
+.app.app-shell-dashboard .ledger-empty,
+.app.app-shell-dashboard .diag,
+.app.app-shell-dashboard .diag p,
+.app.app-shell-dashboard .diag label {
+  color: var(--premium-copy) !important;
+}
+
+.app.app-shell-dashboard .activity-kind-toggle {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(112, 191, 244, 0.18);
+}
+
+.app.app-shell-dashboard .activity-kind-toggle input {
+  accent-color: #6dd5ff;
+}
+
+.app.app-shell-dashboard .receive-destination,
+.app.app-shell-dashboard .connection-detail-card,
+.app.app-shell-dashboard .transfer-contract,
+.app.app-shell-dashboard .operator-console-grid > *,
+.app.app-shell-dashboard .transfer-advanced-grid > *,
+.app.app-shell-dashboard .transfer-action,
+.app.app-shell-dashboard .launchpad-mode,
+.app.app-shell-dashboard .invite-workbench,
+.app.app-shell-dashboard .connection-manual {
+  padding: 20px;
+}
+
+.app.app-shell-dashboard .operator-console-grid,
+.app.app-shell-dashboard .transfer-support-grid,
+.app.app-shell-dashboard .transfer-advanced-grid {
+  grid-template-columns: 1fr !important;
+}
+
+.app.app-shell-dashboard .activity-controls .row,
+.app.app-shell-dashboard .send-toolbar,
+.app.app-shell-dashboard .transfer-lock-chips,
+.app.app-shell-dashboard .send-progress,
+.app.app-shell-dashboard .ledger-summary,
+.app.app-shell-dashboard .activity-kinds {
+  row-gap: 10px;
+}
+
+.app.app-shell-dashboard .workspace-column-side > * {
+  min-width: 0;
+}
+
+@media (max-width: 1720px) {
+  .app.app-shell-dashboard .workspace-layout {
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+  }
+
+  .app.app-shell-dashboard #room-controls {
+    grid-column: 1 / span 5;
+  }
+
+  .app.app-shell-dashboard #transfer-controls {
+    grid-column: 6 / span 7;
+  }
+
+  .app.app-shell-dashboard .workspace-column-side {
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1480px) {
+  .app.app-shell-dashboard .workspace-layout {
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+  }
+
+  .app.app-shell-dashboard #room-controls,
+  .app.app-shell-dashboard #transfer-controls {
+    grid-column: 1 / -1;
+  }
+
+  .app.app-shell-dashboard .workspace-column-side {
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1080px) {
+  .app.app-shell-dashboard .workspace-column-side,
+  .app.app-shell-dashboard .transfer-grid,
+  .app.app-shell-dashboard .launchpad-mode-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 1320px) {
+  .app.app-shell-dashboard #room-controls,
+  .app.app-shell-dashboard #transfer-controls,
+  .app.app-shell-dashboard .workspace-column-side {
+    grid-column: 1 / -1;
+  }
+
+  .app.app-shell-dashboard .workspace-column-side {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Final laptop-width reflow pass */
+@media (max-width: 1500px) and (min-width: 1181px) {
+  .app.app-shell-dashboard .console-nav {
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .app.app-shell-dashboard .console-nav-link {
+    min-height: 56px;
+    padding: 0 14px 0 18px;
+  }
+
+  .app.app-shell-dashboard .workspace-header {
+    grid-column: 1 / -1;
+  }
+
+  .app.app-shell-dashboard .workspace-spotlight {
+    grid-column: 1 / span 8;
+  }
+
+  .app.app-shell-dashboard .workspace-command-deck {
+    grid-column: 9 / span 4;
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "runtime"
+      "flow"
+      "authority";
+  }
+
+  .app.app-shell-dashboard #room-controls {
+    grid-column: 1 / span 5;
+  }
+
+  .app.app-shell-dashboard #transfer-controls {
+    grid-column: 6 / span 7;
+  }
+
+  .app.app-shell-dashboard .transfer-grid,
+  .app.app-shell-dashboard .transfer-support-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .app.app-shell-dashboard .workspace-column-side {
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(2, minmax(320px, 1fr));
+    align-items: start;
+  }
+
+  .app.app-shell-dashboard .workspace-column-side > * {
+    min-height: 100%;
+  }
+}
+
+@media (max-width: 1366px) and (min-width: 1181px) {
+  .app.app-shell-dashboard {
+    width: calc(100vw - 20px);
+  }
+
+  .app.app-shell-dashboard .workspace-spotlight,
+  .app.app-shell-dashboard .workspace-command-deck,
+  .app.app-shell-dashboard #room-controls,
+  .app.app-shell-dashboard #transfer-controls,
+  .app.app-shell-dashboard .workspace-column-side {
+    grid-column: 1 / -1;
+  }
+
+  .app.app-shell-dashboard .workspace-spotlight {
+    grid-template-columns: 1fr;
+  }
+
+  .app.app-shell-dashboard .workspace-column-side {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+}
+
+/* Final authoritative dashboard layout pass */
+@media (max-width: 1560px) and (min-width: 1181px) {
+  .app.app-shell-dashboard .product-bar {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 16px;
+  }
+
+  .app.app-shell-dashboard .workspace-header,
+  .app.app-shell-dashboard .console-nav,
+  .app.app-shell-dashboard .workspace-spotlight,
+  .app.app-shell-dashboard .workspace-command-deck,
+  .app.app-shell-dashboard #room-controls,
+  .app.app-shell-dashboard #transfer-controls,
+  .app.app-shell-dashboard .workspace-column-side {
+    grid-column: 1 / -1 !important;
+  }
+
+  .app.app-shell-dashboard .console-nav {
+    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+    gap: 10px;
+  }
+
+  .app.app-shell-dashboard .console-nav-link {
+    min-height: 56px;
+    padding: 0 14px 0 18px;
+  }
+
+  .app.app-shell-dashboard .workspace-spotlight {
+    grid-template-columns: 1fr !important;
+  }
+
+  .app.app-shell-dashboard .workspace-command-deck {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    grid-template-areas: "runtime flow authority" !important;
+  }
+
+  .app.app-shell-dashboard .transfer-grid,
+  .app.app-shell-dashboard .transfer-support-grid,
+  .app.app-shell-dashboard .launchpad-mode-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .app.app-shell-dashboard .workspace-column-side {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    align-items: start;
+  }
+
+  .app.app-shell-dashboard .workspace-column-side > * {
+    min-height: 100%;
+  }
+}
+
+@media (max-width: 1320px) and (min-width: 1181px) {
+  .app.app-shell-dashboard .workspace-command-deck {
+    grid-template-columns: 1fr !important;
+    grid-template-areas:
+      "runtime"
+      "flow"
+      "authority" !important;
+  }
+
+  .app.app-shell-dashboard .workspace-column-side {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* Premium landing integration */
+.app.app-shell-landing {
+  position: relative;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 10% 14%, rgba(24, 108, 191, 0.28), transparent 26%),
+    radial-gradient(circle at 88% 12%, rgba(0, 212, 255, 0.16), transparent 24%),
+    radial-gradient(circle at 50% 110%, rgba(23, 211, 170, 0.14), transparent 30%),
+    linear-gradient(180deg, #020617 0%, #04101a 52%, #020915 100%);
+  color: #f2f8ff;
+}
+
+.app.app-shell-landing::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.018) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.018) 1px, transparent 1px);
+  background-size: 72px 72px;
+  mask-image: radial-gradient(circle at 50% 30%, rgba(0, 0, 0, 0.85), transparent 84%);
+  opacity: 0.42;
+  z-index: 0;
+}
+
+.app.app-shell-landing .product-bar {
+  position: fixed;
+  inset: 18px 24px auto;
+  z-index: 40;
+  display: grid;
+  grid-template-columns: auto minmax(280px, 1fr) auto;
+  align-items: center;
+  gap: 18px;
+  padding: 14px 18px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 22px;
+  background: rgba(5, 12, 22, 0.76);
+  backdrop-filter: blur(22px);
+  box-shadow: 0 24px 72px rgba(0, 0, 0, 0.38);
+}
+
+.app.app-shell-landing .product-brand-mark {
+  background: linear-gradient(180deg, rgba(22, 112, 180, 0.85), rgba(9, 53, 89, 0.95));
+  box-shadow: 0 0 0 1px rgba(118, 220, 255, 0.24), 0 16px 32px rgba(0, 0, 0, 0.28);
+}
+
+.app.app-shell-landing .product-brand-eyebrow {
+  color: rgba(177, 233, 255, 0.48);
+}
+
+.app.app-shell-landing .product-brand-title {
+  color: #f7fbff;
+}
+
+.app.app-shell-landing .product-signal {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 18px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.app.app-shell-landing .product-signal-label {
+  color: #fbfdff;
+}
+
+.app.app-shell-landing .product-signal-meta {
+  color: rgba(210, 226, 241, 0.66);
+}
+
+.app.app-shell-landing .product-bar-actions {
+  gap: 10px;
+}
+
+.app.app-shell-landing .product-bar-link,
+.app.app-shell-landing .product-bar-chip {
+  border-radius: 999px;
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.035);
+  color: rgba(244, 250, 255, 0.82);
+}
+
+.app.app-shell-landing .product-bar-link:hover {
+  border-color: rgba(99, 215, 255, 0.3);
+  background: rgba(99, 215, 255, 0.1);
+}
+
+.app.app-shell-landing .product-bar-chip-live {
+  border-color: rgba(255, 163, 108, 0.3);
+  background: rgba(255, 131, 79, 0.09);
+}
+
+.app.app-shell-landing .landing-shell {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(72px, 7vw, 112px);
+  padding: 120px 0 128px;
+}
+
+.app.app-shell-landing [data-landing-section] {
+  scroll-margin-top: 120px;
+}
+
+.app.app-shell-landing .landing-cinematic,
+.app.app-shell-landing .landing-pipeline-section,
+.app.app-shell-landing .landing-memory-section,
+.app.app-shell-landing .landing-preview-section,
+.app.app-shell-landing .landing-principles-section,
+.app.app-shell-landing .landing-trust-section,
+.app.app-shell-landing .landing-final-section {
+  position: relative;
+  width: 100%;
+}
+
+.app.app-shell-landing .landing-cinematic {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  align-items: stretch;
+  gap: 24px;
+  min-height: calc(100svh - 138px);
+  padding: 24px 32px 12px;
+}
+
+.app.app-shell-landing .landing-cinematic-copy {
+  grid-column: 1 / span 5;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-self: center;
+  padding: 32px 0;
+}
+
+.app.app-shell-landing .landing-cinematic-kicker,
+.app.app-shell-landing .landing-section-kicker {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: rgba(177, 233, 255, 0.56);
+}
+
+.app.app-shell-landing .landing-cinematic-title {
+  margin: 20px 0 0;
+  max-width: 8.5ch;
+  font-size: clamp(4.2rem, 8vw, 8.4rem);
+  font-weight: 700;
+  line-height: 0.88;
+  letter-spacing: -0.08em;
+  text-transform: uppercase;
+  color: #f9fcff;
+  text-wrap: balance;
+}
+
+.app.app-shell-landing .landing-cinematic-subtitle {
+  margin: 28px 0 0;
+  max-width: 34rem;
+  font-size: 1.125rem;
+  line-height: 1.9;
+  color: rgba(228, 237, 246, 0.72);
+}
+
+.app.app-shell-landing .landing-cinematic-actions,
+.app.app-shell-landing .landing-final-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 36px;
+}
+
+.app.app-shell-landing .landing-cinematic-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 52px;
+  padding: 0 26px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: rgba(244, 250, 255, 0.84);
+  text-decoration: none;
+  background: rgba(255, 255, 255, 0.03);
+  transition: transform 160ms ease, border-color 160ms ease, background-color 160ms ease, box-shadow 160ms ease;
+}
+
+.app.app-shell-landing .landing-cinematic-action:hover {
+  transform: translateY(-2px);
+}
+
+.app.app-shell-landing .landing-cinematic-action-primary {
+  border-color: rgba(69, 215, 255, 0.36);
+  background: rgba(69, 215, 255, 0.12);
+  box-shadow: 0 18px 42px rgba(7, 124, 179, 0.18);
+}
+
+.app.app-shell-landing .landing-cinematic-action-primary:hover {
+  border-color: rgba(129, 234, 255, 0.52);
+  background: rgba(69, 215, 255, 0.18);
+}
+
+.app.app-shell-landing .landing-cinematic-action-secondary:hover {
+  border-color: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.app.app-shell-landing .landing-cinematic-proofstrip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 32px;
+}
+
+.app.app-shell-landing .landing-proof-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.035);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(235, 244, 250, 0.78);
+}
+
+.app.app-shell-landing .landing-proof-pill i {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #63eaff;
+  box-shadow: 0 0 18px rgba(69, 215, 255, 0.68);
+}
+
+.app.app-shell-landing .landing-cinematic-visual {
+  grid-column: 6 / -1;
+  display: flex;
+  flex-direction: column;
+  justify-content: stretch;
+  min-height: 760px;
+}
+
+.app.app-shell-landing .landing-cinematic-visual-stage {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 560px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 40px;
+  background:
+    radial-gradient(circle at 54% 42%, rgba(34, 91, 180, 0.45), transparent 28%),
+    radial-gradient(circle at 74% 68%, rgba(35, 216, 255, 0.18), transparent 22%),
+    linear-gradient(180deg, rgba(12, 22, 36, 0.95), rgba(5, 11, 18, 0.92));
+  box-shadow: 0 40px 120px rgba(0, 0, 0, 0.45);
+}
+
+.app.app-shell-landing .landing-cinematic-visual-stage::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: 0.16;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.08) 1px, transparent 1px);
+  background-size: 56px 56px;
+}
+
+.app.app-shell-landing .landing-network-grid {
+  position: absolute;
+  inset: 8% 8% 190px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 30px;
+  background:
+    radial-gradient(circle at 48% 42%, rgba(46, 151, 255, 0.18), transparent 24%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent 28%);
+}
+
+.app.app-shell-landing .landing-network-link,
+.app.app-shell-landing .landing-packet,
+.app.app-shell-landing .landing-network-node {
+  position: absolute;
+  z-index: 1;
+}
+
+.app.app-shell-landing .landing-network-link {
+  height: 1px;
+  transform-origin: left center;
+}
+
+.app.app-shell-landing .landing-network-link-a {
+  left: 16%;
+  top: 61%;
+  width: 30%;
+  transform: rotate(8deg);
+  background: linear-gradient(90deg, rgba(99, 234, 255, 0.6), transparent);
+}
+
+.app.app-shell-landing .landing-network-link-b {
+  left: 42%;
+  top: 43%;
+  width: 22%;
+  transform: rotate(-16deg);
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.42), rgba(99, 234, 255, 0.65));
+}
+
+.app.app-shell-landing .landing-network-link-c {
+  left: 58%;
+  top: 60%;
+  width: 18%;
+  transform: rotate(18deg);
+  background: linear-gradient(90deg, rgba(99, 234, 255, 0.56), rgba(82, 233, 173, 0.58));
+}
+
+.app.app-shell-landing .landing-network-node {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  transform: translate(-50%, -50%);
+}
+
+.app.app-shell-landing .landing-network-node b {
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  box-shadow: 0 0 0 10px rgba(69, 215, 255, 0.08), 0 0 40px rgba(69, 215, 255, 0.35);
+}
+
+.app.app-shell-landing .landing-network-node span {
+  white-space: nowrap;
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.app.app-shell-landing .landing-network-node-sender { left: 16%; top: 63%; }
+.app.app-shell-landing .landing-network-node-sender b { background: #63eaff; }
+.app.app-shell-landing .landing-network-node-signal { left: 44%; top: 43%; }
+.app.app-shell-landing .landing-network-node-signal b { background: #f6b268; }
+.app.app-shell-landing .landing-network-node-peer { left: 60%; top: 60%; }
+.app.app-shell-landing .landing-network-node-peer b { background: #56e9ad; }
+.app.app-shell-landing .landing-network-node-crypto { left: 76%; top: 26%; }
+.app.app-shell-landing .landing-network-node-crypto b { background: #98a6ff; }
+.app.app-shell-landing .landing-network-node-receiver { left: 85%; top: 64%; }
+.app.app-shell-landing .landing-network-node-receiver b { background: #71d7ff; }
+
+.app.app-shell-landing .landing-network-node-sender b,
+.app.app-shell-landing .landing-network-node-signal b,
+.app.app-shell-landing .landing-network-node-peer b,
+.app.app-shell-landing .landing-network-node-crypto b,
+.app.app-shell-landing .landing-network-node-receiver b {
+  animation: landingNodePulse 2.8s ease-in-out infinite;
+}
+
+.app.app-shell-landing .landing-packet {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: #d7f8ff;
+  box-shadow: 0 0 20px rgba(113, 240, 255, 0.95);
+}
+
+.app.app-shell-landing .landing-packet-a {
+  left: 18%;
+  top: 59%;
+  animation: landingPacketTravel 3.6s ease-in-out infinite;
+}
+
+.app.app-shell-landing .landing-packet-b {
+  left: 18%;
+  top: 59%;
+  animation: landingPacketTravel 3.6s ease-in-out infinite 1.2s;
+}
+
+.app.app-shell-landing .landing-packet-c {
+  left: 18%;
+  top: 59%;
+  animation: landingPacketTravel 3.6s ease-in-out infinite 2.4s;
+}
+
+.app.app-shell-landing .landing-cinematic-strip {
+  position: absolute;
+  left: 32px;
+  right: 32px;
+  bottom: 28px;
+  z-index: 3;
+  display: grid;
+  grid-template-columns: 1.08fr 0.92fr;
+  gap: 20px;
+  padding: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 28px;
+  background: linear-gradient(180deg, rgba(7, 16, 26, 0.86), rgba(7, 12, 21, 0.92));
+  backdrop-filter: blur(18px);
+}
+
+.app.app-shell-landing .landing-strip-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.app.app-shell-landing .landing-strip-card,
+.app.app-shell-landing .landing-strip-pulse {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.app.app-shell-landing .landing-strip-card {
+  padding: 18px 18px 16px;
+}
+
+.app.app-shell-landing .landing-strip-card span,
+.app.app-shell-landing .landing-strip-head span {
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.48);
+}
+
+.app.app-shell-landing .landing-strip-card strong {
+  display: block;
+  margin-top: 10px;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: #ffffff;
+}
+
+.app.app-shell-landing .landing-strip-pulse {
+  padding: 18px;
+}
+
+.app.app-shell-landing .landing-strip-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.app.app-shell-landing .landing-pulse-bars {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 8px;
+  align-items: end;
+  min-height: 94px;
+  margin-top: 16px;
+}
+
+.app.app-shell-landing .landing-pulse-bars span {
+  display: block;
+  border-radius: 999px 999px 6px 6px;
+  background: linear-gradient(180deg, rgba(122, 238, 184, 0.9), rgba(92, 198, 255, 0.58));
+  animation: landingBarPulse 1.7s ease-in-out infinite;
+}
+
+.app.app-shell-landing .landing-pulse-bars span:nth-child(1) { height: 32px; animation-delay: 0s; }
+.app.app-shell-landing .landing-pulse-bars span:nth-child(2) { height: 44px; animation-delay: .06s; }
+.app.app-shell-landing .landing-pulse-bars span:nth-child(3) { height: 40px; animation-delay: .12s; }
+.app.app-shell-landing .landing-pulse-bars span:nth-child(4) { height: 56px; animation-delay: .18s; }
+.app.app-shell-landing .landing-pulse-bars span:nth-child(5) { height: 48px; animation-delay: .24s; }
+.app.app-shell-landing .landing-pulse-bars span:nth-child(6) { height: 64px; animation-delay: .3s; }
+.app.app-shell-landing .landing-pulse-bars span:nth-child(7) { height: 58px; animation-delay: .36s; }
+.app.app-shell-landing .landing-pulse-bars span:nth-child(8) { height: 72px; animation-delay: .42s; }
+.app.app-shell-landing .landing-pulse-bars span:nth-child(9) { height: 66px; animation-delay: .48s; }
+.app.app-shell-landing .landing-pulse-bars span:nth-child(10) { height: 70px; animation-delay: .54s; }
+.app.app-shell-landing .landing-pulse-bars span:nth-child(11) { height: 62px; animation-delay: .6s; }
+.app.app-shell-landing .landing-pulse-bars span:nth-child(12) { height: 74px; animation-delay: .66s; }
+
+.app.app-shell-landing .landing-pipeline-section,
+.app.app-shell-landing .landing-memory-section,
+.app.app-shell-landing .landing-preview-section,
+.app.app-shell-landing .landing-principles-section,
+.app.app-shell-landing .landing-trust-section,
+.app.app-shell-landing .landing-final-section {
+  padding-left: 32px;
+  padding-right: 32px;
+}
+
+.app.app-shell-landing .landing-pipeline-section,
+.app.app-shell-landing .landing-memory-section,
+.app.app-shell-landing .landing-preview-section,
+.app.app-shell-landing .landing-principles-section,
+.app.app-shell-landing .landing-trust-section {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 24px;
+  max-width: 1760px;
+  margin: 0 auto;
+}
+
+.app.app-shell-landing .landing-section-copy {
+  grid-column: 1 / span 3;
+  display: grid;
+  align-content: start;
+  gap: 18px;
+  max-width: 24rem;
+}
+
+.app.app-shell-landing .landing-section-title {
+  margin: 0;
+  max-width: 7.5ch;
+  font-size: clamp(2.4rem, 4vw, 4.15rem);
+  font-weight: 700;
+  line-height: 0.94;
+  letter-spacing: -0.055em;
+  text-transform: uppercase;
+  color: #ffffff;
+  text-wrap: balance;
+}
+
+.app.app-shell-landing .landing-section-subtitle {
+  margin: 0;
+  max-width: 28rem;
+  font-size: 1.0625rem;
+  line-height: 1.8;
+  color: rgba(227, 237, 246, 0.62);
+}
+
+.app.app-shell-landing .landing-pipeline-section {
+  align-items: start;
+}
+
+.app.app-shell-landing .landing-pipeline-section .landing-section-copy,
+.app.app-shell-landing .landing-principles-section .landing-section-copy {
+  grid-column: 1 / span 5;
+  grid-row: 1;
+  max-width: 40rem;
+}
+
+.app.app-shell-landing .landing-preview-section .landing-section-copy {
+  grid-column: 1 / span 6;
+  grid-row: 1;
+  max-width: 44rem;
+}
+
+.app.app-shell-landing .landing-pipeline-section .landing-section-title,
+.app.app-shell-landing .landing-principles-section .landing-section-title,
+.app.app-shell-landing .landing-preview-section .landing-section-title {
+  max-width: 6.8ch;
+  font-size: clamp(2.3rem, 3.8vw, 3.8rem);
+}
+
+.app.app-shell-landing .landing-pipeline-section .landing-section-title,
+.app.app-shell-landing .landing-principles-section .landing-section-title {
+  max-width: 6.2ch;
+}
+
+.app.app-shell-landing .landing-pipeline-grid {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 16px;
+  align-items: stretch;
+  margin-top: 8px;
+}
+
+.app.app-shell-landing .landing-pipeline-step {
+  position: relative;
+  overflow: hidden;
+  padding: 22px 22px 26px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 28px;
+  background: linear-gradient(180deg, rgba(12, 22, 36, 0.82), rgba(6, 13, 21, 0.92));
+}
+
+.app.app-shell-landing .landing-pipeline-step::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto auto 0;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(90deg, #63eaff, #7cb8ff, #60edc7);
+  animation: landingSweepLine 2.4s ease-in-out infinite;
+  opacity: 0.7;
+}
+
+.app.app-shell-landing .landing-pipeline-step span {
+  font-size: 10px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.42);
+}
+
+.app.app-shell-landing .landing-pipeline-step strong {
+  display: block;
+  margin-top: 24px;
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: #ffffff;
+}
+
+.app.app-shell-landing .landing-pipeline-step p {
+  margin: 18px 0 0;
+  font-size: 14px;
+  line-height: 1.7;
+  color: rgba(229, 238, 246, 0.62);
+}
+
+.app.app-shell-landing .landing-memory-diagram {
+  grid-column: 1 / span 7;
+  overflow: hidden;
+  padding: 32px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 40px;
+  background: linear-gradient(180deg, rgba(11, 22, 36, 0.92), rgba(5, 10, 17, 0.96));
+  box-shadow: 0 40px 120px rgba(0, 0, 0, 0.45);
+}
+
+.app.app-shell-landing .landing-memory-flow {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 24px;
+  margin-top: 36px;
+}
+
+.app.app-shell-landing .landing-memory-terminal {
+  padding: 26px 24px;
+  text-align: center;
+  border: 1px solid rgba(99, 234, 255, 0.2);
+  border-radius: 28px;
+  background: rgba(99, 234, 255, 0.08);
+}
+
+.app.app-shell-landing .landing-memory-terminal span,
+.app.app-shell-landing .landing-memory-facts article span {
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: rgba(214, 244, 255, 0.62);
+}
+
+.app.app-shell-landing .landing-memory-terminal strong {
+  display: block;
+  margin-top: 10px;
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: #ffffff;
+}
+
+.app.app-shell-landing .landing-memory-core {
+  position: relative;
+  min-width: 340px;
+  min-height: 240px;
+}
+
+.app.app-shell-landing .landing-memory-stream {
+  position: absolute;
+  inset: 0;
+}
+
+.app.app-shell-landing .landing-memory-stream::before {
+  content: "";
+  position: absolute;
+  left: 18px;
+  right: 18px;
+  top: 50%;
+  height: 1px;
+  transform: translateY(-50%);
+  background: linear-gradient(90deg, rgba(99, 234, 255, 0.66), rgba(127, 193, 255, 0.72), rgba(86, 233, 173, 0.62));
+}
+
+.app.app-shell-landing .landing-memory-null {
+  position: absolute;
+  left: 50%;
+  top: 52%;
+  display: grid;
+  place-items: center;
+  gap: 12px;
+  width: 120px;
+  height: 120px;
+  transform: translate(-50%, -50%);
+  border: 1px solid rgba(255, 109, 109, 0.22);
+  border-radius: 999px;
+  background: rgba(255, 109, 109, 0.08);
+}
+
+.app.app-shell-landing .landing-memory-null span {
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: rgba(255, 207, 207, 0.7);
+}
+
+.app.app-shell-landing .landing-memory-null strong {
+  font-size: 44px;
+  color: rgba(255, 214, 214, 0.8);
+}
+
+.app.app-shell-landing .landing-memory-packet {
+  position: absolute;
+  left: 10%;
+  top: 49%;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: #d9faff;
+  box-shadow: 0 0 18px rgba(113, 240, 255, 0.92);
+}
+
+.app.app-shell-landing .landing-memory-packet-a { animation: landingMemoryPacket 2.8s ease-in-out infinite; }
+.app.app-shell-landing .landing-memory-packet-b { animation: landingMemoryPacket 2.8s ease-in-out infinite 0.9s; }
+.app.app-shell-landing .landing-memory-packet-c { animation: landingMemoryPacket 2.8s ease-in-out infinite 1.8s; }
+
+.app.app-shell-landing .landing-memory-facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 32px;
+}
+
+.app.app-shell-landing .landing-memory-facts article,
+.app.app-shell-landing .landing-memory-copy-card {
+  padding: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.app.app-shell-landing .landing-memory-facts article p {
+  margin: 16px 0 0;
+  font-size: 14px;
+  line-height: 1.7;
+  color: rgba(228, 238, 247, 0.68);
+}
+
+.app.app-shell-landing .landing-memory-copy {
+  grid-column: 8 / -1;
+  display: grid;
+  gap: 20px;
+}
+
+.app.app-shell-landing .landing-memory-list {
+  display: grid;
+  gap: 16px;
+  margin: 22px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.app.app-shell-landing .landing-memory-list li {
+  position: relative;
+  padding-left: 24px;
+  font-size: 18px;
+  line-height: 1.6;
+  color: rgba(242, 248, 255, 0.82);
+}
+
+.app.app-shell-landing .landing-memory-list li::before {
+  content: "×";
+  position: absolute;
+  left: 0;
+  top: 0;
+  color: rgba(255, 160, 160, 0.8);
+}
+
+.app.app-shell-landing .landing-memory-copy-quote h3 {
+  margin: 18px 0 0;
+  font-size: clamp(2rem, 3.2vw, 3rem);
+  font-weight: 700;
+  line-height: 1.04;
+  letter-spacing: -0.05em;
+  color: #ffffff;
+}
+
+.app.app-shell-landing .landing-preview-shell {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  overflow: hidden;
+  padding: 26px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 42px;
+  background: linear-gradient(180deg, rgba(10, 18, 29, 0.92), rgba(4, 10, 17, 0.98));
+  box-shadow: 0 40px 140px rgba(0, 0, 0, 0.5);
+}
+
+.app.app-shell-landing .landing-preview-nav {
+  display: grid;
+  grid-template-columns: 1.2fr 0.9fr 1fr;
+  align-items: center;
+  gap: 16px;
+  padding: 18px 20px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 26px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.app.app-shell-landing .landing-preview-brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.app.app-shell-landing .landing-preview-brand span {
+  width: 36px;
+  height: 36px;
+  border: 1px solid rgba(99, 234, 255, 0.22);
+  border-radius: 12px;
+  background: rgba(99, 234, 255, 0.1);
+}
+
+.app.app-shell-landing .landing-preview-brand p,
+.app.app-shell-landing .landing-preview-state span,
+.app.app-shell-landing .landing-preview-tabs span,
+.app.app-shell-landing .landing-preview-console article span,
+.app.app-shell-landing .landing-preview-rail p,
+.app.app-shell-landing .landing-preview-flow span {
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+.app.app-shell-landing .landing-preview-brand p,
+.app.app-shell-landing .landing-preview-state span,
+.app.app-shell-landing .landing-preview-tabs span,
+.app.app-shell-landing .landing-preview-rail p,
+.app.app-shell-landing .landing-preview-flow span {
+  color: rgba(205, 229, 244, 0.56);
+}
+
+.app.app-shell-landing .landing-preview-brand strong {
+  display: block;
+  margin-top: 4px;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.app.app-shell-landing .landing-preview-state {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  background: #061321;
+}
+
+.app.app-shell-landing .landing-preview-state i {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: #56e9ad;
+  box-shadow: 0 0 18px rgba(86, 233, 173, 0.72);
+  animation: landingNodePulse 2.4s ease-in-out infinite;
+}
+
+.app.app-shell-landing .landing-preview-tabs {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.app.app-shell-landing .landing-preview-tabs span {
+  padding: 10px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.app.app-shell-landing .landing-preview-grid {
+  display: grid;
+  grid-template-columns: 1.4fr 0.75fr;
+  gap: 20px;
+  margin-top: 20px;
+}
+
+.app.app-shell-landing .landing-preview-main {
+  display: grid;
+  gap: 20px;
+}
+
+.app.app-shell-landing .landing-preview-map {
+  position: relative;
+  min-height: 280px;
+  overflow: hidden;
+  padding: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at 40% 28%, rgba(34, 90, 180, 0.35), transparent 26%),
+    linear-gradient(180deg, rgba(9, 18, 29, 0.95), rgba(7, 12, 21, 0.96));
+}
+
+.app.app-shell-landing .landing-preview-map::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: 0.18;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.06) 1px, transparent 1px);
+  background-size: 42px 42px;
+}
+
+.app.app-shell-landing .landing-preview-map-link,
+.app.app-shell-landing .landing-preview-map-node,
+.app.app-shell-landing .landing-preview-map-packet {
+  position: absolute;
+  z-index: 1;
+}
+
+.app.app-shell-landing .landing-preview-map-link {
+  height: 1px;
+  transform-origin: left center;
+}
+
+.app.app-shell-landing .landing-preview-map-link-a {
+  left: 17%;
+  top: 62%;
+  width: 32%;
+  transform: rotate(8deg);
+  background: linear-gradient(90deg, rgba(99, 234, 255, 0.6), transparent);
+}
+
+.app.app-shell-landing .landing-preview-map-link-b {
+  left: 44%;
+  top: 45%;
+  width: 18%;
+  transform: rotate(-22deg);
+  background: linear-gradient(90deg, rgba(127, 193, 255, 0.72), transparent);
+}
+
+.app.app-shell-landing .landing-preview-map-link-c {
+  left: 60%;
+  top: 55%;
+  width: 18%;
+  transform: rotate(18deg);
+  background: linear-gradient(90deg, rgba(99, 234, 255, 0.56), rgba(86, 233, 173, 0.62));
+}
+
+.app.app-shell-landing .landing-preview-map-node {
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  animation: landingNodePulse 2.6s ease-in-out infinite;
+}
+
+.app.app-shell-landing .landing-preview-map-node-a { left: 16%; top: 66%; background: #63eaff; }
+.app.app-shell-landing .landing-preview-map-node-b { left: 44%; top: 46%; background: #f6b268; }
+.app.app-shell-landing .landing-preview-map-node-c { left: 60%; top: 56%; background: #56e9ad; }
+.app.app-shell-landing .landing-preview-map-node-d { left: 74%; top: 34%; background: #98a6ff; }
+.app.app-shell-landing .landing-preview-map-node-e { left: 86%; top: 62%; background: #71d7ff; }
+
+.app.app-shell-landing .landing-preview-map-packet {
+  left: 18%;
+  top: 58%;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: #d7f8ff;
+  box-shadow: 0 0 18px rgba(113, 240, 255, 0.92);
+}
+
+.app.app-shell-landing .landing-preview-map-packet-a { animation: landingPacketTravel 3.2s ease-in-out infinite; }
+.app.app-shell-landing .landing-preview-map-packet-b { animation: landingPacketTravel 3.2s ease-in-out infinite 0.9s; }
+.app.app-shell-landing .landing-preview-map-packet-c { animation: landingPacketTravel 3.2s ease-in-out infinite 1.8s; }
+
+.app.app-shell-landing .landing-preview-console {
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 20px;
+}
+
+.app.app-shell-landing .landing-preview-console > article,
+.app.app-shell-landing .landing-preview-rail > article {
+  padding: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 28px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.app.app-shell-landing .landing-preview-console article strong {
+  display: block;
+  margin-top: 12px;
+  font-size: 15px;
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.app.app-shell-landing .landing-preview-console article > article,
+.app.app-shell-landing .landing-preview-console article > div {
+  padding: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 22px;
+  background: #091522;
+}
+
+.app.app-shell-landing .landing-preview-console article:first-child {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.app.app-shell-landing .landing-preview-console article:last-child > div {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.app.app-shell-landing .landing-preview-console article:last-child > div > div,
+.app.app-shell-landing .landing-preview-rail article .landing-preview-flow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.app.app-shell-landing .landing-preview-console article:last-child > div > div:last-child,
+.app.app-shell-landing .landing-preview-rail article .landing-preview-flow:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.app.app-shell-landing .landing-preview-rail {
+  display: grid;
+  gap: 20px;
+}
+
+.app.app-shell-landing .landing-preview-flow strong {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.84);
+}
+
+.app.app-shell-landing .landing-preview-graph {
+  position: relative;
+  height: 112px;
+  overflow: hidden;
+  margin-top: 16px;
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  background: #091522;
+}
+
+.app.app-shell-landing .landing-preview-graph::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 20% 50%, rgba(69, 215, 255, 0.08), transparent 22%),
+    linear-gradient(90deg, transparent, rgba(69, 215, 255, 0.18), transparent);
+  animation: landingSweepLine 2.8s linear infinite;
+}
+
+.app.app-shell-landing .landing-principles-grid {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 20px;
+  align-items: stretch;
+  margin-top: 8px;
+}
+
+.app.app-shell-landing .landing-principle-tile {
+  grid-column: span 3;
+  position: relative;
+  overflow: hidden;
+  padding: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 32px;
+  background: rgba(255, 255, 255, 0.03);
+  transition: transform 180ms ease, border-color 180ms ease, background-color 180ms ease, box-shadow 180ms ease;
+}
+
+.app.app-shell-landing .landing-principle-tile:hover,
+.app.app-shell-landing .landing-principle-tile[open] {
+  transform: translateY(-4px);
+  border-color: rgba(99, 234, 255, 0.26);
+  background: linear-gradient(180deg, rgba(14, 29, 45, 0.94), rgba(8, 16, 27, 0.96));
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.34);
+}
+
+.app.app-shell-landing .landing-principle-tile summary {
+  cursor: pointer;
+  list-style: none;
+}
+
+.app.app-shell-landing .landing-principle-tile summary::-webkit-details-marker {
+  display: none;
+}
+
+.app.app-shell-landing .landing-principle-tile span {
+  font-size: 10px;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  color: rgba(177, 233, 255, 0.54);
+}
+
+.app.app-shell-landing .landing-principle-tile strong {
+  display: block;
+  margin-top: 18px;
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  color: #ffffff;
+}
+
+.app.app-shell-landing .landing-principle-tile p {
+  margin: 18px 0 0;
+  font-size: 17px;
+  line-height: 1.75;
+  color: rgba(231, 239, 247, 0.68);
+}
+
+.app.app-shell-landing .landing-trust-strip {
+  grid-column: 1 / -1;
+  grid-row: 1;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  padding: 18px 20px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.app.app-shell-landing .landing-trust-strip span {
+  font-size: 11px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: rgba(219, 233, 245, 0.82);
+}
+
+.app.app-shell-landing .landing-trust-grid {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  display: grid;
+  grid-template-columns: 1.2fr 0.8fr;
+  gap: 20px;
+  margin-top: 20px;
+}
+
+.app.app-shell-landing .landing-trust-proof {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  padding: 26px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 38px;
+  background: linear-gradient(180deg, rgba(10, 18, 29, 0.92), rgba(4, 9, 15, 0.96));
+}
+
+.app.app-shell-landing .landing-trust-proof article,
+.app.app-shell-landing .landing-trust-panel > article {
+  padding: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.app.app-shell-landing .landing-trust-proof span,
+.app.app-shell-landing .landing-trust-panel span {
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: rgba(177, 233, 255, 0.56);
+}
+
+.app.app-shell-landing .landing-trust-proof p,
+.app.app-shell-landing .landing-trust-panel p {
+  margin: 16px 0 0;
+  line-height: 1.65;
+  color: rgba(236, 242, 247, 0.78);
+}
+
+.app.app-shell-landing .landing-trust-panel {
+  display: grid;
+  gap: 20px;
+}
+
+.app.app-shell-landing .landing-trust-panel article:last-child p {
+  font-size: clamp(2rem, 3vw, 3rem);
+  font-weight: 700;
+  line-height: 1.04;
+  letter-spacing: -0.05em;
+  color: #ffffff;
+}
+
+.app.app-shell-landing .landing-final-panel {
+  max-width: 1760px;
+  margin: 0 auto;
+  overflow: hidden;
+  padding: 68px 48px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 44px;
+  background:
+    radial-gradient(circle at 50% 20%, rgba(46, 151, 255, 0.22), transparent 24%),
+    radial-gradient(circle at 80% 70%, rgba(35, 216, 255, 0.16), transparent 24%),
+    linear-gradient(180deg, rgba(9, 17, 28, 0.92), rgba(4, 9, 15, 0.98));
+}
+
+.app.app-shell-landing .landing-final-panel > p:first-child {
+  margin: 0;
+  text-align: center;
+  font-size: 11px;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: rgba(177, 233, 255, 0.52);
+}
+
+.app.app-shell-landing .landing-final-panel h2 {
+  margin: 22px auto 0;
+  max-width: 13ch;
+  text-align: center;
+  font-size: clamp(3.4rem, 7vw, 7rem);
+  font-weight: 700;
+  line-height: 0.9;
+  letter-spacing: -0.08em;
+  text-transform: uppercase;
+  color: #ffffff;
+}
+
+.app.app-shell-landing .landing-final-panel > p:nth-of-type(2) {
+  max-width: 46rem;
+  margin: 24px auto 0;
+  text-align: center;
+  font-size: 1.125rem;
+  line-height: 1.9;
+  color: rgba(227, 237, 246, 0.64);
+}
+
+@keyframes landingNodePulse {
+  0%, 100% { transform: scale(1); opacity: 0.72; }
+  50% { transform: scale(1.14); opacity: 1; }
+}
+
+@keyframes landingPacketTravel {
+  0% { transform: translate(0, 0) scale(0.8); opacity: 0; }
+  12% { opacity: 1; }
+  55% { transform: translate(168px, -24px) scale(1); opacity: 1; }
+  84% { transform: translate(268px, 8px) scale(1); opacity: 1; }
+  100% { transform: translate(352px, 20px) scale(0.72); opacity: 0; }
+}
+
+@keyframes landingMemoryPacket {
+  0% { transform: translateX(0) scale(0.82); opacity: 0; }
+  12% { opacity: 1; }
+  54% { transform: translateX(144px) scale(1); opacity: 1; }
+  100% { transform: translateX(300px) scale(0.74); opacity: 0; }
+}
+
+@keyframes landingBarPulse {
+  0%, 100% { transform: scaleY(0.88); opacity: 0.5; }
+  50% { transform: scaleY(1); opacity: 1; }
+}
+
+@keyframes landingSweepLine {
+  0%, 100% { opacity: 0.2; transform: translateX(-20%); }
+  50% { opacity: 0.86; transform: translateX(20%); }
+}
+
+@media (max-width: 1480px) {
+  .app.app-shell-landing .landing-cinematic {
+    gap: 20px;
+    padding-left: 24px;
+    padding-right: 24px;
+  }
+
+  .app.app-shell-landing .landing-cinematic-copy {
+    grid-column: 1 / span 6;
+  }
+
+  .app.app-shell-landing .landing-cinematic-visual {
+    grid-column: 7 / -1;
+    min-height: 680px;
+  }
+
+  .app.app-shell-landing .landing-pipeline-section,
+  .app.app-shell-landing .landing-memory-section,
+  .app.app-shell-landing .landing-preview-section,
+  .app.app-shell-landing .landing-principles-section,
+  .app.app-shell-landing .landing-trust-section,
+  .app.app-shell-landing .landing-final-section {
+    padding-left: 24px;
+    padding-right: 24px;
+  }
+
+  .app.app-shell-landing .landing-section-copy {
+    grid-column: 1 / span 4;
+    max-width: 30rem;
+  }
+
+  .app.app-shell-landing .landing-pipeline-section .landing-section-copy,
+  .app.app-shell-landing .landing-principles-section .landing-section-copy {
+    grid-column: 1 / span 6;
+  }
+
+  .app.app-shell-landing .landing-preview-section .landing-section-copy {
+    grid-column: 1 / span 7;
+  }
+}
+
+@media (max-width: 1120px) {
+  .app.app-shell-landing .product-bar {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .app.app-shell-landing .product-bar-actions {
+    flex-wrap: wrap;
+  }
+
+  .app.app-shell-landing .landing-cinematic {
+    grid-template-columns: 1fr;
+    min-height: auto;
+    padding-top: 40px;
+  }
+
+  .app.app-shell-landing .landing-cinematic-copy,
+  .app.app-shell-landing .landing-cinematic-visual,
+  .app.app-shell-landing .landing-section-copy,
+  .app.app-shell-landing .landing-pipeline-grid,
+  .app.app-shell-landing .landing-memory-diagram,
+  .app.app-shell-landing .landing-memory-copy,
+  .app.app-shell-landing .landing-preview-shell,
+  .app.app-shell-landing .landing-principles-grid,
+  .app.app-shell-landing .landing-trust-strip,
+  .app.app-shell-landing .landing-trust-grid {
+    grid-column: 1 / -1;
+  }
+
+  .app.app-shell-landing .landing-cinematic-visual {
+    min-height: 720px;
+  }
+
+  .app.app-shell-landing .landing-cinematic-strip,
+  .app.app-shell-landing .landing-preview-grid,
+  .app.app-shell-landing .landing-preview-console,
+  .app.app-shell-landing .landing-trust-grid,
+  .app.app-shell-landing .landing-pipeline-grid,
+  .app.app-shell-landing .landing-memory-facts {
+    grid-template-columns: 1fr;
+  }
+
+  .app.app-shell-landing .landing-preview-nav {
+    grid-template-columns: 1fr;
+    justify-items: start;
+  }
+
+  .app.app-shell-landing .landing-preview-tabs {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .app.app-shell-landing .landing-principle-tile {
+    grid-column: span 6;
+    transform: none !important;
+  }
+
+  .app.app-shell-landing .landing-trust-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .app.app-shell-landing .product-bar {
+    inset: 12px 12px auto;
+    padding: 12px 14px;
+    border-radius: 18px;
+  }
+
+  .app.app-shell-landing .landing-shell {
+    padding-top: 118px;
+    gap: 56px;
+  }
+
+  .app.app-shell-landing .landing-cinematic,
+  .app.app-shell-landing .landing-pipeline-section,
+  .app.app-shell-landing .landing-memory-section,
+  .app.app-shell-landing .landing-preview-section,
+  .app.app-shell-landing .landing-principles-section,
+  .app.app-shell-landing .landing-trust-section,
+  .app.app-shell-landing .landing-final-section {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .app.app-shell-landing .landing-cinematic-title {
+    font-size: clamp(3rem, 18vw, 4.8rem);
+  }
+
+  .app.app-shell-landing .landing-cinematic-subtitle,
+  .app.app-shell-landing .landing-final-panel > p:nth-of-type(2) {
+    font-size: 1rem;
+    line-height: 1.7;
+  }
+
+  .app.app-shell-landing .landing-cinematic-visual {
+    min-height: 620px;
+  }
+
+  .app.app-shell-landing .landing-cinematic-visual-stage {
+    min-height: 540px;
+  }
+
+  .app.app-shell-landing .landing-cinematic-strip {
+    left: 16px;
+    right: 16px;
+    bottom: 16px;
+    grid-template-columns: 1fr;
+    padding: 18px;
+  }
+
+  .app.app-shell-landing .landing-strip-metrics,
+  .app.app-shell-landing .landing-memory-flow,
+  .app.app-shell-landing .landing-trust-strip,
+  .app.app-shell-landing .landing-trust-proof {
+    grid-template-columns: 1fr;
+  }
+
+  .app.app-shell-landing .landing-memory-core {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .app.app-shell-landing .landing-principle-tile {
+    grid-column: 1 / -1;
+  }
+
+  .app.app-shell-landing .landing-final-panel {
+    padding: 48px 24px;
+  }
+}
+
+/* React landing owns the public page; the legacy product bar remains for dashboard mode only. */
+.app.app-shell-landing {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  color: #f2f8ff;
+}
+
+.app.app-shell-landing::before,
+.app.app-shell-landing::after {
+  display: none;
+}
+
+.app.app-shell-landing .product-bar {
+  display: none;
+}
+
+.app.app-shell-landing .landing-shell {
+  display: block;
+  gap: 0;
+  min-height: 100svh;
+  padding: 0;
+}
+
+.app.app-shell-landing #landing-react-root {
+  min-height: 100svh;
+}
