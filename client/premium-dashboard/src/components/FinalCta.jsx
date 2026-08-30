@@ -1,48 +1,40 @@
-import { motion } from 'framer-motion';
-
 export default function FinalCta({ onLaunchDashboard, scrollToSection }) {
+  const currentYear = new Date().getFullYear();
+
   const scroll = (id) => {
     if (typeof scrollToSection === 'function') scrollToSection(id);
   };
 
   return (
-    <section className="px-4 pb-28 pt-24 md:px-8 xl:px-12">
-      <div className="mx-auto max-w-[1820px] overflow-hidden rounded-[44px] border border-white/10 bg-[radial-gradient(circle_at_50%_20%,rgba(46,151,255,0.22),transparent_24%),radial-gradient(circle_at_80%_70%,rgba(35,216,255,0.16),transparent_24%),linear-gradient(180deg,rgba(9,17,28,0.92),rgba(4,9,15,0.98))] px-8 py-14 md:px-12 md:py-20">
-        <div className="relative">
-          <div className="pointer-events-none absolute inset-0 opacity-[0.18] [background-image:linear-gradient(rgba(255,255,255,0.06)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.06)_1px,transparent_1px)] [background-size:46px_46px]" />
-          <div className="relative z-10 text-center">
-            <p className="text-[11px] font-mono uppercase tracking-[0.32em] text-cyan-100/52">Final call</p>
-            <motion.h2
-              initial={{ opacity: 0, y: 18 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, amount: 0.5 }}
-              transition={{ duration: 0.5 }}
-              className="mx-auto mt-6 max-w-[13ch] font-display text-[clamp(3.4rem,7vw,7rem)] font-semibold uppercase leading-[0.9] tracking-[-0.08em] text-white"
-            >
-              Start a secure transfer in seconds.
-            </motion.h2>
-            <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-white/62">
-              Bring the room online, verify the direct path, and move data without leaving an archive behind.
-            </p>
+    <section className="landing-section pt-14">
+      <div className="landing-container">
+        <div className="landing-panel-strong relative overflow-hidden px-6 py-16 sm:px-10 sm:py-20 lg:px-14">
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(14,122,120,0.12),transparent_24%)]" />
+          <div className="landing-grid-overlay absolute inset-0 opacity-[0.05]" />
 
-            <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
-              <button
-                type="button"
-                onClick={onLaunchDashboard}
-                className="inline-flex items-center gap-3 rounded-full border border-cyan-300/40 bg-cyan-300/16 px-7 py-3 text-[11px] font-mono uppercase tracking-[0.22em] text-cyan-100 transition duration-200 hover:border-cyan-200/60 hover:bg-cyan-300/24"
-              >
+          <div className="relative mx-auto max-w-4xl text-center">
+            <p className="landing-kicker">Final call</p>
+            <h2 className="mt-5 text-[clamp(2.8rem,5vw,5rem)] font-semibold leading-[0.95] tracking-[-0.07em] text-white">
+              Start a secure transfer in seconds.
+            </h2>
+            <p className="landing-copy-soft mx-auto mt-6 max-w-2xl text-center">
+              Bring the room online, verify the direct path, and move data without leaving a replayable trail behind.
+            </p>
+            <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
+              <button type="button" onClick={onLaunchDashboard} className="landing-button landing-button-primary">
                 Launch Dashboard
               </button>
-              <button
-                type="button"
-                onClick={() => scroll('pipeline')}
-                className="inline-flex items-center gap-3 rounded-full border border-white/12 bg-white/[0.04] px-7 py-3 text-[11px] font-mono uppercase tracking-[0.22em] text-white/76 transition duration-200 hover:border-white/20 hover:bg-white/[0.08]"
-              >
+              <button type="button" onClick={() => scroll('preview')} className="landing-button landing-button-secondary">
                 Try Live Demo
               </button>
             </div>
           </div>
         </div>
+
+        <footer className="landing-footer mt-8 flex flex-col gap-2 border-t border-white/10 pt-6 text-center font-mono text-[0.68rem] uppercase tracking-[0.16em] text-slate-400 sm:flex-row sm:items-center sm:justify-between sm:text-left">
+          <p>Engineered by R. Priyadarshi</p>
+          <p>Ephera &copy; {currentYear} All rights reserved.</p>
+        </footer>
       </div>
     </section>
   );

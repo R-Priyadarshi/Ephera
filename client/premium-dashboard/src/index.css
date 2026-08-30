@@ -4,40 +4,61 @@
 
 @layer base {
   :root {
-    --prototype-font-sans:
-      "Inter",
-      "Avenir Next",
-      "Segoe UI",
-      "Helvetica Neue",
-      Arial,
-      sans-serif;
     color-scheme: dark;
+    --landing-bg: #06101a;
+    --landing-bg-deep: #030711;
+    --landing-panel: rgba(10, 18, 29, 0.88);
+    --landing-panel-strong: rgba(7, 13, 22, 0.96);
+    --landing-line: rgba(148, 163, 184, 0.12);
+    --landing-line-strong: rgba(148, 163, 184, 0.18);
+    --landing-copy: rgba(230, 236, 244, 0.9);
+    --landing-copy-soft: rgba(164, 177, 194, 0.9);
+    --landing-title: #f8fafc;
+    --landing-cyan: #67e8f9;
+    --landing-mint: #5eead4;
+    --landing-warm: #f6b37a;
+    --landing-radius: 30px;
+    --landing-shadow: 0 28px 72px rgba(1, 5, 12, 0.28);
   }
 
-  * {
+  *,
+  *::before,
+  *::after {
     box-sizing: border-box;
-  }
-
-  html,
-  body,
-  #root {
-    min-height: 100%;
+    min-width: 0;
   }
 
   html {
     scroll-behavior: smooth;
   }
 
+  html,
+  body,
+  #root {
+    min-height: 100%;
+    width: 100%;
+  }
+
   body {
     margin: 0;
-    font-family: var(--prototype-font-sans);
-    background:
-      radial-gradient(circle at 10% 12%, rgba(38, 127, 177, 0.24), transparent 28%),
-      radial-gradient(circle at 88% 10%, rgba(63, 152, 255, 0.2), transparent 26%),
-      radial-gradient(circle at 52% 120%, rgba(59, 239, 192, 0.08), transparent 34%),
-      linear-gradient(180deg, #030710 0%, #050d18 100%);
-    color: #f2f8ff;
     overflow-x: hidden;
+    font-family: "Inter", "Segoe UI", sans-serif;
+    color: var(--landing-title);
+    background:
+      radial-gradient(circle at 14% 18%, rgba(28, 88, 168, 0.16), transparent 24%),
+      radial-gradient(circle at 84% 10%, rgba(17, 111, 124, 0.09), transparent 18%),
+      linear-gradient(180deg, #040a13 0%, #07111a 44%, #08131d 100%);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  img,
+  svg,
+  canvas,
+  video {
+    display: block;
+    max-width: 100%;
+    height: auto;
   }
 
   button,
@@ -47,61 +68,287 @@
     font: inherit;
   }
 
+  textarea {
+    resize: vertical;
+  }
+
   ::selection {
-    background: rgba(69, 215, 255, 0.22);
-    color: #f4fbff;
-  }
-
-  body::before {
-    content: "";
-    position: fixed;
-    inset: 0;
-    pointer-events: none;
-    background:
-      radial-gradient(circle at 50% 12%, rgba(255, 255, 255, 0.04), transparent 18%),
-      linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent 24%);
-    z-index: -2;
-  }
-
-  body::after {
-    content: "";
-    position: fixed;
-    inset: 0;
-    pointer-events: none;
-    background-image:
-      linear-gradient(rgba(255, 255, 255, 0.018) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255, 255, 255, 0.018) 1px, transparent 1px);
-    background-size: 72px 72px;
-    mask-image: radial-gradient(circle at center, black 30%, transparent 88%);
-    opacity: 0.45;
-    z-index: -1;
+    background: rgba(103, 232, 249, 0.22);
+    color: #fff;
   }
 }
 
-@layer utilities {
-  .text-shadow-soft {
-    text-shadow: 0 14px 36px rgba(0, 0, 0, 0.35);
+@layer components {
+  .app.app-shell-landing {
+    width: 100%;
+    max-width: none;
+    min-height: 100svh;
+    margin: 0;
+    padding: 0;
   }
 
-  .border-grid {
+  .app.app-shell-landing::before,
+  .app.app-shell-landing::after,
+  .app.app-shell-landing .product-bar {
+    display: none !important;
+  }
+
+  .app.app-shell-landing .landing-shell {
+    display: block;
+    margin: 0;
+    padding: 0;
+  }
+
+  #landing-react-root,
+  .app.app-shell-landing #landing-react-root {
+    min-height: 100svh;
+  }
+
+  .landing-root {
+    position: relative;
+    min-height: 100svh;
+    overflow-x: clip;
+    isolation: isolate;
+  }
+
+  /* The legacy dashboard stylesheet defines `.grid` as two columns on desktop.
+     Keep unstructured landing grids single-column unless a Tailwind grid utility opts in. */
+  .landing-root .grid:not([class*="grid-cols-"]) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .landing-root::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -2;
+    pointer-events: none;
+    background:
+      radial-gradient(circle at 16% 18%, rgba(24, 87, 169, 0.16), transparent 22%),
+      radial-gradient(circle at 82% 12%, rgba(13, 120, 127, 0.08), transparent 18%),
+      linear-gradient(180deg, #040913 0%, #08111a 48%, #09141d 100%);
+  }
+
+  .landing-root::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    opacity: 0.024;
     background-image:
-      linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
-    background-size: 32px 32px;
+      linear-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.06) 1px, transparent 1px);
+    background-size: 72px 72px;
+    mask-image: radial-gradient(circle at center, #000 44%, transparent 100%);
   }
 
-  .landing-grid {
+  .landing-container {
+    width: min(1280px, calc(100% - 1.5rem));
+    margin-inline: auto;
+  }
+
+  @media (min-width: 640px) {
+    .landing-container {
+      width: min(1280px, calc(100% - 2.5rem));
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .landing-container {
+      width: min(1280px, calc(100% - 4rem));
+    }
+  }
+
+  @media (min-width: 1440px) {
+    .landing-container {
+      width: min(1320px, calc(100% - 6rem));
+    }
+  }
+
+  .landing-section {
+    padding-block: clamp(4.5rem, 8vw, 8rem);
+  }
+
+  .landing-scroll-anchor {
+    scroll-margin-top: 7rem;
+  }
+
+  .landing-nav-shell {
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    padding-top: 1rem;
+    pointer-events: none;
+  }
+
+  .landing-nav-shell .landing-nav-surface {
+    pointer-events: auto;
+  }
+
+  .landing-nav-surface {
+    border-radius: 26px;
+    border: 1px solid rgba(148, 163, 184, 0.1);
+    background: rgba(7, 12, 20, 0.72);
+    backdrop-filter: blur(18px);
+    box-shadow: 0 18px 40px rgba(2, 6, 14, 0.2);
+  }
+
+  .landing-panel {
+    border-radius: 24px;
+    border: 1px solid var(--landing-line);
+    background: linear-gradient(180deg, rgba(13, 21, 33, 0.92), rgba(8, 14, 24, 0.98));
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
+  }
+
+  .landing-panel-strong {
+    border-radius: var(--landing-radius);
+    border: 1px solid rgba(148, 163, 184, 0.1);
+    background: linear-gradient(180deg, rgba(8, 15, 25, 0.98), rgba(5, 11, 19, 1));
+    box-shadow: var(--landing-shadow), inset 0 1px 0 rgba(255, 255, 255, 0.02);
+  }
+
+  .landing-kicker {
+    font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: rgba(184, 197, 214, 0.62);
+  }
+
+  .landing-display {
+    font-family: "Sora", "Inter", sans-serif;
+    font-size: clamp(3.35rem, 8vw, 7.4rem);
+    line-height: 0.92;
+    letter-spacing: -0.09em;
+    font-weight: 700;
+    color: var(--landing-title);
+    text-wrap: balance;
+  }
+
+  .landing-title {
+    font-family: "Sora", "Inter", sans-serif;
+    font-size: clamp(2.2rem, 4vw, 4.1rem);
+    line-height: 0.96;
+    letter-spacing: -0.07em;
+    font-weight: 680;
+    color: var(--landing-title);
+    text-wrap: balance;
+  }
+
+  .landing-body {
+    font-size: clamp(1rem, 0.97rem + 0.2vw, 1.18rem);
+    line-height: 1.72;
+    color: var(--landing-copy);
+    text-wrap: pretty;
+  }
+
+  .landing-copy-soft {
+    font-size: clamp(0.98rem, 0.95rem + 0.12vw, 1.06rem);
+    line-height: 1.72;
+    color: var(--landing-copy-soft);
+    text-wrap: pretty;
+  }
+
+  .landing-button {
+    display: inline-flex;
+    min-height: 3.5rem;
+    align-items: center;
+    justify-content: center;
+    gap: 0.6rem;
+    border-radius: 999px;
+    padding: 0.95rem 1.5rem;
+    font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
+    font-size: 0.73rem;
+    font-weight: 600;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    transition:
+      transform 180ms ease,
+      background-color 180ms ease,
+      border-color 180ms ease,
+      box-shadow 180ms ease,
+      color 180ms ease;
+  }
+
+  .landing-button:hover {
+    transform: translateY(-1px);
+  }
+
+  .landing-button-primary {
+    border: 1px solid rgba(103, 232, 249, 0.42);
+    background: linear-gradient(180deg, rgba(24, 91, 138, 0.56), rgba(19, 74, 115, 0.68));
+    color: #effcff;
+    box-shadow: 0 14px 28px rgba(11, 52, 84, 0.18);
+  }
+
+  .landing-button-secondary {
+    border: 1px solid rgba(148, 163, 184, 0.16);
+    background: rgba(255, 255, 255, 0.025);
+    color: rgba(248, 250, 252, 0.92);
+  }
+
+  .landing-button-warm {
+    border: 1px solid rgba(246, 179, 122, 0.24);
+    background: rgba(246, 179, 122, 0.08);
+    color: rgba(255, 236, 219, 0.94);
+  }
+
+  .landing-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.65rem;
+    border-radius: 999px;
+    border: 1px solid rgba(148, 163, 184, 0.12);
+    background: rgba(255, 255, 255, 0.03);
+    padding: 0.72rem 1rem;
+    font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
+    font-size: 0.69rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: rgba(214, 227, 239, 0.84);
+  }
+
+  .landing-chip-dot {
+    height: 0.55rem;
+    width: 0.55rem;
+    flex: none;
+    border-radius: 999px;
+    background: var(--landing-cyan);
+    box-shadow: 0 0 14px rgba(103, 232, 249, 0.7);
+  }
+
+  .landing-status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.7rem;
+    border-radius: 999px;
+    border: 1px solid rgba(148, 163, 184, 0.12);
+    background: rgba(255, 255, 255, 0.03);
+    padding: 0.76rem 1rem;
+  }
+
+  .landing-grid-overlay {
     background-image:
-      linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
-    background-size: 84px 84px;
-    mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.65), transparent 85%);
+      linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+    background-size: 48px 48px;
   }
 
-  .landing-noise {
-    background-image: radial-gradient(rgba(255, 255, 255, 0.065) 0.5px, transparent 0.5px);
-    background-size: 6px 6px;
-    opacity: 0.035;
-    mix-blend-mode: screen;
+  .landing-node-label {
+    position: absolute;
+    top: calc(100% + 0.55rem);
+    left: 50%;
+    right: auto;
+    bottom: auto;
+    margin: 0;
+    transform: translateX(-50%);
+    pointer-events: none;
+    font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: rgba(186, 200, 216, 0.72);
+    white-space: nowrap;
   }
 }

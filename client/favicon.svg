@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
+  <title id="title">Ephera direct peer lane</title>
+  <defs>
+    <linearGradient id="lane" x1="12" y1="22" x2="52" y2="42" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#5eead4" />
+      <stop offset="0.48" stop-color="#67e8f9" />
+      <stop offset="1" stop-color="#7dd3fc" />
+    </linearGradient>
+    <radialGradient id="core" cx="32" cy="32" r="10" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#102433" />
+      <stop offset="1" stop-color="#07111d" />
+    </radialGradient>
+    <filter id="glow" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur stdDeviation="2" />
+    </filter>
+  </defs>
+  <rect width="64" height="64" rx="18" fill="#050d17" />
+  <rect x="1" y="1" width="62" height="62" rx="17" fill="none" stroke="#9be7f4" stroke-opacity=".18" />
+  <path d="M16 32h8c3.2 0 3.8-6 8-6" fill="none" stroke="url(#lane)" stroke-linecap="round" stroke-width="3" />
+  <path d="M48 32h-8c-3.2 0-3.8 6-8 6" fill="none" stroke="url(#lane)" stroke-linecap="round" stroke-width="3" />
+  <path d="M16 32h8c3.2 0 3.8-6 8-6M48 32h-8c-3.2 0-3.8 6-8 6" fill="none" filter="url(#glow)" opacity=".55" stroke="#67e8f9" stroke-linecap="round" stroke-width="4" />
+  <circle cx="12" cy="32" r="4" fill="#5eead4" />
+  <circle cx="52" cy="32" r="4" fill="#7dd3fc" />
+  <circle cx="12" cy="32" r="7" fill="#5eead4" filter="url(#glow)" opacity=".24" />
+  <circle cx="52" cy="32" r="7" fill="#7dd3fc" filter="url(#glow)" opacity=".24" />
+  <circle cx="32" cy="32" r="8" fill="url(#core)" stroke="#67e8f9" stroke-opacity=".72" stroke-width="1.5" />
+  <path d="M29 32h6" stroke="#d5fbff" stroke-linecap="round" stroke-width="1.5" />
+  <path d="M32 29v6" stroke="#d5fbff" stroke-linecap="round" stroke-width="1.5" />
+</svg>

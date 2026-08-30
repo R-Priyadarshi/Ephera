@@ -1,54 +1,55 @@
 import { motion } from 'framer-motion';
 
 const steps = [
-  { label: 'ROOM', note: 'Boundary opens' },
-  { label: 'SIGNAL', note: 'Peers rendezvous' },
-  { label: 'CHANNEL', note: 'Direct lane forms' },
-  { label: 'PEER', note: 'Receiver confirms' },
-  { label: 'CRYPTO', note: 'Envelope verifies' },
-  { label: 'TRANSFER', note: 'Payload streams' }
+  { label: 'Room', note: 'Boundary opens' },
+  { label: 'Signal', note: 'Peers rendezvous' },
+  { label: 'Channel', note: 'Direct lane forms' },
+  { label: 'Peer', note: 'Receiver confirms' },
+  { label: 'Crypto', note: 'Envelope verifies' },
+  { label: 'Transfer', note: 'Payload streams' }
 ];
 
 export default function SignalPipelineSection() {
   return (
-    <section id="pipeline" className="px-4 py-24 md:px-8 xl:px-12">
-      <div className="mx-auto grid w-full max-w-[1820px] grid-cols-12 gap-8">
-        <div className="col-span-12 xl:col-span-3">
-          <p className="text-[11px] font-mono uppercase tracking-[0.3em] text-cyan-100/52">System Visual Story</p>
-          <h2 className="mt-5 max-w-[9ch] font-display text-[clamp(2.8rem,5vw,5rem)] font-semibold uppercase leading-[0.92] tracking-[-0.06em] text-white">
-            The transport lights up in sequence.
-          </h2>
-        </div>
+    <section id="pipeline" className="landing-section landing-scroll-anchor pt-2 sm:pt-6">
+      <div className="landing-container">
+        <div className="landing-panel-strong overflow-hidden p-6 sm:p-7 xl:p-8">
+          <div className="grid gap-8 lg:grid-cols-12 lg:items-end lg:gap-10">
+            <div className="lg:col-span-4">
+              <p className="landing-kicker">System visual story</p>
+              <h2 className="landing-title mt-4 max-w-[10ch]">The lane becomes legal one threshold at a time.</h2>
+            </div>
+            <div className="lg:col-span-8 lg:pb-2">
+              <p className="landing-copy-soft max-w-[46rem]">
+                Ephera never fakes progress. Each visible step maps to a transport condition the runtime has already crossed, from room creation through encrypted payload flow.
+              </p>
+            </div>
+          </div>
 
-        <div className="col-span-12 xl:col-span-9">
-          <div className="grid gap-4 lg:grid-cols-6">
+          <div className="relative mt-10 hidden h-px bg-white/8 xl:block">
+            <div className="absolute left-0 top-1/2 h-px w-full -translate-y-1/2 bg-gradient-to-r from-cyan-300/32 via-cyan-300/12 to-transparent" />
+          </div>
+
+          <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-6">
             {steps.map((step, index) => (
               <motion.article
                 key={step.label}
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 0, y: 12 }}
                 whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, amount: 0.5 }}
-                transition={{ duration: 0.45, delay: index * 0.06 }}
-                className="group relative overflow-hidden rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(12,22,36,0.82),rgba(6,13,21,0.92))] p-5 backdrop-blur-xl"
+                viewport={{ once: true, amount: 0.2 }}
+                transition={{ duration: 0.28, delay: index * 0.05 }}
+                className="landing-panel flex min-h-[220px] flex-col px-5 py-6"
               >
-                <motion.div
-                  className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-cyan-300 via-sky-300 to-emerald-300"
-                  animate={{ opacity: [0.22, 0.9, 0.22] }}
-                  transition={{ duration: 2.2, repeat: Infinity, delay: index * 0.14 }}
-                />
-                <div className="relative z-10">
-                  <p className="text-[10px] font-mono uppercase tracking-[0.24em] text-white/40">
-                    Step {index + 1}
-                  </p>
-                  <p className="mt-6 font-display text-2xl font-semibold tracking-tight text-white">{step.label}</p>
-                  <p className="mt-6 text-sm text-white/62">{step.note}</p>
+                <p className="landing-kicker">Step {index + 1}</p>
+                <h3 className="mt-6 text-[1.4rem] font-semibold tracking-[-0.045em] text-white">{step.label}</h3>
+                <p className="mt-4 text-[0.98rem] leading-7 text-slate-300/74">{step.note}</p>
+                <div className="mt-auto pt-8">
+                  <motion.span
+                    className="block h-2.5 w-2.5 rounded-full bg-cyan-300 shadow-[0_0_14px_rgba(103,232,249,0.68)]"
+                    animate={{ opacity: [0.34, 1, 0.34], scale: [1, 1.14, 1] }}
+                    transition={{ duration: 1.8, repeat: Infinity, delay: index * 0.08 }}
+                  />
                 </div>
-                <motion.div
-                  aria-hidden="true"
-                  className="absolute bottom-4 left-5 h-2 w-2 rounded-full bg-cyan-300 shadow-[0_0_18px_rgba(69,215,255,0.7)]"
-                  animate={{ x: [0, 42, 0], opacity: [0.35, 1, 0.35] }}
-                  transition={{ duration: 2.4, repeat: Infinity, delay: index * 0.12 }}
-                />
               </motion.article>
             ))}
           </div>
