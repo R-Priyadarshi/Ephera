@@ -182,6 +182,13 @@
     pointer-events: none;
   }
 
+  @media (max-width: 1199px) {
+    .landing-nav-shell {
+      position: relative;
+      top: auto;
+    }
+  }
+
   .landing-nav-shell .landing-nav-surface {
     pointer-events: auto;
   }

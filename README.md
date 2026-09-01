@@ -172,6 +172,15 @@ Run deploy-targeted staging smoke (expects a running environment URL):
 STAGING_BASE_URL='https://staging.example.com' npm run e2e:staging-smoke
 ```
 
+Run the full suite against a deployed environment. Remote waits use a 60-second
+minimum by default to tolerate hosted-service startup latency; override it when needed:
+
+```bash
+E2E_APP_BASE_URL='https://staging.example.com' \
+E2E_REMOTE_WAIT_TIMEOUT_MS=90000 \
+npm run e2e:remote
+```
+
 ### CI (GitHub Actions)
 
 - `fast-checks` runs on all pushes/PRs: `npm test` + `npm run e2e:fast`.

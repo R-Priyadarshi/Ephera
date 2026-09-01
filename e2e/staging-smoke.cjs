@@ -450,6 +450,12 @@ async function main() {
       if (senderAfter.sentDoneCount !== sentDoneBase) {
         throw new Error(`Expected sender sentDoneCount to remain ${sentDoneBase}, got ${senderAfter.sentDoneCount}`);
       }
+      if (senderAfter.error) {
+        throw new Error(`Receiver cancellation must not report a sender error: ${senderAfter.error}`);
+      }
+      if (senderAfter.lastOutboundOutcome !== 'receiver-cancelled') {
+        throw new Error(`Expected lastOutboundOutcome=receiver-cancelled, got ${senderAfter.lastOutboundOutcome}`);
+      }
 
       return {
         sentAbortCountBefore: sentAbortBase,

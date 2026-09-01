@@ -44,6 +44,17 @@ const MAX_META_PLAINTEXT_BYTES = 2048;
 
 const _enc = new TextEncoder();
 
+function createTransferTerminationError(reason) {
+  const err = new Error(
+    typeof reason === 'string' && reason.trim()
+      ? reason.trim()
+      : 'Transfer cancelled'
+  );
+  err.name = 'AbortError';
+  err.code = 'EPHERA_TRANSFER_CANCELLED';
+  return err;
+}
+
 // Generate unique transfer ID (8 bytes)
 function generateTransferId() {
   const id = new Uint8Array(8);
@@ -184,6 +195,8 @@ class EpheraSender {
 
     this.active = false;
     this.destroyed = false;
+    this.cancelReason = '';
+    this._suppressAbort = false;
 
     this._handleClose = this._handleClose.bind(this);
     this._handleError = this._handleError.bind(this);
@@ -244,7 +257,12 @@ class EpheraSender {
     }
   }
 
-  cancel() {
+  cancel(reason = 'Transfer cancelled', { notifyPeer = true } = {}) {
+    if (this.completed || this.destroyed) return;
+    this.cancelReason = typeof reason === 'string' && reason.trim()
+      ? reason.trim()
+      : 'Transfer cancelled';
+    this._suppressAbort = notifyPeer === false;
     this.destroy();
   }
 
@@ -254,7 +272,7 @@ class EpheraSender {
     this.active = false;
 
     // Send ABORT if transfer started but did not complete normally
-    if (this.transferId && !this.completed) {
+    if (this.transferId && !this.completed && !this._suppressAbort) {
       this._sendAbort();
     }
 
@@ -321,11 +339,20 @@ class EpheraSender {
 
   _wrapWithProtocol(inputStream) {
     const self = this;
+    const transferId = this.transferId;
     let reader = null;
     let startSent = false;
     let metaSent = false;
     let pending = null;
     let pendingOffset = 0;
+
+    const stopIfTerminated = (controller) => {
+      if (!self.destroyed) return false;
+      try {
+        controller.error(createTransferTerminationError(self.cancelReason));
+      } catch {}
+      return true;
+    };
 
     return new ReadableStream({
       async start() {
@@ -334,13 +361,15 @@ class EpheraSender {
       },
 
       async pull(controller) {
+        if (stopIfTerminated(controller)) return;
+
         const maxPlainBytes = self._aesKey
           ? (MAX_CHUNK_PAYLOAD_BYTES - GCM_TAG_BYTES)
           : MAX_CHUNK_PAYLOAD_BYTES;
 
         // Send START message first
         if (!startSent) {
-          controller.enqueue(encodeStart(self.transferId));
+          controller.enqueue(encodeStart(transferId));
           startSent = true;
           return;
         }
@@ -355,15 +384,17 @@ class EpheraSender {
             if (self._aesKey) {
               flags |= META_FLAG_ENCRYPTED;
               try {
-                payload = await encryptMeta(self._aesKey, self.transferId, flags, payload);
+                payload = await encryptMeta(self._aesKey, transferId, flags, payload);
               } catch (err) {
                 try { controller.error(err); } catch {}
                 return;
               }
             }
 
+            if (stopIfTerminated(controller)) return;
+
             try {
-              controller.enqueue(encodeMeta(self.transferId, flags, payload));
+              controller.enqueue(encodeMeta(transferId, flags, payload));
             } catch (err) {
               try { controller.error(err); } catch {}
             }
@@ -384,14 +415,16 @@ class EpheraSender {
           let payload = slice;
           if (self._aesKey) {
             try {
-              payload = await encryptChunk(self._aesKey, self.transferId, idx, slice);
+              payload = await encryptChunk(self._aesKey, transferId, idx, slice);
             } catch (err) {
               try { controller.error(err); } catch {}
               return;
             }
           }
 
-          controller.enqueue(encodeChunk(self.transferId, idx, payload));
+          if (stopIfTerminated(controller)) return;
+
+          controller.enqueue(encodeChunk(transferId, idx, payload));
           self.chunkIndex++;
 
           pendingOffset = end;
@@ -407,6 +440,12 @@ class EpheraSender {
         try {
           readResult = await reader.read();
         } catch (err) {
+          if (stopIfTerminated(controller)) {
+            try { reader.releaseLock(); } catch {}
+            reader = null;
+            self._inputReader = null;
+            return;
+          }
           // Propagate input stream error as a protocol stream error.
           try { controller.error(err); } catch {}
           try { reader.releaseLock(); } catch {}
@@ -415,11 +454,13 @@ class EpheraSender {
           return;
         }
 
+        if (stopIfTerminated(controller)) return;
+
         const { done, value } = readResult;
 
         if (done) {
           // Send END message — marks successful completion
-          controller.enqueue(encodeEnd(self.transferId, self.chunkIndex));
+          controller.enqueue(encodeEnd(transferId, self.chunkIndex));
           controller.close();
           try { reader.releaseLock(); } catch {}
           reader = null;
@@ -438,7 +479,7 @@ class EpheraSender {
         let payload = slice;
         if (self._aesKey) {
           try {
-            payload = await encryptChunk(self._aesKey, self.transferId, idx, slice);
+            payload = await encryptChunk(self._aesKey, transferId, idx, slice);
           } catch (err) {
             try { controller.error(err); } catch {}
             try { reader.releaseLock(); } catch {}
@@ -448,7 +489,9 @@ class EpheraSender {
           }
         }
 
-        controller.enqueue(encodeChunk(self.transferId, idx, payload));
+        if (stopIfTerminated(controller)) return;
+
+        controller.enqueue(encodeChunk(transferId, idx, payload));
         self.chunkIndex++;
 
         pendingOffset = end;

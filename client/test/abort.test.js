@@ -50,6 +50,66 @@ async function drainStream(stream) {
     }
 }
 
+async function assertSenderCancellationRaceIsSafe() {
+    const sentFrameTypes = [];
+    let sawStartResolve;
+    const sawStart = new Promise((resolve) => {
+        sawStartResolve = resolve;
+    });
+
+    const mockTransport = {
+        addEventListener() {},
+        removeEventListener() {},
+        async send() {},
+        async sendStream(stream) {
+            const reader = stream.getReader();
+            try {
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) return;
+                    sentFrameTypes.push(value[0]);
+                    if (value[0] === 0x01) sawStartResolve();
+                }
+            } finally {
+                try { reader.releaseLock(); } catch {}
+            }
+        },
+    };
+
+    let produced = false;
+    const delayedSource = new ReadableStream({
+        async pull(controller) {
+            await new Promise((resolve) => setTimeout(resolve, 25));
+            if (produced) {
+                controller.close();
+                return;
+            }
+            produced = true;
+            controller.enqueue(new Uint8Array([1, 2, 3, 4]));
+        },
+    });
+
+    const sender = new EpheraSender(mockTransport);
+    const resultPromise = sender.start(delayedSource).then(
+        () => null,
+        (err) => err
+    );
+
+    await sawStart;
+    sender.cancel('Receiver cancelled transfer', { notifyPeer: false });
+    const result = await resultPromise;
+
+    if (!result || result.code !== 'EPHERA_TRANSFER_CANCELLED') {
+        throw new Error(`FAIL: Expected controlled cancellation error, got ${result && result.message}`);
+    }
+    if (/undefined|null|convert/i.test(String(result.message || ''))) {
+        throw new Error(`FAIL: Cancellation leaked an internal state error: ${result.message}`);
+    }
+    if (sentFrameTypes.includes(0x03)) {
+        throw new Error('FAIL: Cancelled sender emitted an END frame');
+    }
+}
+
 /* ---------- Abort Isolation Test ---------- */
 
 export async function runAbortTest() {
@@ -125,6 +185,8 @@ export async function runAbortTest() {
             `FAIL: SessionManager leaked sessions (${sessionManager.getSessionCount()})`
         );
     }
+
+    await assertSenderCancellationRaceIsSafe();
 
     /* ---------- Cleanup ---------- */
 

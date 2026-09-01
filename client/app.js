@@ -7,7 +7,7 @@
  * - Deterministic teardown
  */
 
-import { EpheraTransport } from './transport.js';
+import { EpheraTransport, DEFAULT_ICE_SERVERS } from './transport.js';
 import { EpheraSender } from './sender.js';
 import { EpheraReceiver, MSG_ABORT, MSG_META } from './receiver.js';
 import { SessionManager } from './session/SessionManager.js';
@@ -121,6 +121,7 @@ const E2E_STATE = IS_E2E ? (window.__epheraE2E = {
   receiveDestinationPath: '',
   canOpenReceiveFolder: false,
   lastInboundOutcome: '',
+  lastOutboundOutcome: '',
   preflightSecureContext: false,
   preflightDirectoryPicker: false,
   preflightFolderSaveCapable: false,
@@ -287,6 +288,24 @@ function sanitizeIceServers(value) {
     if (out.length >= 8) break;
   }
   return out.length ? out : null;
+}
+
+function hasTurnIceServer(servers) {
+  if (!Array.isArray(servers)) return false;
+  return servers.some((server) => {
+    if (!server || typeof server !== 'object') return false;
+    const urls = Array.isArray(server.urls) ? server.urls : [server.urls];
+    return urls.some((url) => /^turns?:/i.test(String(url || '').trim()));
+  });
+}
+
+function formatIceState(servers, source) {
+  const list = Array.isArray(servers) ? servers : [];
+  const sourceLabel = source ? ` (${source})` : '';
+  const relayLabel = hasTurnIceServer(list)
+    ? 'TURN relay available'
+    : 'STUN only; TURN relay not configured';
+  return `ICE servers: ${list.length}${sourceLabel}; ${relayLabel}`;
 }
 
 function parseIceServersFromParams(params) {
@@ -690,7 +709,9 @@ async function loadRuntimeConfig() {
       if (iceServersJsonInput && !iceServersJsonInput.value.trim()) {
         try { iceServersJsonInput.value = JSON.stringify(sanitized, null, 2); } catch {}
       }
-      setIceState(`ICE servers: ${sanitized.length} (server default)`);
+      setIceState(formatIceState(sanitized, 'server default'));
+    } else {
+      setIceState(formatIceState(DEFAULT_ICE_SERVERS, 'built-in default'));
     }
   }
 
@@ -698,7 +719,11 @@ async function loadRuntimeConfig() {
     iceRelayOnly = true;
     if (iceRelayOnlyInput) iceRelayOnlyInput.checked = true;
     loaded = true;
-    if (!runtimeIceServers) setIceState('ICE policy: relay (server default)');
+    if (!hasTurnIceServer(getIceServers())) {
+      setIceState('Relay-only policy requires a configured TURN server');
+    } else {
+      setIceState(`${formatIceState(getIceServers(), 'server default')}; relay-only policy`);
+    }
   }
 
   if (loaded) updateJoinLink();
@@ -1310,7 +1335,7 @@ function isLocalRoomOwner() {
 }
 
 function getIceServers() {
-  return iceServersOverride || ICE_SERVERS || runtimeIceServers || null;
+  return iceServersOverride || ICE_SERVERS || runtimeIceServers || DEFAULT_ICE_SERVERS;
 }
 
 function getRtcConfig() {
@@ -1912,6 +1937,7 @@ async function collectDiagnosticsSnapshot(forTransport) {
       compatibilityReason,
       iceRelayOnly: !!iceRelayOnly,
       iceServersCount: Array.isArray(getIceServers()) ? getIceServers().length : 0,
+      turnRelayConfigured: hasTurnIceServer(getIceServers()),
     },
   };
 
@@ -4398,7 +4424,15 @@ async function handleOutboundControlFrame(data) {
     }
 
     try { if (entry.row) entry.row.setStatus('aborted by peer'); } catch {}
-    try { if (entry.sender) entry.sender.destroy(); } catch {}
+    try {
+      if (entry.sender) {
+        entry.sender.cancel('Receiver cancelled transfer', { notifyPeer: false });
+      }
+    } catch {}
+    if (IS_E2E && E2E_STATE) {
+      E2E_STATE.sentAbortCount = (E2E_STATE.sentAbortCount || 0) + 1;
+      E2E_STATE.lastOutboundOutcome = 'receiver-cancelled';
+    }
     if (entry.ledgerTransfer) {
       updateTransferLedgerTransfer(entry.ledgerTransfer, {
         state: 'receiver-aborted',
@@ -4833,13 +4867,22 @@ async function startOutboundTransfer(entry, { weight, passphrase, markE2E = fals
         detail: `Cancelling ${displayName}`,
       });
     }
-    try { localSender.destroy(); } catch {}
+    try { localSender.cancel('Transfer cancelled by sender'); } catch {}
   });
 
   // Start immediately so transferId is assigned synchronously.
   const startPromise = localSender.start(stream);
   const transferId = localSender.transferId;
   const transferKey = transferId ? hexId(transferId) : null;
+  const clearOutboundTracking = () => {
+    if (!transferKey) return;
+    const tracked = outboundTransfers.get(transferKey);
+    if (tracked && tracked.receiptTimer) {
+      try { clearTimeout(tracked.receiptTimer); } catch {}
+      tracked.receiptTimer = null;
+    }
+    outboundTransfers.delete(transferKey);
+  };
   if (transferKey) {
     outboundTransfers.set(transferKey, {
       row,
@@ -4868,6 +4911,8 @@ async function startOutboundTransfer(entry, { weight, passphrase, markE2E = fals
           detail: `Cancelled ${displayName}`,
         });
       }
+      if (E2E_STATE) E2E_STATE.lastOutboundOutcome = 'sender-cancelled';
+      clearOutboundTracking();
       return false;
     }
 
@@ -4914,16 +4959,28 @@ async function startOutboundTransfer(entry, { weight, passphrase, markE2E = fals
     if (markE2E && E2E_STATE) E2E_STATE.sentDone = true;
     return true;
   } catch (err) {
-    if (cancelled) {
-      row.setStatus('cancelled');
-      addActivity('warn', `Outbound cancelled: ${displayName}`);
+    const cancellationReason = String(localSender.cancelReason || '').trim();
+    const receiverCancelled = cancellationReason === 'Receiver cancelled transfer';
+    if (cancelled || cancellationReason) {
+      const state = receiverCancelled ? 'receiver-cancelled' : 'cancelled';
+      const status = receiverCancelled ? 'cancelled by receiver' : 'cancelled';
+      row.setStatus(status);
+      addActivity('warn', `Outbound ${status}: ${displayName}`);
       if (ledgerTransfer) {
         updateTransferLedgerTransfer(ledgerTransfer, {
           bytes: totalBytes || sentBytes,
-          state: 'cancelled',
-          detail: `Cancelled ${displayName}`,
+          state,
+          detail: receiverCancelled
+            ? `Receiver cancelled ${displayName}`
+            : `Cancelled ${displayName}`,
         });
       }
+      if (E2E_STATE) {
+        E2E_STATE.lastOutboundOutcome = receiverCancelled
+          ? 'receiver-cancelled'
+          : 'sender-cancelled';
+      }
+      clearOutboundTracking();
       return false;
     }
 
@@ -4944,14 +5001,7 @@ async function startOutboundTransfer(entry, { weight, passphrase, markE2E = fals
       E2E_STATE.error = `send failed (${name}): ${detail}`;
     }
 
-    if (transferKey) {
-      const entry = outboundTransfers.get(transferKey);
-      if (entry && entry.receiptTimer) {
-        try { clearTimeout(entry.receiptTimer); } catch {}
-        entry.receiptTimer = null;
-      }
-      outboundTransfers.delete(transferKey);
-    }
+    clearOutboundTracking();
     return false;
   } finally {
     activeSenders.delete(localSender);
@@ -6271,6 +6321,12 @@ if (includeIceLinkInput) {
 if (iceRelayOnlyInput) {
   iceRelayOnlyInput.onchange = () => {
     iceRelayOnly = !!iceRelayOnlyInput.checked;
+    const servers = getIceServers();
+    if (iceRelayOnly && !hasTurnIceServer(servers)) {
+      setIceState('Relay-only policy requires a configured TURN server');
+    } else {
+      setIceState(`${formatIceState(servers)}${iceRelayOnly ? '; relay-only policy' : ''}`);
+    }
     updateJoinLink();
     if (ws || transport) setStatus('ICE policy updated (reconnect to apply)');
   };
@@ -6306,7 +6362,12 @@ function onIceServersChanged() {
   const raw = iceServersJsonInput.value.trim();
   if (!raw) {
     iceServersOverride = null;
-    setIceState('');
+    const servers = ICE_SERVERS || runtimeIceServers || DEFAULT_ICE_SERVERS;
+    if (iceRelayOnly && !hasTurnIceServer(servers)) {
+      setIceState('Relay-only policy requires a configured TURN server');
+    } else {
+      setIceState(`${formatIceState(servers, ICE_SERVERS || runtimeIceServers ? 'default' : 'built-in default')}${iceRelayOnly ? '; relay-only policy' : ''}`);
+    }
     updateJoinLink();
     return;
   }
@@ -6316,7 +6377,11 @@ function onIceServersChanged() {
     const sanitized = sanitizeIceServers(parsed);
     if (!sanitized) throw new Error('invalid');
     iceServersOverride = sanitized;
-    setIceState(`ICE servers: ${sanitized.length}`);
+    if (iceRelayOnly && !hasTurnIceServer(sanitized)) {
+      setIceState('Relay-only policy requires a configured TURN server');
+    } else {
+      setIceState(`${formatIceState(sanitized, 'custom')}${iceRelayOnly ? '; relay-only policy' : ''}`);
+    }
   } catch {
     iceServersOverride = null;
     setIceState('Invalid ICE servers JSON');

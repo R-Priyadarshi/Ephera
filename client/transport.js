@@ -15,8 +15,12 @@ const BUFFER_HIGH_WATERMARK = 4 * 1024 * 1024;
 // Resume sending when buffer drops below this threshold
 const BUFFER_LOW_THRESHOLD = 2 * 1024 * 1024;
 
+const DEFAULT_ICE_SERVERS = Object.freeze([
+  Object.freeze({ urls: 'stun:stun.l.google.com:19302' }),
+]);
+
 class EpheraTransport {
-  constructor(signaling, iceServers = [{ urls: 'stun:stun.l.google.com:19302' }], rtcConfig = null) {
+  constructor(signaling, iceServers = DEFAULT_ICE_SERVERS, rtcConfig = null) {
     this.signaling = signaling;
     this.iceServers = iceServers;
     this.rtcConfig = (() => {
@@ -633,4 +637,4 @@ class EpheraTransport {
   }
 }
 
-export { EpheraTransport };
+export { EpheraTransport, DEFAULT_ICE_SERVERS };

@@ -366,6 +366,14 @@ async function run() {
   const REMOTE_SIGNAL_URL = normalizeSignalUrl(process.env.E2E_SIGNAL_URL || '');
   const REMOTE_IGNORE_HTTPS_ERRORS = parseBool(process.env.E2E_REMOTE_IGNORE_HTTPS_ERRORS, true);
   const REMOTE_MODE = remoteFlag || !!REMOTE_APP_BASE_URL;
+  const REMOTE_WAIT_TIMEOUT_MS = (() => {
+    const raw = Number(process.env.E2E_REMOTE_WAIT_TIMEOUT_MS || 60_000);
+    if (!Number.isFinite(raw) || raw <= 0) return 60_000;
+    return Math.min(5 * 60_000, Math.max(20_000, Math.floor(raw)));
+  })();
+  const e2eTimeout = (localTimeoutMs) => REMOTE_MODE
+    ? Math.max(localTimeoutMs, REMOTE_WAIT_TIMEOUT_MS)
+    : localTimeoutMs;
   const RELAY_RUNTIME = process.env.E2E_RELAY_RUNTIME === '1' || process.env.E2E_RELAY_RUNTIME === 'true';
   const RELAY_REQUIRED = process.env.E2E_RELAY_REQUIRED === '1' || process.env.E2E_RELAY_REQUIRED === 'true';
   const RELAY_TURN_URL = String(process.env.E2E_TURN_URL || '').trim();
@@ -1541,6 +1549,12 @@ async function run() {
         if (senderState.sentAbortCount < 1) {
           throw new Error(`Expected sentAbortCount>=1, got ${senderState.sentAbortCount}`);
         }
+        if (senderState.error) {
+          throw new Error(`Receiver cancellation must not report a sender error: ${senderState.error}`);
+        }
+        if (senderState.lastOutboundOutcome !== 'receiver-cancelled') {
+          throw new Error(`Expected lastOutboundOutcome=receiver-cancelled, got ${senderState.lastOutboundOutcome}`);
+        }
 
         console.log(`--- E2E (${label}) PASS: receiver cancel aborted sender ---`);
       } finally {
@@ -1610,22 +1624,22 @@ async function run() {
           await sender.waitForFunction(
             () => window.__epheraE2E && window.__epheraE2E.signaling === 'room-created',
             null,
-            { timeout: 10_000 }
+            { timeout: e2eTimeout(10_000) }
           );
 
           await receiver.evaluate(() => document.getElementById('join-room').click());
           await receiver.waitForFunction(
             () => window.__epheraE2E && window.__epheraE2E.signaling === 'room-joined',
             null,
-            { timeout: 10_000 }
+            { timeout: e2eTimeout(10_000) }
           );
 
           await Promise.all([
-            sender.waitForFunction(() => window.__epheraE2E && window.__epheraE2E.transportOpen === true, null, { timeout: 20_000 }),
-            receiver.waitForFunction(() => window.__epheraE2E && window.__epheraE2E.transportOpen === true, null, { timeout: 20_000 }),
+            sender.waitForFunction(() => window.__epheraE2E && window.__epheraE2E.transportOpen === true, null, { timeout: e2eTimeout(20_000) }),
+            receiver.waitForFunction(() => window.__epheraE2E && window.__epheraE2E.transportOpen === true, null, { timeout: e2eTimeout(20_000) }),
           ]);
 
-          await sender.waitForFunction(() => window.__epheraE2E && window.__epheraE2E.peerReady === true, null, { timeout: 10_000 });
+          await sender.waitForFunction(() => window.__epheraE2E && window.__epheraE2E.peerReady === true, null, { timeout: e2eTimeout(10_000) });
 
           // Sync auto-generated passphrase.
           const autoPass = await sender.evaluate(() => (document.getElementById('passphrase') || {}).value || '');
@@ -1641,7 +1655,7 @@ async function run() {
           await sender.waitForFunction(
             () => (document.getElementById('crypto-state') || {}).textContent.includes('peer=passphrase'),
             null,
-            { timeout: 10_000 }
+            { timeout: e2eTimeout(10_000) }
           );
 
           // One small file per cycle.
@@ -1652,15 +1666,15 @@ async function run() {
           };
 
           await sender.setInputFiles('#file-input', [file]);
-          await sender.waitForFunction(() => !document.getElementById('send-file').disabled, null, { timeout: 10_000 });
+          await sender.waitForFunction(() => !document.getElementById('send-file').disabled, null, { timeout: e2eTimeout(10_000) });
           await sender.evaluate(() => document.getElementById('send-file').click());
 
           sentBase += 1;
           recvBase += 1;
 
           await Promise.all([
-            sender.waitForFunction((n) => window.__epheraE2E && window.__epheraE2E.sentDoneCount >= n, sentBase, { timeout: 30_000 }),
-            receiver.waitForFunction((n) => window.__epheraE2E && window.__epheraE2E.recvDoneCount >= n, recvBase, { timeout: 30_000 }),
+            sender.waitForFunction((n) => window.__epheraE2E && window.__epheraE2E.sentDoneCount >= n, sentBase, { timeout: e2eTimeout(30_000) }),
+            receiver.waitForFunction((n) => window.__epheraE2E && window.__epheraE2E.recvDoneCount >= n, recvBase, { timeout: e2eTimeout(30_000) }),
           ]);
 
           // Disconnect both; ensure state is reset for next cycle.
@@ -1670,8 +1684,8 @@ async function run() {
           ]);
 
           await Promise.all([
-            sender.waitForFunction(() => window.__epheraE2E && window.__epheraE2E.transportOpen === false, null, { timeout: 10_000 }),
-            receiver.waitForFunction(() => window.__epheraE2E && window.__epheraE2E.transportOpen === false, null, { timeout: 10_000 }),
+            sender.waitForFunction(() => window.__epheraE2E && window.__epheraE2E.transportOpen === false, null, { timeout: e2eTimeout(10_000) }),
+            receiver.waitForFunction(() => window.__epheraE2E && window.__epheraE2E.transportOpen === false, null, { timeout: e2eTimeout(10_000) }),
           ]);
         }
 
@@ -2289,7 +2303,7 @@ async function run() {
               return !!(s && s.qrLastScanSource === 'camera' && s.qrLastScanStatus === 'ok' && s.qrScanEngine === engine);
             },
             expectedEngine,
-            { timeout: 20_000 }
+            { timeout: e2eTimeout(20_000) }
           );
         } else {
           await receiver.waitForFunction(
@@ -2298,20 +2312,20 @@ async function run() {
               return !!(s && s.qrLastScanSource === 'camera' && s.qrLastScanStatus === 'ok');
             },
             null,
-            { timeout: 20_000 }
+            { timeout: e2eTimeout(20_000) }
           );
         }
 
         await receiver.waitForFunction(
           () => window.__epheraE2E && window.__epheraE2E.signaling === 'room-joined',
           null,
-          { timeout: 20_000 }
+          { timeout: e2eTimeout(20_000) }
         );
 
         console.log(`--- E2E (${label}): waiting for WebRTC transport open ---`);
         await Promise.all([
-          sender.waitForFunction(() => window.__epheraE2E && window.__epheraE2E.transportOpen === true, null, { timeout: 20_000 }),
-          receiver.waitForFunction(() => window.__epheraE2E && window.__epheraE2E.transportOpen === true, null, { timeout: 20_000 }),
+          sender.waitForFunction(() => window.__epheraE2E && window.__epheraE2E.transportOpen === true, null, { timeout: e2eTimeout(20_000) }),
+          receiver.waitForFunction(() => window.__epheraE2E && window.__epheraE2E.transportOpen === true, null, { timeout: e2eTimeout(20_000) }),
         ]);
 
         await receiver.evaluate(() => {
@@ -2322,12 +2336,12 @@ async function run() {
         await sender.waitForFunction(
           () => window.__epheraE2E && window.__epheraE2E.peerReady === true,
           null,
-          { timeout: 15_000 }
+          { timeout: e2eTimeout(15_000) }
         );
 
         console.log(`--- E2E (${label}): selecting file + sending ---`);
         await sender.setInputFiles('#file-input', [filePathSingle]);
-        await sender.waitForFunction(() => !document.getElementById('send-file').disabled, null, { timeout: 20_000 });
+        await sender.waitForFunction(() => !document.getElementById('send-file').disabled, null, { timeout: e2eTimeout(20_000) });
         await sender.evaluate(() => document.getElementById('send-file').click());
 
         await Promise.all([
@@ -2650,11 +2664,11 @@ async function run() {
           sender.waitForFunction((k) => {
             const input = document.getElementById('room-join-key');
             return !!(input && input.value === k);
-          }, nextKey, { timeout: 10_000 }),
+          }, nextKey, { timeout: e2eTimeout(10_000) }),
           receiver.waitForFunction((k) => {
             const input = document.getElementById('room-join-key');
             return !!(input && input.value === k);
-          }, nextKey, { timeout: 10_000 }),
+          }, nextKey, { timeout: e2eTimeout(10_000) }),
         ]);
 
         console.log(`--- E2E (${label}): closing room via owner control ---`);
@@ -2670,13 +2684,13 @@ async function run() {
             const create = document.getElementById('create-room');
             const status = (document.getElementById('status') || {}).textContent || '';
             return !!(dis && create && dis.disabled === true && create.disabled === false && status.includes('Room closed by owner'));
-          }, null, { timeout: 12_000 }),
+          }, null, { timeout: e2eTimeout(12_000) }),
           receiver.waitForFunction(() => {
             const dis = document.getElementById('disconnect');
             const create = document.getElementById('create-room');
             const status = (document.getElementById('status') || {}).textContent || '';
             return !!(dis && create && dis.disabled === true && create.disabled === false && status.includes('Room closed by owner'));
-          }, null, { timeout: 12_000 }),
+          }, null, { timeout: e2eTimeout(12_000) }),
         ]);
 
         console.log(`--- E2E (${label}) PASS: owner controls enforced + rotate/close flow succeeded ---`);
