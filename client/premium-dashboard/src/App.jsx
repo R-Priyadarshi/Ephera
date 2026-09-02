@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import FinalCta from './components/FinalCta';
 import HeroScene from './components/HeroScene';
+import HowToUseSection from './components/HowToUseSection';
 import LandingNav from './components/LandingNav';
 import PrinciplesMatrix from './components/PrinciplesMatrix';
 import ProductPreview from './components/ProductPreview';
@@ -70,6 +71,7 @@ export default function App({ onLaunchDashboard, scrollToSection }) {
       <main className="relative z-10">
         <HeroScene onLaunchDashboard={launchDashboard} scrollToSection={scroll} />
         <SignalPipelineSection />
+        <HowToUseSection onLaunchDashboard={launchDashboard} />
         <ZeroMemoryArchitecture />
         <ProductPreview />
         <PrinciplesMatrix

@@ -66,8 +66,8 @@ export default function LandingNav({ onLaunchDashboard, scrollToSection }) {
 
             <div className="flex flex-wrap items-center gap-3 lg:justify-end">
               <ActionButton label="Explore Trust Model" onClick={() => scroll('trust')} />
+              <ActionButton label="How To Use" onClick={() => scroll('how-to-use')} tone="warm" />
               <ActionButton label="Launch Dashboard" onClick={onLaunchDashboard} tone="primary" />
-              <ActionButton label="Direct P2P" onClick={() => scroll('preview')} tone="warm" />
             </div>
           </div>
         </div>
