@@ -11,7 +11,7 @@ Ephera is a **zero-memory, trustless, peer-to-peer transport engine**.
 - No transfer history
 - WebRTC DataChannel for direct P2P bytes
 - A stateless WebSocket server exists only for signaling
-- A responsive, accessible cinematic logo sequence reveals the landing page only after its critical UI is ready
+- A responsive, accessible cinematic logo sequence remains on screen until the user enters through the Ephera emblem
 
 See `ZERO_MEMORY_MANIFESTO.md` for the non-negotiable constraints.
 

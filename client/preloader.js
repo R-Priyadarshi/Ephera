@@ -12,11 +12,14 @@
 
   const status = document.getElementById('ephera-preloader-status');
   const skip = document.getElementById('ephera-preloader-skip');
+  const enter = document.getElementById('ephera-preloader-enter');
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const startedAt = performance.now();
   const minimumDuration = reducedMotion ? 180 : 2350;
   const maximumWait = reducedMotion ? 1200 : 5500;
   let isDismissing = false;
+  let isReady = false;
+  let entryRequested = false;
   let statusTimers = [];
 
   if (app) {
@@ -86,22 +89,44 @@
     }, { once: true });
   }
 
-  if (skip) skip.addEventListener('click', () => dismiss({ immediate: false }));
-  window.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape') dismiss({ immediate: false });
-  });
+  function requestEntry() {
+    if (isDismissing) return;
+    entryRequested = true;
+    if (isReady) {
+      dismiss({ immediate: false });
+    } else if (status) {
+      status.textContent = 'Preparing landing surface';
+    }
+  }
+
+  if (enter) enter.addEventListener('click', requestEntry);
+  if (skip) skip.addEventListener('click', requestEntry);
 
   if (!reducedMotion && status) {
     statusTimers = [
       window.setTimeout(() => { status.textContent = 'Opening ephemeral boundary'; }, 700),
       window.setTimeout(() => { status.textContent = 'Verifying peer lane'; }, 1450),
-      window.setTimeout(() => { status.textContent = 'Direct path ready'; }, 2050),
+      window.setTimeout(() => {
+        if (!entryRequested) status.textContent = 'Click the logo to enter';
+      }, 2050),
     ];
   }
 
   const ready = Promise.all([waitForWindowLoad(), waitForLandingHero(), waitForFonts()]);
   Promise.race([ready, delay(maximumWait)])
     .then(() => delay(Math.max(0, minimumDuration - (performance.now() - startedAt))))
-    .then(() => dismiss())
-    .catch(() => dismiss());
+    .then(() => {
+      isReady = true;
+      preloader.classList.add('is-ready');
+      if (entryRequested) {
+        dismiss({ immediate: false });
+      } else if (status) {
+        status.textContent = 'Click the logo to enter';
+      }
+    })
+    .catch(() => {
+      isReady = true;
+      preloader.classList.add('is-ready');
+      if (entryRequested) dismiss({ immediate: false });
+    });
 }());

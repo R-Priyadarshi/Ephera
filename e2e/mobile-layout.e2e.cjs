@@ -182,6 +182,7 @@ async function assertPreloader(page, width) {
   await assertVisible(page, [
     '#ephera-preloader-title',
     '.ephera-preloader-logo-shell img',
+    '#ephera-preloader-enter',
     '.ephera-preloader-sequence',
     '.ephera-preloader-progress',
     '#ephera-preloader-status',
@@ -228,13 +229,24 @@ async function assertPreloader(page, width) {
   assert(report.appHiddenFromAssistiveTech, `preloader ${width}px: application is exposed behind the intro`);
 
   if (width === VIEWPORTS[0]) {
+    await page.waitForTimeout(2_700);
+    assert.strictEqual(await preloader.isVisible(), true, `preloader ${width}px dismissed without a click`);
+    assert.strictEqual(
+      await page.locator('#ephera-preloader-status').textContent(),
+      'Click the logo to enter',
+      `preloader ${width}px did not present the entry instruction`,
+    );
+    await page.locator('#ephera-preloader-enter').click();
     await preloader.waitFor({ state: 'hidden', timeout: 8_000 });
   } else if (width === VIEWPORTS[1]) {
     await page.keyboard.press('Escape');
-    await preloader.waitFor({ state: 'hidden', timeout: 3_000 });
+    await page.waitForTimeout(250);
+    assert.strictEqual(await preloader.isVisible(), true, `preloader ${width}px dismissed from Escape`);
+    await page.locator('#ephera-preloader-enter').click();
+    await preloader.waitFor({ state: 'hidden', timeout: 6_000 });
   } else {
     await page.locator('#ephera-preloader-skip').click();
-    await preloader.waitFor({ state: 'hidden', timeout: 3_000 });
+    await preloader.waitFor({ state: 'hidden', timeout: 6_000 });
   }
 
   const released = await page.evaluate(() => ({
@@ -383,6 +395,14 @@ async function run() {
     });
     const reducedMotionPage = await reducedMotionContext.newPage();
     await reducedMotionPage.goto(`http://127.0.0.1:${port}/`, { waitUntil: 'domcontentloaded' });
+    await reducedMotionPage.locator('#ephera-preloader').waitFor({ state: 'visible', timeout: 2_000 });
+    await reducedMotionPage.waitForTimeout(400);
+    assert.strictEqual(
+      await reducedMotionPage.locator('#ephera-preloader').isVisible(),
+      true,
+      'reduced-motion intro dismissed without a click',
+    );
+    await reducedMotionPage.locator('#ephera-preloader-enter').click();
     await reducedMotionPage.locator('#ephera-preloader').waitFor({ state: 'hidden', timeout: 4_000 });
     assert.strictEqual(
       await reducedMotionPage.evaluate(() => document.querySelector('main.app').inert),

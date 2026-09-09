@@ -4098,6 +4098,36 @@ html.ephera-preloader-enabled .ephera-preloader.is-exiting {
   width: clamp(210px, 32vmin, 400px);
   max-width: 86vw;
   aspect-ratio: 1;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  color: inherit;
+  background: transparent;
+  box-shadow: none;
+  appearance: none;
+  cursor: pointer;
+  transition: filter 220ms ease;
+}
+
+.ephera-preloader-emblem:hover {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  transform: none;
+  filter: brightness(1.16);
+}
+
+.ephera-preloader-emblem:active {
+  transform: scale(0.985);
+}
+
+.ephera-preloader-emblem:focus-visible {
+  outline: 2px solid rgba(103, 232, 249, 0.9);
+  outline-offset: 7px;
+}
+
+.ephera-preloader.is-ready .ephera-preloader-logo-shell {
+  animation: epheraBootReadyPulse 2.2s ease-in-out infinite;
 }
 
 .ephera-preloader-logo-shell {
@@ -4427,6 +4457,11 @@ html.ephera-preloader-enabled .ephera-preloader.is-exiting {
   0% { opacity: 0; transform: scale(0.68) rotate(-7deg); filter: saturate(0.8) brightness(0.7) blur(8px); }
   72% { opacity: 1; transform: scale(1.04) rotate(0); filter: saturate(1.08) brightness(1.08) blur(0); }
   100% { opacity: 1; transform: scale(1) rotate(0); filter: saturate(1) brightness(1) blur(0); }
+}
+
+@keyframes epheraBootReadyPulse {
+  0%, 100% { opacity: 1; transform: scale(1); filter: brightness(1); }
+  50% { opacity: 1; transform: scale(1.045); filter: brightness(1.18); }
 }
 
 @keyframes epheraBootOrbitIn {
