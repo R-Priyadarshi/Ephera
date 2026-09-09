@@ -3917,3 +3917,31 @@ body {
 .app.app-shell-landing #landing-react-root {
   min-height: 100svh;
 }
+
+/* 2026 Mobile Dashboard Layout Hardening */
+@media (max-width: 860px) {
+  .app.app-shell-dashboard .workspace-hero-grid,
+  .app.app-shell-dashboard .operator-console-grid,
+  .app.app-shell-dashboard .transfer-grid,
+  .app.app-shell-dashboard .transfer-support-grid,
+  .app.app-shell-dashboard .how-route-lane,
+  .app.app-shell-dashboard .how-manual-grid,
+  .app.app-shell-dashboard .workspace-spotlight,
+  .app.app-shell-dashboard .dashboard-shell {
+    grid-template-columns: 1fr !important;
+    width: 100% !important;
+  }
+
+  .app.app-shell-dashboard .workspace-hero-visual,
+  .app.app-shell-dashboard .transfer-card,
+  .app.app-shell-dashboard .workspace-column-side,
+  .app.app-shell-dashboard .hero-stat-card {
+    min-width: 0 !important;
+  }
+
+  .landing-grid-overlay,
+  [class*="radial-gradient"] {
+    pointer-events: none !important;
+    z-index: -1 !important;
+  }
+}

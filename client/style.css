@@ -5559,34 +5559,36 @@ body.body-shell-landing::after {
 }
 
 /* 2026 dashboard layout conflict cleanup */
-.app-shell-dashboard .workspace-header,
-.app-shell-dashboard .console-nav,
-.app-shell-dashboard .workspace-spotlight,
-.app-shell-dashboard .workspace-command-deck,
-.app-shell-dashboard .workspace-layout,
-.app-shell-dashboard .footer {
-  grid-area: auto;
-}
+@media (min-width: 1081px) {
+  .app-shell-dashboard .workspace-header,
+  .app-shell-dashboard .console-nav,
+  .app-shell-dashboard .workspace-spotlight,
+  .app-shell-dashboard .workspace-command-deck,
+  .app-shell-dashboard .workspace-layout,
+  .app-shell-dashboard .footer {
+    grid-area: auto;
+  }
 
-.app-shell-dashboard .console-nav,
-.app-shell-dashboard .workspace-command-deck,
-.app-shell-dashboard .workspace-column-side {
-  position: relative;
-  top: auto;
-  align-self: start;
-}
+  .app-shell-dashboard .console-nav,
+  .app-shell-dashboard .workspace-command-deck,
+  .app-shell-dashboard .workspace-column-side {
+    position: relative;
+    top: auto;
+    align-self: start;
+  }
 
-.app-shell-dashboard .workspace-command-deck {
-  display: grid;
-  gap: 18px;
-}
+  .app-shell-dashboard .workspace-command-deck {
+    display: grid;
+    gap: 18px;
+  }
 
-.app-shell-dashboard .workspace-layout {
-  align-items: start;
-}
+  .app-shell-dashboard .workspace-layout {
+    align-items: start;
+  }
 
-.app-shell-dashboard .workspace-column-side > * {
-  min-width: 0;
+  .app-shell-dashboard .workspace-column-side > * {
+    min-width: 0;
+  }
 }
 
 /* 2026 authoritative dashboard grid */
