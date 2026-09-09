@@ -3951,6 +3951,32 @@ body {
     min-height: auto !important;
   }
 
+  .app.app-shell-dashboard .console-nav,
+  .app.app-shell-dashboard .workspace-command-deck {
+    position: static !important;
+    top: auto !important;
+  }
+
+  .app.app-shell-dashboard button,
+  .app.app-shell-dashboard .buttonlike,
+  .app.app-shell-dashboard .console-nav-link,
+  .app.app-shell-dashboard .product-bar-link,
+  .app.app-shell-dashboard .operator-console > summary,
+  .app.app-shell-dashboard .transfer-advanced > summary,
+  .app.app-shell-dashboard .details > summary {
+    min-height: 44px;
+  }
+
+  .app.app-shell-dashboard .spotlight-copy,
+  .app.app-shell-dashboard .command-card-copy,
+  .app.app-shell-dashboard .flow-current,
+  .app.app-shell-dashboard .transfer-stage-text,
+  .app.app-shell-dashboard .transfer-action-copy {
+    display: block !important;
+    overflow: visible !important;
+    -webkit-line-clamp: unset !important;
+  }
+
   .app.app-shell-dashboard .workspace-hero-visual,
   .app.app-shell-dashboard .transfer-card,
   .app.app-shell-dashboard .workspace-column-side,
@@ -3968,5 +3994,77 @@ body {
 @media (max-width: 640px) {
   .app.app-shell-dashboard .console-nav {
     grid-template-columns: 1fr !important;
+  }
+
+  .app.app-shell-dashboard .spotlight-head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .app.app-shell-dashboard .spotlight-pill,
+  .app.app-shell-dashboard .spotlight-quiet {
+    align-self: flex-start;
+    width: fit-content;
+    max-width: 100%;
+  }
+
+  .app.app-shell-dashboard .phase-rail {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .app.app-shell-dashboard .phase-node,
+  .app.app-shell-dashboard .phase-node-index,
+  .app.app-shell-dashboard .phase-node-label,
+  .app.app-shell-dashboard .panel-head > * {
+    min-width: 0;
+  }
+
+  .app.app-shell-dashboard .phase-node {
+    padding: 14px 10px;
+  }
+
+  .app.app-shell-dashboard .phase-node-label {
+    white-space: nowrap;
+  }
+
+  .app.app-shell-dashboard .operator-console-summary,
+  .app.app-shell-dashboard .panel-head h3 {
+    overflow-wrap: anywhere;
+  }
+
+  .app.app-shell-dashboard .operator-console-summary {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+    align-items: start;
+  }
+
+  .app.app-shell-dashboard details > summary {
+    align-items: center;
+  }
+
+  .app.app-shell-dashboard input[type='checkbox'] {
+    width: 18px;
+    min-width: 18px;
+    height: 18px;
+    flex: 0 0 18px;
+  }
+
+  .app.app-shell-dashboard label.hint:has(input[type='checkbox']) {
+    min-height: 44px;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .app.app-shell-dashboard #file-input {
+    width: 1px !important;
+    min-width: 1px !important;
+    max-width: 1px !important;
+    height: 1px !important;
+    min-height: 1px !important;
+    padding: 0 !important;
+    margin: -1px !important;
+    flex: 0 0 1px !important;
+    clip-path: inset(50%);
   }
 }

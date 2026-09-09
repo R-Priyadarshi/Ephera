@@ -47,6 +47,9 @@ jobs:
       - name: Run fast E2E smoke suite
         run: npm run e2e:fast
 
+      - name: Run mobile layout E2E gate
+        run: npm run e2e:mobile
+
   full-e2e:
     name: full-e2e
     if: ${{ github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' }}

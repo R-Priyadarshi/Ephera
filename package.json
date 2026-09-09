@@ -19,6 +19,7 @@
     "verify": "npm test && npm run e2e",
     "e2e": "node e2e/webrtc-app.e2e.cjs",
     "e2e:fast": "E2E_FAST=1 node e2e/webrtc-app.e2e.cjs",
+    "e2e:mobile": "node e2e/mobile-layout.e2e.cjs",
     "e2e:remote": "E2E_REMOTE=1 node e2e/webrtc-app.e2e.cjs",
     "e2e:remote:fast": "E2E_REMOTE=1 E2E_FAST=1 node e2e/webrtc-app.e2e.cjs",
     "e2e:staging-smoke": "node e2e/staging-smoke.cjs",

@@ -83,7 +83,7 @@ export default function ProductPreview() {
                   <span className="landing-kicker text-cyan-100/74">Direct path verified</span>
                 </div>
 
-                <div className="hidden items-center gap-3 lg:flex">
+                <div className="flex flex-wrap items-center gap-3" aria-label="Dashboard preview sections">
                   {['Session', 'Transfer', 'Security'].map((tab) => (
                     <span key={tab} className="landing-chip px-4 py-3">
                       {tab}

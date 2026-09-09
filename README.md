@@ -166,6 +166,12 @@ Run fast E2E smoke suite (for quick CI/local feedback):
 npm run e2e:fast
 ```
 
+Run the responsive landing/dashboard gate at 320, 360, 390, 430, and 768px:
+
+```bash
+npm run e2e:mobile
+```
+
 Run deploy-targeted staging smoke (expects a running environment URL):
 
 ```bash
@@ -183,7 +189,7 @@ npm run e2e:remote
 
 ### CI (GitHub Actions)
 
-- `fast-checks` runs on all pushes/PRs: `npm test` + `npm run e2e:fast`.
+- `fast-checks` runs on all pushes/PRs: `npm test` + `npm run e2e:fast` + `npm run e2e:mobile`.
 - `full-e2e` runs on `main`, scheduled runs, or manual dispatch.
 - `relay-required` runs on `main`, scheduled runs, or manual dispatch.
 - `staging-smoke` is manual (`workflow_dispatch`) and validates create/join, transport open, small transfer, and receiver-cancel abort on a deployed URL.
