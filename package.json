@@ -2,6 +2,7 @@
   "name": "ephera",
   "private": true,
   "devDependencies": {
+    "playwright": "^1.55.0",
     "playwright-core": "^1.55.0"
   },
   "scripts": {

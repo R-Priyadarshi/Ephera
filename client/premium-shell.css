@@ -3843,7 +3843,7 @@ body {
   }
 
   .app.app-shell-landing .landing-cinematic-title {
-    font-size: clamp(3rem, 18vw, 4.8rem);
+    font-size: clamp(2.4rem, 12vw, 3.2rem);
   }
 
   .app.app-shell-landing .landing-cinematic-subtitle,
@@ -3853,11 +3853,11 @@ body {
   }
 
   .app.app-shell-landing .landing-cinematic-visual {
-    min-height: 620px;
+    min-height: 380px;
   }
 
   .app.app-shell-landing .landing-cinematic-visual-stage {
-    min-height: 540px;
+    min-height: 320px;
   }
 
   .app.app-shell-landing .landing-cinematic-strip {

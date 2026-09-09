@@ -99,6 +99,9 @@ html {
   scroll-behavior: smooth;
 }
 
+body {
+}
+
 .app {
   position: relative;
   z-index: 1;
@@ -3617,7 +3620,7 @@ button:disabled {
   .app-shell-dashboard .workspace-layout,
   .app-shell-dashboard .workspace-column-side,
   .app-shell-dashboard .workspace-column-main {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr !important;
   }
 
   .app {
@@ -3735,6 +3738,7 @@ button:disabled {
   }
 
   .workspace-spotlight {
+    grid-template-columns: 1fr !important;
     gap: 10px;
   }
 
@@ -3797,6 +3801,7 @@ button:disabled {
   textarea {
     min-width: 100%;
     flex-basis: 100%;
+    box-sizing: border-box;
   }
 
   button {
@@ -4567,7 +4572,7 @@ body.body-shell-dashboard::after {
   .app-shell-dashboard .workspace-layout,
   .app-shell-dashboard .workspace-spotlight,
   .app-shell-dashboard .workspace-column-side {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr !important;
   }
 
   .app-shell-dashboard .console-nav,
@@ -4599,11 +4604,18 @@ body.body-shell-dashboard::after {
   .app-shell-dashboard .launchpad-mode-grid,
   .app-shell-dashboard .transfer-grid,
   .app-shell-dashboard .transfer-support-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr !important;
   }
 }
 
 @media (max-width: 640px) {
+  .app-shell-dashboard .operator-console-grid .row,
+  .app-shell-dashboard .transfer-advanced-grid .row,
+  .app-shell-dashboard .connection-detail-card .row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
   .app-shell-dashboard .workspace-header {
     padding: 24px 20px;
     min-height: auto;
