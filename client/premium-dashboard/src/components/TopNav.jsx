@@ -54,8 +54,8 @@ export default function TopNav() {
       transition={{ duration: 0.45 }}
       className="sticky top-0 z-50 mb-8 border-b border-white/10 bg-[rgba(5,12,20,0.7)] px-6 py-5 backdrop-blur-2xl"
     >
-      <div className="mx-auto grid max-w-[1720px] grid-cols-12 items-center gap-5">
-        <div className="col-span-12 flex items-center gap-4 lg:col-span-3">
+      <div className="mx-auto grid max-w-[1720px] grid-cols-1 lg:grid-cols-12 items-center gap-5">
+        <div className="col-span-1 flex items-center justify-center lg:justify-start gap-4 lg:col-span-3">
           <div className="grid h-12 w-12 place-items-center rounded-2xl border border-cyan-200/22 bg-[linear-gradient(160deg,#1c5168,#0d2d46)] text-cyan-50 shadow-[0_14px_30px_rgba(13,91,129,0.4)]">
             <span className="font-display text-lg font-bold">E</span>
           </div>
@@ -65,11 +65,11 @@ export default function TopNav() {
           </div>
         </div>
 
-        <div className="col-span-12 flex justify-center lg:col-span-5">
+        <div className="col-span-1 flex justify-center lg:col-span-5 hidden sm:flex">
           <PulseState />
         </div>
 
-        <div className="col-span-12 flex flex-wrap items-center justify-end gap-2 lg:col-span-4">
+        <div className="col-span-1 flex flex-wrap items-center justify-center lg:justify-end gap-2 lg:col-span-4">
           <ActionButton label="Trust Model" />
           <ActionButton label="Launch Dashboard" tone="primary" />
           <ActionButton label="Direct P2P" tone="warm" />

@@ -54,7 +54,7 @@ function StreamPipeline() {
   return (
     <GlassPanel title="File Stream Pipeline" subtitle="Flow across direct channel" className="min-h-[260px]" delay={0.26}>
       <div className="relative rounded-2xl border border-white/10 bg-slate-950/45 p-4">
-        <div className="grid grid-cols-3 gap-3 text-center">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-center">
           <div className="rounded-xl border border-cyan-300/30 bg-cyan-300/10 p-3">
             <p className="text-[10px] font-mono uppercase tracking-[0.16em] text-cyan-100/70">Sender</p>
             <p className="mt-1 text-sm font-medium text-cyan-50">Chunked payload</p>
@@ -91,7 +91,7 @@ function MetricsBand() {
 
   return (
     <GlassPanel title="Transfer Metrics" subtitle="Real-time engine telemetry" className="min-h-[170px]" delay={0.3}>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {stats.map(([label, value]) => (
           <div key={label} className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2">
             <p className="text-[10px] font-mono uppercase tracking-[0.18em] text-white/55">{label}</p>

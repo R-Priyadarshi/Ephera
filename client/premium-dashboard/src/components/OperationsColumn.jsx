@@ -31,7 +31,7 @@ function SessionOperations() {
         <ConsoleRow label="Invite Package" value="signed + synced" />
       </div>
 
-      <div className="mt-4 grid grid-cols-2 gap-2">
+      <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-2">
         <button type="button" className="rounded-xl border border-cyan-300/35 bg-cyan-300/15 px-3 py-2 text-xs font-mono uppercase tracking-[0.16em] text-cyan-100">Open Secure Room</button>
         <button type="button" className="rounded-xl border border-white/15 bg-white/[0.04] px-3 py-2 text-xs font-mono uppercase tracking-[0.16em] text-white/80">Join Existing</button>
         <button type="button" className="rounded-xl border border-white/15 bg-white/[0.04] px-3 py-2 text-xs font-mono uppercase tracking-[0.16em] text-white/80">Copy Invite</button>
@@ -69,7 +69,7 @@ function ReceiveOperations() {
         <ConsoleRow label="Directory" value="/vault/live-drop" />
         <ConsoleRow label="Integrity" value="checksum rolling" />
       </div>
-      <div className="mt-4 grid grid-cols-2 gap-2">
+      <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-2">
         <button type="button" className="rounded-xl border border-emerald-300/35 bg-emerald-300/15 px-3 py-2 text-xs font-mono uppercase tracking-[0.16em] text-emerald-100">Pick Receive Path</button>
         <button type="button" className="rounded-xl border border-white/15 bg-white/[0.04] px-3 py-2 text-xs font-mono uppercase tracking-[0.16em] text-white/80">Discard Mode</button>
       </div>

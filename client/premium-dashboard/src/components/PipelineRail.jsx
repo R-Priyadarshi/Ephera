@@ -11,8 +11,8 @@ const stateColors = {
 export default function PipelineRail({ stages }) {
   return (
     <div className="relative mt-5 rounded-2xl border border-white/10 bg-slate-900/60 p-4">
-      <div className="absolute left-8 right-8 top-1/2 h-[2px] -translate-y-1/2 bg-gradient-to-r from-cyan-300/40 via-blue-400/50 to-orange-300/45" />
-      <div className="relative z-10 grid grid-cols-5 gap-3">
+      <div className="absolute left-1/2 top-8 bottom-8 w-[2px] -translate-x-1/2 bg-gradient-to-b sm:left-8 sm:right-8 sm:top-1/2 sm:h-[2px] sm:w-auto sm:-translate-x-0 sm:-translate-y-1/2 sm:bg-gradient-to-r from-cyan-300/40 via-blue-400/50 to-orange-300/45" />
+      <div className="relative z-10 grid grid-cols-1 gap-6 sm:grid-cols-5 sm:gap-3">
         {stages.map((stage, index) => (
           <div key={stage.key} className="text-center">
             <motion.div

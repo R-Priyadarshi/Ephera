@@ -31,7 +31,7 @@ function HeroIndicators() {
 
 export default function HeroSection({ stages }) {
   return (
-    <section className="mb-8 grid grid-cols-12 gap-5">
+    <section className="mb-8 grid grid-cols-1 lg:grid-cols-12 gap-5">
       <GlassPanel className="col-span-12 xl:col-span-8 min-h-[340px]" active delay={0.05}>
         <div className="grid h-full gap-6 lg:grid-cols-[1.3fr_0.7fr]">
           <div>
@@ -45,7 +45,7 @@ export default function HeroSection({ stages }) {
             <p className="mt-5 max-w-2xl text-sm leading-7 text-white/60">
               Ephera’s command surface keeps room setup, peer verification, encryption posture, and transfer flow inside a single live boundary. Payloads stream through the system without storage or operator visibility.
             </p>
-            <div className="mt-6 grid max-w-2xl grid-cols-3 gap-3">
+            <div className="mt-6 grid max-w-2xl grid-cols-1 sm:grid-cols-3 gap-3">
               {[
                 ['Retention', '0 bytes persisted'],
                 ['Topology', 'direct peer path'],
@@ -98,7 +98,7 @@ export default function HeroSection({ stages }) {
         delay={0.12}
       >
         <div className="flex h-full flex-col justify-between">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="rounded-2xl border border-cyan-300/28 bg-cyan-300/10 p-4">
               <p className="text-[10px] font-mono uppercase tracking-[0.22em] text-cyan-100/70">Throughput</p>
               <p className="mt-3 font-display text-4xl font-semibold text-cyan-100">2.6</p>
