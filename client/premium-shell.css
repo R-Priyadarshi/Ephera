@@ -3919,7 +3919,7 @@ body {
 }
 
 /* 2026 Mobile Dashboard Layout Hardening */
-@media (max-width: 860px) {
+@media (max-width: 1180px) {
   .app.app-shell-dashboard .workspace-hero-grid,
   .app.app-shell-dashboard .operator-console-grid,
   .app.app-shell-dashboard .transfer-grid,
@@ -3927,9 +3927,28 @@ body {
   .app.app-shell-dashboard .how-route-lane,
   .app.app-shell-dashboard .how-manual-grid,
   .app.app-shell-dashboard .workspace-spotlight,
-  .app.app-shell-dashboard .dashboard-shell {
+  .app.app-shell-dashboard .dashboard-shell,
+  .app.app-shell-dashboard .workspace-layout,
+  .app.app-shell-dashboard .workspace-command-deck,
+  .app.app-shell-dashboard .workspace-column-side {
     grid-template-columns: 1fr !important;
+    grid-template-areas: none !important;
     width: 100% !important;
+  }
+
+  .app.app-shell-dashboard .dashboard-shell > *,
+  .app.app-shell-dashboard .workspace-layout > *,
+  .app.app-shell-dashboard .workspace-spotlight > *,
+  .app.app-shell-dashboard .workspace-command-deck > *,
+  .app.app-shell-dashboard .workspace-hero-grid > *,
+  .app.app-shell-dashboard .workspace-column-side > * {
+    grid-column: 1 / -1 !important;
+    grid-row: auto !important;
+  }
+
+  .app.app-shell-dashboard .console-nav {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    min-height: auto !important;
   }
 
   .app.app-shell-dashboard .workspace-hero-visual,
@@ -3943,5 +3962,11 @@ body {
   [class*="radial-gradient"] {
     pointer-events: none !important;
     z-index: -1 !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .app.app-shell-dashboard .console-nav {
+    grid-template-columns: 1fr !important;
   }
 }
