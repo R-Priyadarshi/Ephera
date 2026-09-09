@@ -176,6 +176,81 @@ async function assertVisible(page, selectors, label) {
   }
 }
 
+async function assertPreloader(page, width) {
+  const preloader = page.locator('#ephera-preloader');
+  await preloader.waitFor({ state: 'visible', timeout: 2_000 });
+  await assertVisible(page, [
+    '#ephera-preloader-title',
+    '.ephera-preloader-logo-shell img',
+    '.ephera-preloader-sequence',
+    '.ephera-preloader-progress',
+    '#ephera-preloader-status',
+    '#ephera-preloader-skip',
+  ], `preloader ${width}px`);
+
+  const report = await page.evaluate(() => {
+    const tolerance = 1;
+    const viewport = { width: window.innerWidth, height: window.innerHeight };
+    const selectors = [
+      '#ephera-preloader',
+      '.ephera-preloader-frame',
+      '.ephera-preloader-emblem',
+      '#ephera-preloader-title',
+      '.ephera-preloader-sequence',
+      '.ephera-preloader-progress',
+      '#ephera-preloader-status',
+      '#ephera-preloader-skip',
+    ];
+    const outsideViewport = selectors.filter((selector) => {
+      const rect = document.querySelector(selector).getBoundingClientRect();
+      return rect.left < -tolerance
+        || rect.top < -tolerance
+        || rect.right > viewport.width + tolerance
+        || rect.bottom > viewport.height + tolerance;
+    });
+    const rootStyle = getComputedStyle(document.documentElement);
+    const bodyStyle = getComputedStyle(document.body);
+    return {
+      viewport,
+      documentWidth: document.documentElement.scrollWidth,
+      outsideViewport,
+      rootLocked: rootStyle.overflow === 'hidden',
+      bodyLocked: bodyStyle.overflow === 'hidden',
+      appInert: document.querySelector('main.app').inert,
+      appHiddenFromAssistiveTech: document.querySelector('main.app').getAttribute('aria-hidden') === 'true',
+    };
+  });
+
+  assert.strictEqual(report.documentWidth, report.viewport.width, `preloader ${width}px: horizontal overflow`);
+  assert.deepStrictEqual(report.outsideViewport, [], `preloader ${width}px: critical content outside viewport`);
+  assert(report.rootLocked && report.bodyLocked, `preloader ${width}px: page scroll is not locked`);
+  assert(report.appInert, `preloader ${width}px: application is interactive behind the intro`);
+  assert(report.appHiddenFromAssistiveTech, `preloader ${width}px: application is exposed behind the intro`);
+
+  if (width === VIEWPORTS[0]) {
+    await preloader.waitFor({ state: 'hidden', timeout: 8_000 });
+  } else if (width === VIEWPORTS[1]) {
+    await page.keyboard.press('Escape');
+    await preloader.waitFor({ state: 'hidden', timeout: 3_000 });
+  } else {
+    await page.locator('#ephera-preloader-skip').click();
+    await preloader.waitFor({ state: 'hidden', timeout: 3_000 });
+  }
+
+  const released = await page.evaluate(() => ({
+    enabledClass: document.documentElement.classList.contains('ephera-preloader-enabled'),
+    revealingClass: document.documentElement.classList.contains('ephera-preloader-revealing'),
+    appInert: document.querySelector('main.app').inert,
+    appAriaHidden: document.querySelector('main.app').hasAttribute('aria-hidden'),
+  }));
+  assert.deepStrictEqual(released, {
+    enabledClass: false,
+    revealingClass: false,
+    appInert: false,
+    appAriaHidden: false,
+  }, `preloader ${width}px: page was not fully released`);
+}
+
 async function runViewport(browser, baseUrl, width) {
   const context = await browser.newContext({ viewport: { width, height: 900 } });
   await context.addInitScript(() => {
@@ -189,7 +264,9 @@ async function runViewport(browser, baseUrl, width) {
   page.on('pageerror', (error) => consoleErrors.push(error.message));
 
   try {
-    await page.goto(baseUrl, { waitUntil: 'networkidle' });
+    await page.goto(baseUrl, { waitUntil: 'domcontentloaded' });
+    await assertPreloader(page, width);
+    await page.waitForLoadState('networkidle');
     await page.locator('#hero h1').waitFor({ state: 'visible' });
     await page.evaluate(() => document.fonts.ready);
     await assertVisible(page, [
@@ -271,6 +348,55 @@ async function run() {
       // eslint-disable-next-line no-await-in-loop
       await runViewport(browser, `http://127.0.0.1:${port}/`, width);
     }
+
+    const desktopIntroContext = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+    await desktopIntroContext.addInitScript(() => {
+      Object.defineProperty(navigator, 'webdriver', { configurable: true, get: () => false });
+    });
+    const desktopIntroPage = await desktopIntroContext.newPage();
+    const desktopErrors = [];
+    desktopIntroPage.on('console', (message) => {
+      if (message.type() === 'error') desktopErrors.push(message.text());
+    });
+    desktopIntroPage.on('pageerror', (error) => desktopErrors.push(error.message));
+    await desktopIntroPage.goto(`http://127.0.0.1:${port}/`, { waitUntil: 'domcontentloaded' });
+    await assertPreloader(desktopIntroPage, 1440);
+    await desktopIntroPage.locator('#hero h1').waitFor({ state: 'visible' });
+    assert.deepStrictEqual(desktopErrors, [], 'desktop preloader browser console errors');
+    await desktopIntroContext.close();
+
+    const compactIntroContext = await browser.newContext({ viewport: { width: 320, height: 568 } });
+    await compactIntroContext.addInitScript(() => {
+      Object.defineProperty(navigator, 'webdriver', { configurable: true, get: () => false });
+    });
+    const compactIntroPage = await compactIntroContext.newPage();
+    await compactIntroPage.goto(`http://127.0.0.1:${port}/`, { waitUntil: 'domcontentloaded' });
+    await assertPreloader(compactIntroPage, 320);
+    await compactIntroContext.close();
+
+    const reducedMotionContext = await browser.newContext({
+      viewport: { width: 390, height: 844 },
+      reducedMotion: 'reduce',
+    });
+    await reducedMotionContext.addInitScript(() => {
+      Object.defineProperty(navigator, 'webdriver', { configurable: true, get: () => false });
+    });
+    const reducedMotionPage = await reducedMotionContext.newPage();
+    await reducedMotionPage.goto(`http://127.0.0.1:${port}/`, { waitUntil: 'domcontentloaded' });
+    await reducedMotionPage.locator('#ephera-preloader').waitFor({ state: 'hidden', timeout: 4_000 });
+    assert.strictEqual(
+      await reducedMotionPage.evaluate(() => document.querySelector('main.app').inert),
+      false,
+      'reduced-motion intro did not release the application',
+    );
+    await reducedMotionContext.close();
+
+    const dashboardContext = await browser.newContext({ viewport: { width: 320, height: 900 } });
+    const dashboardPage = await dashboardContext.newPage();
+    await dashboardPage.goto(`http://127.0.0.1:${port}/?dashboard=1`, { waitUntil: 'domcontentloaded' });
+    assert.strictEqual(await dashboardPage.locator('#ephera-preloader').isVisible(), false, 'dashboard deep link showed intro');
+    await dashboardPage.locator('.app-shell-dashboard').waitFor({ state: 'visible' });
+    await dashboardContext.close();
     console.log('PASS all mobile landing and dashboard layout gates');
   } finally {
     if (browser) await browser.close();

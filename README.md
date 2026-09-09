@@ -11,6 +11,7 @@ Ephera is a **zero-memory, trustless, peer-to-peer transport engine**.
 - No transfer history
 - WebRTC DataChannel for direct P2P bytes
 - A stateless WebSocket server exists only for signaling
+- A responsive, accessible cinematic logo sequence reveals the landing page only after its critical UI is ready
 
 See `ZERO_MEMORY_MANIFESTO.md` for the non-negotiable constraints.
 
@@ -166,7 +167,7 @@ Run fast E2E smoke suite (for quick CI/local feedback):
 npm run e2e:fast
 ```
 
-Run the responsive landing/dashboard gate at 320, 360, 390, 430, and 768px:
+Run the responsive landing/dashboard gate at 320, 360, 390, 430, and 768px. This also validates the cinematic preloader on mobile and desktop, reduced-motion behavior, dismissal controls, and dashboard deep-link bypass:
 
 ```bash
 npm run e2e:mobile

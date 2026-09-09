@@ -8,8 +8,87 @@
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="premium-shell.css">
   <link rel="stylesheet" href="landing-react/landing-react.css">
+  <script src="preloader-boot.js"></script>
 </head>
 <body>
+  <section
+    class="ephera-preloader"
+    id="ephera-preloader"
+    role="region"
+    aria-labelledby="ephera-preloader-title"
+    aria-describedby="ephera-preloader-status"
+  >
+    <div class="ephera-preloader-grid" aria-hidden="true"></div>
+    <div class="ephera-preloader-aurora ephera-preloader-aurora-a" aria-hidden="true"></div>
+    <div class="ephera-preloader-aurora ephera-preloader-aurora-b" aria-hidden="true"></div>
+
+    <button class="ephera-preloader-skip" id="ephera-preloader-skip" type="button">
+      Skip intro
+    </button>
+
+    <div class="ephera-preloader-frame">
+      <header class="ephera-preloader-meta" aria-hidden="true">
+        <span>EPHERA / ZERO-MEMORY TRANSPORT</span>
+        <span>LIVE SYSTEM</span>
+      </header>
+
+      <div class="ephera-preloader-center">
+        <div class="ephera-preloader-emblem" aria-hidden="true">
+          <span class="ephera-preloader-orbit ephera-preloader-orbit-outer"></span>
+          <span class="ephera-preloader-orbit ephera-preloader-orbit-inner"></span>
+          <span class="ephera-preloader-lane ephera-preloader-lane-left">
+            <i></i>
+          </span>
+          <span class="ephera-preloader-lane ephera-preloader-lane-right">
+            <i></i>
+          </span>
+          <span class="ephera-preloader-terminal ephera-preloader-terminal-left"></span>
+          <span class="ephera-preloader-terminal ephera-preloader-terminal-right"></span>
+          <span class="ephera-preloader-logo-shell">
+            <img src="/favicon.svg" alt="" width="176" height="176" fetchpriority="high">
+          </span>
+        </div>
+
+        <div class="ephera-preloader-identity">
+          <h1 class="ephera-preloader-title" id="ephera-preloader-title" aria-label="Ephera">
+            <span aria-hidden="true">E</span>
+            <span aria-hidden="true">P</span>
+            <span aria-hidden="true">H</span>
+            <span aria-hidden="true">E</span>
+            <span aria-hidden="true">R</span>
+            <span aria-hidden="true">A</span>
+          </h1>
+          <p class="ephera-preloader-tagline">Direct. Ephemeral. Yours.</p>
+        </div>
+
+        <div class="ephera-preloader-sequence" aria-hidden="true">
+          <span>Room</span>
+          <i></i>
+          <span>Channel</span>
+          <i></i>
+          <span>Peer</span>
+          <i></i>
+          <span>Secure</span>
+        </div>
+
+        <div class="ephera-preloader-progress" aria-hidden="true">
+          <span></span>
+        </div>
+        <p
+          class="ephera-preloader-status"
+          id="ephera-preloader-status"
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+        >Preparing direct path</p>
+      </div>
+
+      <footer class="ephera-preloader-foot" aria-hidden="true">
+        <span>0 BYTES RETAINED</span>
+        <span>PEER TO PEER</span>
+      </footer>
+    </div>
+  </section>
   <main class="app">
     <header class="product-bar" aria-label="Ephera product bar">
       <div class="product-brand">
@@ -665,6 +744,7 @@
 
   <script src="vendor/qrcode-generator.js"></script>
   <script src="vendor/jsQR.js"></script>
+  <script src="preloader.js"></script>
   <script type="module" src="landing-react/landing-react.js"></script>
   <script type="module" src="app.js"></script>
 </body>
